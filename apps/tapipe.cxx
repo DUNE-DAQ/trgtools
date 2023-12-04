@@ -21,7 +21,6 @@
 
 using namespace dunedaq;
 
-
 class HDF5FileReader
 {
 private:
