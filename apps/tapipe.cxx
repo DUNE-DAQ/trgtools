@@ -150,80 +150,89 @@ main(int argc, char* argv[])
   for( const auto& rid : records ) {
     const auto& [id, slice] = rid;
     auto sids = tpstream_file->get_source_ids(rid);
-    source_ids.merge(sids);
+    source_ids.merge(sids); 
     if (verbose)
       fmt::print("TR {}:{} [{}]\n", id, slice, fmt::join(sids, ", "));
   }
   fmt::print("Source IDs [{}]\n", fmt::join(source_ids, ", "));
 
-  // 
+  // Map of source ids to trigger records 
+  std::map<daqdataformats::SourceID, hdf5libs::HDF5RawDataFile::record_id_set> m;
   for( const auto& sid: source_ids ) {
-    hdf5libs::HDF5RawDataFile::record_id_set recs;
     for( const auto& rid : records ) {
       auto rec_sids = tpstream_file->get_source_ids(rid);
       if (rec_sids.find(sid) != rec_sids.end()) {
-        recs.insert(rid);
+        m[sid].insert(rid);
       }
     }
-    fmt::print("Record IDs for {} : [{}]\n", sid, fmt::join(recs, ", "));
+    if (verbose)
+      fmt::print("Record IDs for {} : [{}]\n", sid, fmt::join(m[sid], ", "));
   }
 
   // Print the number of timeslices in the files
-  fmt::print("  Number of slices: {}\n", records.size());
+  fmt::print("  Number of time slices in file: {}\n", records.size());
+
+
+  // Get the list of records containing the tp writer source id
+  // I know the nuber by spying into the TP Stream File
+  daqdataformats::SourceID tp_writer_sid{daqdataformats::SourceID::Subsystem::kTrigger, 0};
+  auto tp_records = m[tp_writer_sid];
 
   // Prepare the TP buffer
   std::vector<trgdataformats::TriggerPrimitive> tp_buffer;
 
-  auto first_slice_id = *records.begin();
-  fmt::print("Processing slice {}:{}\n", first_slice_id.first, first_slice_id.second);
-  auto tsl = tpstream_file->get_timeslice(first_slice_id.first);
+  auto a_slice_id = *tp_records.begin();
+  fmt::print("Processing tp time slice {}\n", a_slice_id);
 
-  auto tsl_hdr = tsl.get_header();
+  // auto tsl_hdr = tsl.get_header();
+  auto tsl_hdr = tpstream_file->get_tsh_ptr(a_slice_id);
 
-  fmt::print("  Run number: {}\n", tsl_hdr.run_number);
-  fmt::print("  TSL number: {}\n", tsl_hdr.timeslice_number);
+  // Print header ingo
+  fmt::print("  Run number: {}\n", tsl_hdr->run_number);
+  fmt::print("  TSL number: {}\n", tsl_hdr->timeslice_number);
 
-  const auto& fragments = tsl.get_fragments_ref();
-  fmt::print("  Number of fragments: {}\n", fragments.size());
+  auto frag = tpstream_file->get_frag_ptr(a_slice_id, tp_writer_sid);
 
-  for( const auto& frag : fragments ) {
-    // auto h = frag->get_header();
-    fmt::print("  Fragment id: {} [{}]\n", frag->get_element_id().to_string(), daqdataformats::fragment_type_to_string(frag->get_fragment_type()));
+  fmt::print("  Fragment id: {} [{}]\n", frag->get_element_id().to_string(), daqdataformats::fragment_type_to_string(frag->get_fragment_type()));
 
-    if ( frag->get_fragment_type() != daqdataformats::FragmentType::kTriggerPrimitive )
-      continue;
-
-    size_t n_tps = frag->get_data_size()/sizeof(trgdataformats::TriggerPrimitive);
-    fmt::print("TP fragment size: {}\n", frag->get_data_size());
-    fmt::print("Num TPs: {}\n", n_tps);
+  size_t n_tps = frag->get_data_size()/sizeof(trgdataformats::TriggerPrimitive);
+  fmt::print("TP fragment size: {}\n", frag->get_data_size());
+  fmt::print("Num TPs: {}\n", n_tps);
 
 
-    trgdataformats::TriggerPrimitive* tp_array = static_cast<trgdataformats::TriggerPrimitive*>(frag->get_data());
+  trgdataformats::TriggerPrimitive* tp_array = static_cast<trgdataformats::TriggerPrimitive*>(frag->get_data());
 
-    tp_buffer.resize(tp_buffer.size()+n_tps);
+  tp_buffer.resize(tp_buffer.size()+n_tps);
 
-    uint64_t last_ts = 0;
-    for(size_t i(0); i<n_tps; ++i) {
-      auto& tp = tp_array[i];
-      if (tp.time_start <= last_ts) {
-        fmt::print("ERROR: {} {} ", tp.time_start, last_ts );
-      }
-      // fmt::print("> {}: {} {:016x} {:16x}\n", i, tp->channel, tp->time_start, tp->time_peak);
-      tp_buffer.push_back(tp);
+  uint64_t last_ts = 0;
+  for(size_t i(0); i<n_tps; ++i) {
+    auto& tp = tp_array[i];
+    if (tp.time_start <= last_ts) {
+      fmt::print("ERROR: {} {} ", tp.time_start, last_ts );
     }
-
-    uint64_t d_ts = tp_array[n_tps-1].time_start - tp_array[0].time_start;
-    fmt::print("TS gap: {} {} ms\n", d_ts, d_ts*16.0/1'000'000);
+    tp_buffer.push_back(tp);
   }
 
-  
+  uint64_t d_ts = tp_array[n_tps-1].time_start - tp_array[0].time_start;
+  fmt::print("TS gap: {} {} ms\n", d_ts, d_ts*16.0/1'000'000);
+
+  // Finally create a TA maker
+  // Waiting for A.Oranday's factory!
   triggeralgs::TriggerActivityMakerHorizontalMuon hmta;
+
   std::vector<triggeralgs::TriggerActivity> output_tas;
+
+  // We should config the algo, really
+  const nlohmann::json config = {};
+  hmta.configure(config);
 
   for( const auto& tp : tp_buffer ) {
     hmta(tp, output_tas);
   }
 
+  // Count number of TAs generated
   fmt::print("output_tas.size() = {}\n", output_tas.size());
+
+  // How to save to file?
   return 0;
 }
