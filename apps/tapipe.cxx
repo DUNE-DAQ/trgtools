@@ -199,9 +199,9 @@ main(int argc, char* argv[])
   fmt::print("TP fragment size: {}\n", frag->get_data_size());
   fmt::print("Num TPs: {}\n", n_tps);
 
-
   trgdataformats::TriggerPrimitive* tp_array = static_cast<trgdataformats::TriggerPrimitive*>(frag->get_data());
 
+  // Prepare the TP buffer, checking for time ordering
   tp_buffer.resize(tp_buffer.size()+n_tps);
 
   uint64_t last_ts = 0;
@@ -213,6 +213,7 @@ main(int argc, char* argv[])
     tp_buffer.push_back(tp);
   }
 
+  // Print some useful info
   uint64_t d_ts = tp_array[n_tps-1].time_start - tp_array[0].time_start;
   fmt::print("TS gap: {} {} ms\n", d_ts, d_ts*16.0/1'000'000);
 
@@ -220,18 +221,20 @@ main(int argc, char* argv[])
   // Waiting for A.Oranday's factory!
   triggeralgs::TriggerActivityMakerHorizontalMuon hmta;
 
-  std::vector<triggeralgs::TriggerActivity> output_tas;
+  // Create output buffer
+  std::vector<triggeralgs::TriggerActivity> ta_buffer;
 
   // We should config the algo, really
   const nlohmann::json config = {};
   hmta.configure(config);
 
+  // Loop over TPs
   for( const auto& tp : tp_buffer ) {
-    hmta(tp, output_tas);
+    hmta(tp, ta_buffer);
   }
 
   // Count number of TAs generated
-  fmt::print("output_tas.size() = {}\n", output_tas.size());
+  fmt::print("ta_buffer.size() = {}\n", ta_buffer.size());
 
   // How to save to file?
   return 0;
