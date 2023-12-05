@@ -18,6 +18,7 @@
 #include "hdf5libs/HDF5RawDataFile.hpp"
 #include "trgdataformats/TriggerPrimitive.hpp"
 #include "triggeralgs/HorizontalMuon/TriggerActivityMakerHorizontalMuon.hpp"
+#include "triggeralgs/TriggerObjectOverlay.hpp"
 
 using namespace dunedaq;
 
@@ -234,6 +235,29 @@ main(int argc, char* argv[])
 
   // Count number of TAs generated
   fmt::print("ta_buffer.size() = {}\n", ta_buffer.size());
+
+  size_t payload_size(0);
+  for ( const auto& ta : ta_buffer ) {
+    payload_size += triggeralgs::get_overlay_nbytes(ta);
+
+  }
+
+  // Count number of TAs generated
+  fmt::print("ta_buffer in bytes = {}\n", payload_size);
+
+  void* payload = malloc(payload_size);
+
+
+  size_t offset(0);
+  for ( const auto& ta : ta_buffer ) {
+    triggeralgs::write_overlay(ta, payload+offset);
+    offset += triggeralgs::get_overlay_nbytes(ta);
+  }
+
+  daqdataformats::Fragment ta_frag(payload, payload_size);
+
+  free(payload);
+
 
   // How to save to file?
   return 0;

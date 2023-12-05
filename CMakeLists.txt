@@ -48,6 +48,7 @@ daq_add_python_bindings(*.cpp LINK_LIBRARIES ${PROJECT_NAME} ) # Any additional 
 
 daq_add_application(trgtools_tapipe tapipe.cxx LINK_LIBRARIES ${PROJECT_NAME} CLI11::CLI11 fmt::fmt) # Any libraries to link in not yet determined
 daq_add_application(trgtools_copy_tpstream copy_tpstream.cxx LINK_LIBRARIES ${PROJECT_NAME} CLI11::CLI11 fmt::fmt) # Any libraries to link in not yet determined
+daq_add_application(trgtools_process_tpstream process_tpstream.cxx LINK_LIBRARIES ${PROJECT_NAME} CLI11::CLI11 fmt::fmt) # Any libraries to link in not yet determined
 
 ##############################################################################
 

@@ -70,7 +70,7 @@ int main(int argc, char const *argv[])
     auto tsl = input_file->get_timeslice(rid);
     output_file->write(tsl);
     // Just 1, for testing
-    break;
+    // break;
   }
 
 

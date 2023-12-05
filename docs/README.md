@@ -1,1 +1,5 @@
-# No Official User Documentation Has Been Written Yet (Fri Dec 1 20:19:29 CET 2023)
+# Trigger , emulation and analysis tools
+
+The `trgtools` repository contains a collection of tools and scripts to emulate, test and analyze the performance of trigger and trigger algorithms.
+
+- `process_tpstream`: Exaple of a simple pipeline to process TPStream files (slice by slide) and apply a trigger activity algorithm
