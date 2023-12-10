@@ -18,6 +18,7 @@ find_package(nlohmann_json REQUIRED)
 find_package(hdf5libs REQUIRED)
 find_package(trgdataformats REQUIRED)
 find_package(triggeralgs REQUIRED)
+find_package(detchannelmaps REQUIRED)
 
 
 daq_setup_environment()
@@ -30,7 +31,7 @@ find_package(Boost COMPONENTS unit_test_framework REQUIRED)
 
 # See https://dune-daq-sw.readthedocs.io/en/latest/packages/daq-cmake/#daq_add_library
 
-daq_add_library( LINK_LIBRARIES hdf5libs::hdf5libs trgdataformats::trgdataformats triggeralgs::triggeralgs) # Any source files and/or dependent libraries to link in not yet determined
+daq_add_library( LINK_LIBRARIES hdf5libs::hdf5libs trgdataformats::trgdataformats triggeralgs::triggeralgs detchannelmaps::detchannelmaps) # Any source files and/or dependent libraries to link in not yet determined
 
 ##############################################################################
 

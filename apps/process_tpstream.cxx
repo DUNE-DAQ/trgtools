@@ -9,10 +9,11 @@
 #include "trgdataformats/TriggerPrimitive.hpp"
 #include "triggeralgs/HorizontalMuon/TriggerActivityMakerHorizontalMuon.hpp"
 #include "triggeralgs/TriggerObjectOverlay.hpp"
+#include "detchannelmaps/TPCChannelMap.hpp"
 
 using namespace dunedaq;
 
-class RecordProcessor
+class TimeSliceProcessor
 {
 private:
   /* data */
@@ -30,26 +31,27 @@ private:
 public:
 
   
-  RecordProcessor(std::string input_path, std::string output_path);
-  ~RecordProcessor();
+  TimeSliceProcessor(std::string input_path, std::string output_path);
+  ~TimeSliceProcessor();
 
   void set_processor(std::function<void(daqdataformats::TimeSlice&)> processor);
   void loop(uint64_t num_records = 0, uint64_t offset = 0);
 
 };
 
-RecordProcessor::RecordProcessor(std::string input_path, std::string output_path) 
+TimeSliceProcessor::TimeSliceProcessor(std::string input_path, std::string output_path) 
 {
   this->open_files(input_path, output_path);
 }
 
-RecordProcessor::~RecordProcessor()
+TimeSliceProcessor::~TimeSliceProcessor()
 {
   this->close_files();
 }
 
 void
-RecordProcessor::open_files(std::string input_path, std::string output_path) {
+TimeSliceProcessor::open_files(std::string input_path, std::string output_path) {
+  // Open input file
   m_input_file = std::make_unique<hdf5libs::HDF5RawDataFile>(input_path);
 
   if (!m_input_file->is_timeslice_type()) {
@@ -63,6 +65,7 @@ RecordProcessor::open_files(std::string input_path, std::string output_path) {
 
   fmt::print("Run Number: {}\nFile Index: {}\nApp name: '{}'\n", run_number, file_index, application_name);
 
+  // Open output file
   m_output_file = std::make_unique<hdf5libs::HDF5RawDataFile>(
     output_path,
     m_input_file->get_attribute<daqdataformats::run_number_t>("run_number"),
@@ -74,23 +77,23 @@ RecordProcessor::open_files(std::string input_path, std::string output_path) {
 }
 
 void
-RecordProcessor::close_files() {
+TimeSliceProcessor::close_files() {
   // Do something?
 }
 
 void
-RecordProcessor::set_processor(std::function<void(daqdataformats::TimeSlice& )> processor) {
+TimeSliceProcessor::set_processor(std::function<void(daqdataformats::TimeSlice& )> processor) {
   m_processor = processor;
 }
 
 void
-RecordProcessor::process( daqdataformats::TimeSlice& tls ) {
+TimeSliceProcessor::process( daqdataformats::TimeSlice& tls ) {
   if (m_processor)
     m_processor(tls);
 }
 
 void
-RecordProcessor::loop(uint64_t num_records, uint64_t offset) {
+TimeSliceProcessor::loop(uint64_t num_records, uint64_t offset) {
 
   // Replace with a record selection?
   auto records = m_input_file->get_all_record_ids();
@@ -109,10 +112,11 @@ RecordProcessor::loop(uint64_t num_records, uint64_t offset) {
       continue;
     }
 
+    fmt::print("Processing TL {}:{}", rid.first, rid.second);
     auto tsl = m_input_file->get_timeslice(rid);
     // Or filter on a selection here using a lambda?
 
-    fmt::print("TSL number {}", tsl.get_header().timeslice_number)
+    fmt::print("TSL number {}", tsl.get_header().timeslice_number);
 
     // Add a process method
     this->process(tsl);
@@ -134,6 +138,8 @@ int main(int argc, char const *argv[])
   app.add_option("-i", input_file_path, "Input TPStream file path")->required();
   std::string output_file_path;
   app.add_option("-o", output_file_path, "Output TPStream file path")->required();
+  std::string channel_map_name = "VDColdboxChannelMap";
+  app.add_option("-m", channel_map_name, "Detector Channel Map");
   uint64_t skip_rec(0);
   app.add_option("-s", skip_rec, "Skip records");
   uint64_t num_rec(0);
@@ -145,17 +151,31 @@ int main(int argc, char const *argv[])
 
   fmt::print("TPStream file: {}\n", input_file_path);
 
-  RecordProcessor rp(input_file_path, output_file_path);
+  TimeSliceProcessor rp(input_file_path, output_file_path);
 
   // TP Writer source id
   daqdataformats::SourceID tp_writer_sid{daqdataformats::SourceID::Subsystem::kTrigger, 0};
 
+
+  auto channel_map = dunedaq::detchannelmaps::make_map(channel_map_name);
   // Finally create a TA maker
   // Waiting for A.Oranday's factory!
   triggeralgs::TriggerActivityMakerHorizontalMuon hmta;
   // We should config the algo, really
-  const nlohmann::json config = {};
+  const nlohmann::json config = nlohmann::json::parse(R"(
+    {
+      "trigger_on_adc": false,
+      "trigger_on_n_channels": false,
+      "trigger_on_tot": false,
+      "trigger_on_adjacency": true,
+      "adjacency_threshold": 100,
+      "adj_tolerance": 3
+    }
+  )");
+
   hmta.configure(config);
+
+
 
   rp.set_processor([&]( daqdataformats::TimeSlice& tsl ) -> void {
 
@@ -174,7 +194,7 @@ int main(int argc, char const *argv[])
       // Create a TP buffer
       std::vector<trgdataformats::TriggerPrimitive> tp_buffer;
       // Prepare the TP buffer, checking for time ordering
-      tp_buffer.resize(tp_buffer.size()+n_tps);
+      tp_buffer.reserve(tp_buffer.size()+n_tps);
 
       trgdataformats::TriggerPrimitive* tp_array = static_cast<trgdataformats::TriggerPrimitive*>(frag->get_data());
       uint64_t last_ts = 0;
@@ -194,8 +214,29 @@ int main(int argc, char const *argv[])
       std::vector<triggeralgs::TriggerActivity> ta_buffer;
 
       // Loop over TPs
+      size_t i(0);
+      size_t n_tas = 0;
+
       for( const auto& tp : tp_buffer ) {
+
+        // fmt::print("-- {} chan {}, plane {}\n", ++i, tp.channel, channel_map->get_plane_from_offline_channel(tp.channel));
+
+        if ( channel_map->get_plane_from_offline_channel(tp.channel) != 2 )
+          continue;
+
+        // fmt::print("-- {} chan {}, plane {}\n", ++i, tp.channel, channel_map->get_plane_from_offline_channel(tp.channel));
+
         hmta(tp, ta_buffer);
+
+        if (n_tas != ta_buffer.size()) {
+          for( size_t i=n_tas; i<ta_buffer.size(); ++i){
+            const auto& ta = ta_buffer[i];
+            fmt::print("{} cs={} ce={} ts={}, te={}\n", i, ta.channel_start, ta.channel_end, ta.time_start, ta.time_end);
+          }
+
+          n_tas = ta_buffer.size();
+          // break;
+        }
       }
 
       // Count how many TAs were generated
