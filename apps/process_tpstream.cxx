@@ -175,7 +175,14 @@ int main(int argc, char const *argv[])
 
   hmta.configure(config);
 
+  // Generic filter hook
+  std::function<bool(const trgdataformats::TriggerPrimitive&)> tp_filter;
 
+  auto z_plane_filter = [&]( const trgdataformats::TriggerPrimitive& tp ) -> bool {
+    return (channel_map->get_plane_from_offline_channel(tp.channel) != 2);
+  };
+
+  tp_filter = z_plane_filter;
 
   rp.set_processor([&]( daqdataformats::TimeSlice& tsl ) -> void {
 
@@ -219,23 +226,17 @@ int main(int argc, char const *argv[])
 
       for( const auto& tp : tp_buffer ) {
 
-        // fmt::print("-- {} chan {}, plane {}\n", ++i, tp.channel, channel_map->get_plane_from_offline_channel(tp.channel));
-
-        if ( channel_map->get_plane_from_offline_channel(tp.channel) != 2 )
+        if ( tp_filter(tp) )
           continue;
-
-        // fmt::print("-- {} chan {}, plane {}\n", ++i, tp.channel, channel_map->get_plane_from_offline_channel(tp.channel));
 
         hmta(tp, ta_buffer);
 
         if (n_tas != ta_buffer.size()) {
           for( size_t i=n_tas; i<ta_buffer.size(); ++i){
             const auto& ta = ta_buffer[i];
-            fmt::print("{} cs={} ce={} ts={}, te={}\n", i, ta.channel_start, ta.channel_end, ta.time_start, ta.time_end);
+            fmt::print("{} c_s={} c_e={} t_s={}, t_e={} | tp_s={} tp_s-ta_s={}\n", i, ta.channel_start, ta.channel_end, ta.time_start, ta.time_end, tp.time_start, (tp.time_start-ta.time_start) );
           }
-
           n_tas = ta_buffer.size();
-          // break;
         }
       }
 
@@ -246,7 +247,6 @@ int main(int argc, char const *argv[])
       size_t payload_size(0);
       for ( const auto& ta : ta_buffer ) {
         payload_size += triggeralgs::get_overlay_nbytes(ta);
-
       }
 
       // Print the total size
@@ -266,7 +266,6 @@ int main(int argc, char const *argv[])
 
       // And release it
       free(payload);
-      
 
       daqdataformats::FragmentHeader ta_hdr = frag->get_header();
 
