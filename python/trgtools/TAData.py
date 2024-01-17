@@ -45,8 +45,12 @@ class TAData:
     def get_ta_frag_paths(self) -> list:
         return self._frag_paths
 
-    def _set_entry(self, data_row, ta_datum) -> None:
-            data_row = np.array([(
+    def load_all_frags(self) -> None:
+        for idx, frag_path in enumerate(self._frag_paths):
+            ta = self._h5_file.get_frag(frag_path)
+            ta_datum = trgdataformats.TriggerActivity(ta.get_data())
+            old_entry = self.ta_data[idx].copy()
+            self.ta_data[idx] = np.array([(
                                 ta_datum.data.adc_integral,
                                 ta_datum.data.adc_peak,
                                 np.uint8(ta_datum.data.algorithm),
@@ -61,9 +65,3 @@ class TAData:
                                 ta_datum.data.time_start,
                                 np.uint8(ta_datum.data.type))],
                                 dtype=self.ta_dt)
-
-    def load_all_frags(self) -> None:
-        for idx, frag_path in enumerate(self._frag_paths):
-            ta = self._h5_file.get_frag(frag_path)
-            ta_datum = trgdataformats.TriggerActivity(ta.get_data())
-            self._set_entry(self.ta_data[idx], ta_datum)
