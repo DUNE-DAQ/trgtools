@@ -9,6 +9,7 @@ import argparse
 
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.backends.backend_pdf import PdfPages
 
 import trgtools
 
@@ -30,10 +31,12 @@ def num_tps_hist(num_tps):
     Plot the number of TPs for each TA as a histogram.
     """
     plt.figure(figsize=(6,4))
-    plt.hist(np.array(num_tps), color='k')
+    plt.hist(num_tps, bins=50, color='k')
 
     plt.title("Number of TPs Histogram")
     plt.xlabel("Number of TPs")
+    #plt.xlim((0,500))
+    #plt.ylim((0,200))
 
     plt.savefig("num_tps_histogram.svg")
     plt.close()
@@ -92,6 +95,46 @@ def adc_integral_hist(adc_integrals):
     plt.savefig("adc_integral_histogram.svg")
     plt.close()
 
+def all_event_displays(tp_data, run_id, sub_run_id):
+    """
+    Plot all event_displays as pages in a PDF.
+    """
+    with PdfPages(f"event_displays_{run_id}.{sub_run_id:04}.pdf") as pdf:
+        for idx, tp_datum in enumerate(tp_data):
+            fig = plt.figure(figsize=(6,4))
+
+            plt.scatter(tp_datum['time_peak'], tp_datum['channel'], c='k', s=2)
+
+            max_time = np.max(tp_datum['time_peak'])
+            min_time = np.min(tp_datum['time_peak'])
+            time_diff = max_time - min_time
+
+            plt.xlim((min_time - 0.1*time_diff, max_time + 0.1*time_diff))
+            plt.title(f'Run {run_id}.{sub_run_id:04} Event Display: {idx:03}')
+            plt.xlabel("Peak Time")
+            plt.ylabel("Channel")
+
+            pdf.savefig()
+            plt.close()
+
+
+def event_display(peak_times, channels, idx):
+    plt.figure(figsize=(6,4))
+
+    plt.scatter(peak_times, channels, c='k', s=2)
+    max_time = np.max(peak_times)
+    min_time = np.min(peak_times)
+    time_diff = max_time - min_time
+
+    plt.xlim((min_time - 0.1*time_diff, max_time + 0.1*time_diff))
+
+    plt.title(f"Event Display: {idx:03}")
+    plt.xlabel("Peak Time")
+    plt.ylabel("Channel")
+
+    plt.savefig(f"./event_displays/event_display_{idx:03}.svg")
+    plt.close()
+
 def parse():
     parser = argparse.ArgumentParser(description="Display diagnostic information for TAs for a given tpstream file.")
     parser.add_argument("filename", help="Absolute path to tpstream file to display.")
@@ -124,12 +167,15 @@ def main():
         diagnostics["adc_integral"].append(ta["adc_integral"])
         diagnostics["time_start"].append(ta["time_start"])
 
+    ## Plotting
     num_tps_hist(diagnostics["num_tps"])
     window_length_hist(diagnostics["window_length"])
     algorithm_hist(diagnostics["algorithm"])
     det_type_hist(diagnostics["det_type"])
     adc_integral_hist(diagnostics["adc_integral"])
     time_start_plot(diagnostics["time_start"])
+
+    all_event_displays(data.tp_data, run_id, sub_run_id)
 
 if __name__ == "__main__":
     main()
