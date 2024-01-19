@@ -67,7 +67,7 @@ def algorithm_hist(algorithms):
                                          "HorizontalMuon",
                                          "MichelElectron",
                                          "DBSCAN",
-                                         "PlaceCoincidence"), rotation=60)
+                                         "PlaneCoincidence"), rotation=60)
 
     plt.tight_layout()
     plt.savefig("algorithm_histogram.svg")
