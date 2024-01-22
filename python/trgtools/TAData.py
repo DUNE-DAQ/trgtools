@@ -44,21 +44,25 @@ class TAData:
                       ('version', np.uint16)
                      ])
 
-    def __init__(self, filename):
+    def __init__(self, filename, quiet=False):
         self._h5_file = HDF5RawDataFile(filename)
         self._set_ta_frag_paths(self._h5_file.get_all_fragment_dataset_paths())
         self.ta_data = np.zeros((len(self._frag_paths),), dtype=self.ta_dt)
         self.tp_data = []
+        self._quiet = quiet
+        self._nonempty_frags_mask = np.ones((len(self._frag_paths),), dtype=bool)
         tmp_name = filename.split("run")[1]
         try:
             self.run_id = int(tmp_name.split("_")[0])
         except:
-            print(self._WARNING_TEXT_COLOR + "WARNING: Couldn't find Run ID in file name. Using run id 0." + self._END_TEXT_COLOR)
+            if not self._quiet:
+                print(self._WARNING_TEXT_COLOR + "WARNING: Couldn't find Run ID in file name. Using run id 0." + self._END_TEXT_COLOR)
             self.run_id = 0
         try:
             self.sub_run_id = int(tmp_name.split("_")[1])
         except:
-            print(self._WARNING_TEXT_COLOR + "WARNING: Couldn't find SubRun ID in file name. Using SubRun ID 1000." + self._END_TEXT_COLOR)
+            if not self._quiet:
+                print(self._WARNING_TEXT_COLOR + "WARNING: Couldn't find SubRun ID in file name. Using SubRun ID 1000." + self._END_TEXT_COLOR)
             self.sub_run_id = 1000
 
     def _set_ta_frag_paths(self, frag_paths) -> None:
@@ -76,8 +80,11 @@ class TAData:
     def load_frag(self, frag_path, index=None) -> (np.ndarray, np.ndarray):
         ta = self._h5_file.get_frag(frag_path)
         if ta.get_data_size() == 0:
-            print(self._FAIL_TEXT_COLOR + self._BOLD_TEXT + "WARNING: Empty fragment. Returning empty array." + self._END_TEXT_COLOR)
-            print(self._WARNING_TEXT_COLOR + self._BOLD_TEXT + f"INFO: Fragment Path: {frag_path}" + self._END_TEXT_COLOR)
+            if not self._quiet:
+                print(self._FAIL_TEXT_COLOR + self._BOLD_TEXT + "WARNING: Empty fragment. Returning empty array." + self._END_TEXT_COLOR)
+                print(self._WARNING_TEXT_COLOR + self._BOLD_TEXT + f"INFO: Fragment Path: {frag_path}" + self._END_TEXT_COLOR)
+            if index != None:
+                self._nonempty_frags_mask[index] = False
             return np.zeros((0,), dtype=self.ta_dt), np.zeros((0,), dtype=self.tp_dt)
         if index == None:
             index = self._frag_paths.index(frag_path)
@@ -120,11 +127,16 @@ class TAData:
 
         return np_ta_datum, np_tp_datum
 
+    def _filter_frags(self) -> None:
+        self.ta_data = self.ta_data[self._nonempty_frags_mask]
+
     def load_all_frags(self) -> None:
         miscount = 0
         for idx, frag_path in enumerate(self._frag_paths):
             ta_datum, _ = self.load_frag(frag_path, idx)
             if len(ta_datum) == 0:
                 miscount += 1
-        if miscount != 0:
+        if miscount != 0 and not self._quiet:
             print(self._FAIL_TEXT_COLOR + self._BOLD_TEXT + f"WARNING: Skipped {miscount} frags." + self._END_TEXT_COLOR)
+            print(self._WARNING_TEXT_COLOR + "INFO: Filtering skipped fragments." + self._END_TEXT_COLOR)
+            self._filter_frags()
