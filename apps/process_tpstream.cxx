@@ -7,7 +7,7 @@
 
 #include "hdf5libs/HDF5RawDataFile.hpp"
 #include "trgdataformats/TriggerPrimitive.hpp"
-#include "triggeralgs/HorizontalMuon/TriggerActivityMakerHorizontalMuon.hpp"
+#include "triggeralgs/TriggerActivityFactory.hpp"
 #include "triggeralgs/TriggerObjectOverlay.hpp"
 #include "detchannelmaps/TPCChannelMap.hpp"
 
@@ -35,7 +35,7 @@ public:
   ~TimeSliceProcessor();
 
   void set_processor(std::function<void(daqdataformats::TimeSlice&)> processor);
-  void loop(uint64_t num_records = 0, uint64_t offset = 0);
+  void loop(uint64_t num_records = 0, uint64_t offset = 0, bool quiet = false);
 
 };
 
@@ -93,7 +93,7 @@ TimeSliceProcessor::process( daqdataformats::TimeSlice& tls ) {
 }
 
 void
-TimeSliceProcessor::loop(uint64_t num_records, uint64_t offset) {
+TimeSliceProcessor::loop(uint64_t num_records, uint64_t offset, bool quiet) {
 
   // Replace with a record selection?
   auto records = m_input_file->get_all_record_ids();
@@ -112,11 +112,13 @@ TimeSliceProcessor::loop(uint64_t num_records, uint64_t offset) {
       continue;
     }
 
-    fmt::print("Processing TL {}:{}", rid.first, rid.second);
+    if (!quiet)
+      fmt::print("Processing TL {}:{}", rid.first, rid.second);
     auto tsl = m_input_file->get_timeslice(rid);
     // Or filter on a selection here using a lambda?
 
-    fmt::print("TSL number {}", tsl.get_header().timeslice_number);
+    if (!quiet)
+      fmt::print("TSL number {}", tsl.get_header().timeslice_number);
 
     // Add a process method
     this->process(tsl);
@@ -140,16 +142,22 @@ int main(int argc, char const *argv[])
   app.add_option("-o", output_file_path, "Output TPStream file path")->required();
   std::string channel_map_name = "VDColdboxChannelMap";
   app.add_option("-m", channel_map_name, "Detector Channel Map");
+  std::string plugin_name = "TriggerActivityMakerHorizontalMuonPlugin";
+  app.add_option("-p", plugin_name, "Trigger Activity plugin name.");
+  std::string config_name;
+  app.add_option("-j", config_name, "Trigger Activity config JSON to use.");
   uint64_t skip_rec(0);
   app.add_option("-s", skip_rec, "Skip records");
   uint64_t num_rec(0);
   app.add_option("-n", num_rec, "Skip records");
 
-  bool verbose = false;
-  app.add_flag("-v", verbose);
+  bool quiet = false;
+  app.add_flag("--quiet", quiet, "Quiet outputs.");
   CLI11_PARSE(app, argc, argv);
 
-  fmt::print("TPStream file: {}\n", input_file_path);
+
+  if (!quiet)
+    fmt::print("TPStream file: {}\n", input_file_path);
 
   TimeSliceProcessor rp(input_file_path, output_file_path);
 
@@ -159,21 +167,28 @@ int main(int argc, char const *argv[])
 
   auto channel_map = dunedaq::detchannelmaps::make_map(channel_map_name);
   // Finally create a TA maker
-  // Waiting for A.Oranday's factory!
-  triggeralgs::TriggerActivityMakerHorizontalMuon hmta;
+  auto ta_factory = triggeralgs::TriggerActivityFactory::get_instance();
+  auto ta_maker = ta_factory->build_maker(plugin_name);
   // We should config the algo, really
-  const nlohmann::json config = nlohmann::json::parse(R"(
-    {
-      "trigger_on_adc": false,
-      "trigger_on_n_channels": false,
-      "trigger_on_tot": false,
-      "trigger_on_adjacency": true,
-      "adjacency_threshold": 100,
-      "adj_tolerance": 3
-    }
-  )");
+  nlohmann::json config;
+  if (config_name.length()) {
+    std::ifstream config_stream(config_name);
+    config = nlohmann::json::parse(config_stream);
+  } else {
+    config = nlohmann::json::parse(R"(
+      {
+        "trigger_on_adc": false,
+        "trigger_on_n_channels": false,
+        "trigger_on_tot": false,
+        "trigger_on_adjacency": true,
+        "adjacency_threshold": 100,
+        "adj_tolerance": 3,
+        "prescale": 1
+      }
+    )");
+  }
 
-  hmta.configure(config);
+  ta_maker->configure(config);
 
   // Generic filter hook
   std::function<bool(const trgdataformats::TriggerPrimitive&)> tp_filter;
@@ -191,12 +206,15 @@ int main(int argc, char const *argv[])
       if ( frag->get_element_id() != tp_writer_sid) continue;
 
       // This bit should be outside the loop
-      fmt::print("  Fragment id: {} [{}]\n", frag->get_element_id().to_string(), daqdataformats::fragment_type_to_string(frag->get_fragment_type()));
+      if (!quiet)
+        fmt::print("  Fragment id: {} [{}]\n", frag->get_element_id().to_string(), daqdataformats::fragment_type_to_string(frag->get_fragment_type()));
 
       // Pull tps out
       size_t n_tps = frag->get_data_size()/sizeof(trgdataformats::TriggerPrimitive);
-      fmt::print("TP fragment size: {}\n", frag->get_data_size());
-      fmt::print("Num TPs: {}\n", n_tps);
+      if (!quiet) {
+        fmt::print("TP fragment size: {}\n", frag->get_data_size());
+        fmt::print("Num TPs: {}\n", n_tps);
+      }
 
       // Create a TP buffer
       std::vector<trgdataformats::TriggerPrimitive> tp_buffer;
@@ -207,7 +225,7 @@ int main(int argc, char const *argv[])
       uint64_t last_ts = 0;
       for(size_t i(0); i<n_tps; ++i) {
         auto& tp = tp_array[i];
-        if (tp.time_start <= last_ts) {
+        if (tp.time_start <= last_ts && !quiet) {
           fmt::print("ERROR: {} {} ", tp.time_start, last_ts );
         }
         tp_buffer.push_back(tp);
@@ -215,13 +233,13 @@ int main(int argc, char const *argv[])
 
       // Print some useful info
       uint64_t d_ts = tp_array[n_tps-1].time_start - tp_array[0].time_start;
-      fmt::print("TS gap: {} {} ms\n", d_ts, d_ts*16.0/1'000'000);
+      if (!quiet)
+        fmt::print("TS gap: {} {} ms\n", d_ts, d_ts*16.0/1'000'000);
 
       // Create the output buffer
       std::vector<triggeralgs::TriggerActivity> ta_buffer;
 
       // Loop over TPs
-      size_t i(0);
       size_t n_tas = 0;
 
       for( const auto& tp : tp_buffer ) {
@@ -229,19 +247,21 @@ int main(int argc, char const *argv[])
         if ( tp_filter(tp) )
           continue;
 
-        hmta(tp, ta_buffer);
+        (*ta_maker)(tp, ta_buffer);
 
         if (n_tas != ta_buffer.size()) {
           for( size_t i=n_tas; i<ta_buffer.size(); ++i){
             const auto& ta = ta_buffer[i];
-            fmt::print("{} c_s={} c_e={} t_s={}, t_e={} | tp_s={} tp_s-ta_s={}\n", i, ta.channel_start, ta.channel_end, ta.time_start, ta.time_end, tp.time_start, (tp.time_start-ta.time_start) );
+            if (!quiet)
+              fmt::print("{} c_s={} c_e={} t_s={}, t_e={} | tp_s={} tp_s-ta_s={}\n", i, ta.channel_start, ta.channel_end, ta.time_start, ta.time_end, tp.time_start, (tp.time_start-ta.time_start) );
           }
           n_tas = ta_buffer.size();
         }
       }
 
       // Count how many TAs were generated
-      fmt::print("ta_buffer.size() = {}\n", ta_buffer.size());
+      if (!quiet)
+        fmt::print("ta_buffer.size() = {}\n", ta_buffer.size());
 
       // Their size
       size_t payload_size(0);
@@ -250,7 +270,8 @@ int main(int argc, char const *argv[])
       }
 
       // Print the total size
-      fmt::print("ta_buffer in bytes = {}\n", payload_size);
+      if (!quiet)
+        fmt::print("ta_buffer in bytes = {}\n", payload_size);
 
       // Create the fragment buffer
       void* payload = malloc(payload_size);
