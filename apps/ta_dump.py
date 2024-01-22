@@ -138,6 +138,7 @@ def event_display(peak_times, channels, idx):
 def parse():
     parser = argparse.ArgumentParser(description="Display diagnostic information for TAs for a given tpstream file.")
     parser.add_argument("filename", help="Absolute path to tpstream file to display.")
+    parser.add_argument("--quiet", action="store_true", help="Stops the output of printed information. Default: False.")
 
     return parser.parse_args()
 
@@ -145,6 +146,7 @@ def main():
     ## Process Arguments & Data
     args = parse()
     filename = args.filename
+    quiet = args.quiet
     diagnostics = {
                     "num_tps": [],
                     "window_length": [],
@@ -154,7 +156,7 @@ def main():
                     "time_start": []
                   }
 
-    data = trgtools.TAData(filename)
+    data = trgtools.TAData(filename, quiet)
     data.load_all_frags()
     run_id = data.run_id
     sub_run_id = data.sub_run_id
