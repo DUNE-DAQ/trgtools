@@ -204,14 +204,14 @@ int main(int argc, char const *argv[])
     for( const auto& frag : frags ) {
 
       // The fragment has to be for the trigger (not e.g. for retreival from readout)
-      if (!(frag->get_element_id().subsystem == tp_subsystem_requirement)) {
+      if (frag->get_element_id().subsystem != tp_subsystem_requirement) {
         if(!quiet)
           fmt::print("  Warning, got non kTrigger SourceID {}\n", frag->get_element_id().to_string());
         continue;
       }
 
       // The fragment has to be TriggerPrimitive
-      if(!(frag->get_fragment_type() == daqdataformats::FragmentType::kTriggerPrimitive)){
+      if(frag->get_fragment_type() != daqdataformats::FragmentType::kTriggerPrimitive){
         if(!quiet) 
           fmt::print("  Error: FragmentType is: {}!\n", fragment_type_to_string(frag->get_fragment_type()));
         continue;
