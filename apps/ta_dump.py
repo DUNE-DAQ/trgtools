@@ -13,15 +13,17 @@ from matplotlib.backends.backend_pdf import PdfPages
 
 import trgtools
 
+TICK_TO_SEC_SCALE = 512e-9 # s per tick
+
 def window_length_hist(window_lengths):
     """
     Plot a histogram of the TA window lengths.
     """
     plt.figure(figsize=(6,4))
-    plt.hist(np.array(window_lengths), color='k')
+    plt.hist(np.array(window_lengths, dtype=np.uint64) * TICK_TO_SEC_SCALE, color='k')
 
     plt.title("TA Time Window Length Histogram")
-    plt.xlabel("Time Window Length")
+    plt.xlabel("Time Window Length (s)")
 
     plt.savefig("window_length_histogram.svg")
     plt.close()
@@ -45,12 +47,20 @@ def time_start_plot(start_times):
     """
     Plot in order the time_start member data for TAs.
     """
-    plt.figure(figsize=(6,4))
-    plt.plot(start_times, 'ok')
+    first_time = start_times[0] * TICK_TO_SEC_SCALE
+    total_ticks = start_times[-1] - start_times[0]
+    total_tas = len(start_times)
+    avg_rate_ticks = total_tas / total_ticks
+    avg_rate_secs = total_tas / (total_ticks * TICK_TO_SEC_SCALE)
 
-    plt.title("TA Start Times")
+    plt.figure(figsize=(6,4))
+    plt.plot(np.array(start_times, dtype=np.uint64) * TICK_TO_SEC_SCALE - first_time, 'k', label=f"Average Rate: {avg_rate_secs:.3} TA/s")
+
+    plt.title(f"TA Start Times: Shifted by {first_time:.4e} s")
     plt.xlabel("TA Order")
-    plt.ylabel("Start Time")
+    plt.ylabel("Start Time (s)")
+
+    plt.legend()
 
     plt.savefig("start_times.svg")
     plt.close()
@@ -117,6 +127,36 @@ def all_event_displays(tp_data, run_id, sub_run_id):
             pdf.savefig()
             plt.close()
 
+def start_time_diff_hist(start_times):
+    start_time_diff = (np.array(start_times[1:] + [0]) - np.array(start_times))[:-1]
+    plt.figure(figsize=(6,4))
+
+    plt.hist(start_time_diff, bins=25, color='#63ACBE', label="Start Time Difference", alpha=1.0)
+
+    plt.title("TA Timings Histogram")
+    plt.xlabel("Time Ticks")
+    plt.legend()
+
+    plt.savefig("start_time_diff_histogram.svg")
+    plt.close()
+
+def time_diff_hist(start_times, end_times):
+    start_time_diff = (np.array(start_times[1:] + [0]) - np.array(start_times))[:-1]
+    time_gaps = np.array(start_times)[1:] - np.array(end_times)[:-1]
+
+    start_time_diff = start_time_diff.astype(np.uint64) * TICK_TO_SEC_SCALE
+    time_gaps = time_gaps.astype(np.uint64) * TICK_TO_SEC_SCALE
+    plt.figure(figsize=(6,4))
+
+    plt.hist(start_time_diff, bins=40, color='#63ACBE', label="Start Time Difference", alpha=0.2)
+    plt.hist(time_gaps, bins=40, color="#EE442F", label="TA Time Gap", alpha=0.2)
+
+    plt.title("TA Timings Histogram")
+    plt.xlabel("Seconds")
+    plt.legend()
+
+    plt.savefig("ta_timings_histogram.svg")
+    plt.close()
 
 def event_display(peak_times, channels, idx):
     plt.figure(figsize=(6,4))
@@ -139,6 +179,7 @@ def parse():
     parser = argparse.ArgumentParser(description="Display diagnostic information for TAs for a given tpstream file.")
     parser.add_argument("filename", help="Absolute path to tpstream file to display.")
     parser.add_argument("--quiet", action="store_true", help="Stops the output of printed information. Default: False.")
+    parser.add_argument("--no-displays", action="store_true", help="Stops the processing of event displays.")
 
     return parser.parse_args()
 
@@ -147,13 +188,16 @@ def main():
     args = parse()
     filename = args.filename
     quiet = args.quiet
+    no_displays = args.no_displays
+
     diagnostics = {
                     "num_tps": [],
                     "window_length": [],
                     "algorithm": [],
                     "det_type": [],
                     "adc_integral": [],
-                    "time_start": []
+                    "time_start": [],
+                    "time_end": []
                   }
 
     data = trgtools.TAData(filename, quiet)
@@ -168,6 +212,7 @@ def main():
         diagnostics["det_type"].append(ta["type"])
         diagnostics["adc_integral"].append(ta["adc_integral"])
         diagnostics["time_start"].append(ta["time_start"])
+        diagnostics["time_end"].append(ta["time_end"])
 
     ## Plotting
     num_tps_hist(diagnostics["num_tps"])
@@ -176,8 +221,11 @@ def main():
     det_type_hist(diagnostics["det_type"])
     adc_integral_hist(diagnostics["adc_integral"])
     time_start_plot(diagnostics["time_start"])
+    time_diff_hist(diagnostics["time_start"], diagnostics["time_end"])
+    start_time_diff_hist(diagnostics["time_start"])
 
-    all_event_displays(data.tp_data, run_id, sub_run_id)
+    if (not no_displays):
+        all_event_displays(data.tp_data, run_id, sub_run_id)
 
 if __name__ == "__main__":
     main()
