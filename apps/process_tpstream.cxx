@@ -113,12 +113,12 @@ TimeSliceProcessor::loop(uint64_t num_records, uint64_t offset, bool quiet) {
     }
 
     if (!quiet)
-      fmt::print("Processing TL {}:{}", rid.first, rid.second);
+      fmt::print("Processing TL {}:{}\n", rid.first, rid.second);
     auto tsl = m_input_file->get_timeslice(rid);
     // Or filter on a selection here using a lambda?
 
     if (!quiet)
-      fmt::print("TSL number {}", tsl.get_header().timeslice_number);
+      fmt::print("TSL number {}\n", tsl.get_header().timeslice_number);
 
     // Add a process method
     this->process(tsl);
@@ -161,9 +161,8 @@ int main(int argc, char const *argv[])
 
   TimeSliceProcessor rp(input_file_path, output_file_path);
 
-  // TP Writer source id
-  daqdataformats::SourceID tp_writer_sid{daqdataformats::SourceID::Subsystem::kTrigger, 0};
-
+  // TP source id (subsystem)
+  auto tp_subsystem_requirement = daqdataformats::SourceID::Subsystem::kTrigger;
 
   auto channel_map = dunedaq::detchannelmaps::make_map(channel_map_name);
   // Finally create a TA maker
@@ -200,10 +199,23 @@ int main(int argc, char const *argv[])
   tp_filter = z_plane_filter;
 
   rp.set_processor([&]( daqdataformats::TimeSlice& tsl ) -> void {
-
     const std::vector<std::unique_ptr<daqdataformats::Fragment>>& frags = tsl.get_fragments_ref();
+    fmt::print("The numbert of fragments: {}\n", frags.size());
     for( const auto& frag : frags ) {
-      if ( frag->get_element_id() != tp_writer_sid) continue;
+
+      // The fragment has to be for the trigger (not e.g. for retreival from readout)
+      if (frag->get_element_id().subsystem != tp_subsystem_requirement) {
+        if(!quiet)
+          fmt::print("  Warning, got non kTrigger SourceID {}\n", frag->get_element_id().to_string());
+        continue;
+      }
+
+      // The fragment has to be TriggerPrimitive
+      if(frag->get_fragment_type() != daqdataformats::FragmentType::kTriggerPrimitive){
+        if(!quiet) 
+          fmt::print("  Error: FragmentType is: {}!\n", fragment_type_to_string(frag->get_fragment_type()));
+        continue;
+      }
 
       // This bit should be outside the loop
       if (!quiet)
@@ -212,8 +224,8 @@ int main(int argc, char const *argv[])
       // Pull tps out
       size_t n_tps = frag->get_data_size()/sizeof(trgdataformats::TriggerPrimitive);
       if (!quiet) {
-        fmt::print("TP fragment size: {}\n", frag->get_data_size());
-        fmt::print("Num TPs: {}\n", n_tps);
+        fmt::print("  TP fragment size: {}\n", frag->get_data_size());
+        fmt::print("  Num TPs: {}\n", n_tps);
       }
 
       // Create a TP buffer
@@ -226,7 +238,7 @@ int main(int argc, char const *argv[])
       for(size_t i(0); i<n_tps; ++i) {
         auto& tp = tp_array[i];
         if (tp.time_start <= last_ts && !quiet) {
-          fmt::print("ERROR: {} {} ", tp.time_start, last_ts );
+          fmt::print("  ERROR: {} {} ", tp.time_start, last_ts );
         }
         tp_buffer.push_back(tp);
       }
@@ -234,7 +246,7 @@ int main(int argc, char const *argv[])
       // Print some useful info
       uint64_t d_ts = tp_array[n_tps-1].time_start - tp_array[0].time_start;
       if (!quiet)
-        fmt::print("TS gap: {} {} ms\n", d_ts, d_ts*16.0/1'000'000);
+        fmt::print("  TS gap: {} {} ms\n", d_ts, d_ts*16.0/1'000'000);
 
       // Create the output buffer
       std::vector<triggeralgs::TriggerActivity> ta_buffer;
@@ -244,8 +256,11 @@ int main(int argc, char const *argv[])
 
       for( const auto& tp : tp_buffer ) {
 
-        if ( tp_filter(tp) )
+        if ( tp_filter(tp) ){
+          if(!quiet)
+              fmt::print("  TP filtered out!");
           continue;
+        }
 
         (*ta_maker)(tp, ta_buffer);
 
@@ -253,7 +268,7 @@ int main(int argc, char const *argv[])
           for( size_t i=n_tas; i<ta_buffer.size(); ++i){
             const auto& ta = ta_buffer[i];
             if (!quiet)
-              fmt::print("{} c_s={} c_e={} t_s={}, t_e={} | tp_s={} tp_s-ta_s={}\n", i, ta.channel_start, ta.channel_end, ta.time_start, ta.time_end, tp.time_start, (tp.time_start-ta.time_start) );
+              fmt::print("  {} c_s={} c_e={} t_s={}, t_e={} | tp_s={} tp_s-ta_s={}\n", i, ta.channel_start, ta.channel_end, ta.time_start, ta.time_end, tp.time_start, (tp.time_start-ta.time_start) );
           }
           n_tas = ta_buffer.size();
         }
@@ -261,7 +276,7 @@ int main(int argc, char const *argv[])
 
       // Count how many TAs were generated
       if (!quiet)
-        fmt::print("ta_buffer.size() = {}\n", ta_buffer.size());
+        fmt::print("  ta_buffer.size() = {}\n", ta_buffer.size());
 
       // Their size
       size_t payload_size(0);
