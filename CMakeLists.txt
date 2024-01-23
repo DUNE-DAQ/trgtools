@@ -56,7 +56,7 @@ daq_add_application(trgtools_process_tpstream process_tpstream.cxx LINK_LIBRARIE
 
 # See https://dune-daq-sw.readthedocs.io/en/latest/packages/daq-cmake/#daq_add_unit_test
 
-daq_add_unit_test(Placeholder_test LINK_LIBRARIES)  # Placeholder_test should be replaced with real unit tests
+daq_add_unit_test(TPGtools_unittest LINK_LIBRARIES)  # Should be replaced with real unit tests
 
 ##############################################################################
 
