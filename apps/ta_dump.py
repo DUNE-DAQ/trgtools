@@ -15,6 +15,24 @@ import trgtools
 
 TICK_TO_SEC_SCALE = 512e-9 # s per tick
 
+def tp_channel_histogram(tp_data):
+    """
+    Plot the TP channel histogram.
+    """
+    tp_channel = np.zeros((0,))
+    for idx, tp_datum in enumerate(tp_data):
+        tp_channel = np.concatenate((tp_channel, tp_datum['channel']))
+
+    plt.figure(figsize=(6,4))
+
+    plt.hist(tp_channel, bins=np.arange(0.5, 3072.5, 1), color='k')
+
+    plt.title("TP Channel Histogram")
+    plt.xlabel("Channel")
+
+    plt.savefig("tp_channel_histogram.svg")
+    plt.close()
+
 def window_length_hist(window_lengths):
     """
     Plot a histogram of the TA window lengths.
@@ -37,8 +55,6 @@ def num_tps_hist(num_tps):
 
     plt.title("Number of TPs Histogram")
     plt.xlabel("Number of TPs")
-    #plt.xlim((0,500))
-    #plt.ylim((0,200))
 
     plt.savefig("num_tps_histogram.svg")
     plt.close()
@@ -66,6 +82,9 @@ def time_start_plot(start_times):
     plt.close()
 
 def algorithm_hist(algorithms):
+    """
+    Plot a histogram of the algorithm types for each TA.
+    """
     plt.figure(figsize=(12,8))
     plt.hist(np.array(algorithms), bins=np.arange(-0.5, 8, 1), range=(0,7), align='mid', color='k')
 
@@ -84,6 +103,9 @@ def algorithm_hist(algorithms):
     plt.close()
 
 def det_type_hist(det_types):
+    """
+    Plot a histogram of the detector type for the TAs.
+    """
     plt.figure(figsize=(12,8))
     plt.hist(np.array(det_types), bins=np.arange(-0.5, 3, 1), range=(0,2), align='mid', color='k')
 
@@ -96,6 +118,9 @@ def det_type_hist(det_types):
     plt.close()
 
 def adc_integral_hist(adc_integrals):
+    """
+    Plot a histogram of the ADC integrals for the TAs.
+    """
     plt.figure(figsize=(6,4))
     plt.hist(np.array(adc_integrals), color='k')
 
@@ -127,21 +152,13 @@ def all_event_displays(tp_data, run_id, sub_run_id):
             pdf.savefig()
             plt.close()
 
-def start_time_diff_hist(start_times):
-    start_time_diff = (np.array(start_times[1:] + [0]) - np.array(start_times))[:-1]
-    plt.figure(figsize=(6,4))
-
-    plt.hist(start_time_diff, bins=25, color='#63ACBE', label="Start Time Difference", alpha=1.0)
-
-    plt.title("TA Timings Histogram")
-    plt.xlabel("Time Ticks")
-    plt.legend()
-
-    plt.savefig("start_time_diff_histogram.svg")
-    plt.close()
-
 def time_diff_hist(start_times, end_times):
+    """
+    Plot a histogram of the time differences.
+    """
+    # Difference between all the start times.
     start_time_diff = (np.array(start_times[1:] + [0]) - np.array(start_times))[:-1]
+    # Difference between previous TA end time and current TA start time.
     time_gaps = np.array(start_times)[1:] - np.array(end_times)[:-1]
 
     start_time_diff = start_time_diff.astype(np.uint64) * TICK_TO_SEC_SCALE
@@ -159,6 +176,10 @@ def time_diff_hist(start_times, end_times):
     plt.close()
 
 def event_display(peak_times, channels, idx):
+    """
+    Plot an individual event display.
+
+    """
     plt.figure(figsize=(6,4))
 
     plt.scatter(peak_times, channels, c='k', s=2)
@@ -172,7 +193,7 @@ def event_display(peak_times, channels, idx):
     plt.xlabel("Peak Time")
     plt.ylabel("Channel")
 
-    plt.savefig(f"./event_displays/event_display_{idx:03}.svg")
+    plt.savefig(f"./event_display_{idx:03}.svg")
     plt.close()
 
 def parse():
@@ -222,10 +243,11 @@ def main():
     adc_integral_hist(diagnostics["adc_integral"])
     time_start_plot(diagnostics["time_start"])
     time_diff_hist(diagnostics["time_start"], diagnostics["time_end"])
-    start_time_diff_hist(diagnostics["time_start"])
 
     if (not no_displays):
         all_event_displays(data.tp_data, run_id, sub_run_id)
+
+    tp_channel_histogram(data.tp_data)
 
 if __name__ == "__main__":
     main()
