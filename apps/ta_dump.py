@@ -15,24 +15,6 @@ import trgtools
 
 TICK_TO_SEC_SCALE = 512e-9 # s per tick
 
-def tp_channel_histogram(tp_data):
-    """
-    Plot the TP channel histogram.
-    """
-    tp_channel = np.zeros((0,))
-    for idx, tp_datum in enumerate(tp_data):
-        tp_channel = np.concatenate((tp_channel, tp_datum['channel']))
-
-    plt.figure(figsize=(6,4))
-
-    plt.hist(tp_channel, bins=np.arange(0.5, 3072.5, 1), color='k')
-
-    plt.title("TP Channel Histogram")
-    plt.xlabel("Channel")
-
-    plt.savefig("tp_channel_histogram.svg")
-    plt.close()
-
 def window_length_hist(window_lengths):
     """
     Plot a histogram of the TA window lengths.
