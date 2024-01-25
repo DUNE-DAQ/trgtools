@@ -4,10 +4,17 @@
 
 While running, this prints warnings for empty fragments that are skipped in the given HDF5 file. These outputs can be suppressed with `--quiet`.
 
+One can specify which fragments to _attempt_ to load from with the `--start-frag` option. This is `-10` by default in order to get the last 10 fragments for the given file. One can also specify which fragment to end on (not inclusive) with `--end-frag` option. This is `0` by default (for the previously mentioned reason).
+
+Event displays are processed by default. If there are many TAs that were loaded, then this may take a while to plot. The `--no-display` options skips event display plotting.
+
 ## Example
-```
+```bash
 python ta_dump.py file.hdf5
+python ta_dump.py file.hdf5 --help
 python ta_dump.py file.hdf5 --quiet
+python ta_dump.py file.hdf5 --start-frag 50 --end-frag 100 # Attempts 50 fragments
+python ta_dump.py file.hdf5 --no-display
 ```
 
 ## Run Numbers & File Naming
