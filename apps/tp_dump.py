@@ -36,10 +36,10 @@ def channel_tot(tp_data):
 
     plt.title("TP Time Over Threshold vs Channel")
     plt.xlabel("Channel")
-    plt.ylabel("Time Over Threshold (s)")
+    plt.ylabel("Time Over Threshold (Ticks)")
     plt.legend()
 
-    plt.annotate(f"High ToT Channels: {np.unique(hot_channels)}", xy=(2250, 0.0175), va="center", ha="center", fontsize=8)
+    #plt.annotate(f"High ToT Channels: {np.unique(hot_channels)}", xy=(750, 7250), va="center", ha="center", fontsize=8)
 
     plt.tight_layout()
     plt.savefig("channel_vs_tot.png")
@@ -79,7 +79,7 @@ def tp_percent_histogram(tp_data):
     plt.savefig("percent_total.svg")
     plt.close()
 
-def tp_channel_histogram(tp_data):
+def tp_channel_histogram(tp_data, quiet=False):
     """
     Plot the TP channel histogram.
     """
@@ -94,8 +94,9 @@ def tp_channel_histogram(tp_data):
 
     counts, bins = np.histogram(channels, bins=np.arange(0.5, 3072.5, 1))
     total_counts = np.sum(counts)
-    print("High TP Count Channels:", np.where(counts >= 500))
-    print("Percentage Counts:", np.where(counts >= 0.01*total_counts))
+    if (!quiet):
+        print("High TP Count Channels:", np.where(counts >= 500))
+        print("Percentage Counts:", np.where(counts >= 0.01*total_counts))
 
     plt.figure(figsize=(6,4))
 
@@ -127,11 +128,13 @@ def main():
     num_frags = 10
     frag_paths = data.get_tp_frag_paths()
     for path in frag_paths[-1*num_frags:]:
-        print(path)
+        if (!quiet):
+            print(path)
         data.load_frag(path)
 
-    print("Length of tp_data:", len(data.tp_data))
-    tp_channel_histogram(data.tp_data)
+    if (!quiet):
+        print("Length of tp_data:", len(data.tp_data))
+    tp_channel_histogram(data.tp_data, quiet)
     channel_tot(data.tp_data)
     tp_percent_histogram(data.tp_data)
 
