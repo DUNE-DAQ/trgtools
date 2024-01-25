@@ -43,7 +43,7 @@ def num_tps_hist(num_tps):
 
 def time_start_plot(start_times, frag_index=-1):
     """
-    Plot in order the time_start member data for TAs.
+    Plot TA start times vs TA index.
     """
     first_time = start_times[0] * TICK_TO_SEC_SCALE
     total_ticks = start_times[-1] - start_times[0]
@@ -67,9 +67,10 @@ def algorithm_hist(algorithms):
     """
     Plot a histogram of the algorithm types for each TA.
     """
+    num_tas = len(algorithms)
     plt.figure(figsize=(12,8))
-    counts, _ , _ = plt.hist(np.array(algorithms).flatten(), bins=np.arange(-0.5, 8, 1), range=(0,7), align='mid', color='k')
-    print(f"Number of TAs: {np.sum(counts).astype(int)}")
+    plt.hist(np.array(algorithms).flatten(), bins=np.arange(-0.5, 8, 1), range=(0,7), align='mid', color='k', label=f"Number of TAs: {num_tas}")
+    print(f"Number of TAs: {num_tas}") # Enforcing output for useful metric
 
     plt.title("TA Algorithm Histogram")
     plt.xticks(ticks=range(0,8), labels=("Unknown",
@@ -80,6 +81,8 @@ def algorithm_hist(algorithms):
                                          "MichelElectron",
                                          "DBSCAN",
                                          "PlaneCoincidence"), rotation=60)
+
+    plt.legend()
 
     plt.tight_layout()
     plt.savefig("algorithm_histogram.svg")
@@ -162,7 +165,6 @@ def time_diff_hist(start_times, end_times):
 def event_display(peak_times, channels, idx):
     """
     Plot an individual event display.
-
     """
     plt.figure(figsize=(6,4))
 
@@ -181,6 +183,9 @@ def event_display(peak_times, channels, idx):
     plt.close()
 
 def parse():
+    """
+    Parses CLI input arguments.
+    """
     parser = argparse.ArgumentParser(description="Display diagnostic information for TAs for a given tpstream file.")
     parser.add_argument("filename", help="Absolute path to tpstream file to display.")
     parser.add_argument("--quiet", action="store_true", help="Stops the output of printed information. Default: False.")
@@ -210,16 +215,19 @@ def main():
                   }
 
     data = trgtools.TAData(filename, quiet)
-    if end_frag != 0:
+    if end_frag != 0: # Python doesn't like [n:0]
         frag_paths = data.get_ta_frag_paths()[start_frag:end_frag]
     elif end_frag == 0:
         frag_paths = data.get_ta_frag_paths()[start_frag:]
+
+    # Load data. May contain empty frags.
     for path in frag_paths:
         data.load_frag(path)
 
     run_id = data.run_id
     sub_run_id = data.sub_run_id
 
+    # Explicit plotting data
     for frag in data.ta_data:
         for ta in frag:
             diagnostics["num_tps"].append(ta["num_tps"])
