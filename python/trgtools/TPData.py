@@ -55,7 +55,7 @@ class TPData:
         tp_size = trgdataformats.TriggerPrimitive.sizeof()
         num_tps = data_size // tp_size
         if (not self._quiet):
-            print("Load frag, num_tps:", num_tps)
+            print(f"Loaded frag with {num_tps} TPs")
 
         # TODO: Change name to frag_data since this object is all TPs in a frag
         np_tp_datum = np.zeros((num_tps,), dtype=self.tp_dt)

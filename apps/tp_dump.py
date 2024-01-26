@@ -136,7 +136,7 @@ def main():
 
     for path in frag_paths:
         if (not quiet):
-            print(path)
+            print("Fragment Path:", path)
         data.load_frag(path)
 
     if (not quiet):
