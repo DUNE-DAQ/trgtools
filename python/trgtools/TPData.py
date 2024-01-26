@@ -11,11 +11,20 @@ import daqdataformats
 import trgdataformats
 
 class TPData:
+    """
+    Class that loads a given TPStream file and can
+    process the TP fragments within.
+
+    Loading fragments populates obj.tp_data. The
+    Numpy dtype is available on obj.tp_dt.
+    """
+    ## Useful print colors
     _FAIL_TEXT_COLOR = '\033[91m'
     _WARNING_TEXT_COLOR = '\033[93m'
     _BOLD_TEXT = '\033[1m'
     _END_TEXT_COLOR = '\033[0m'
 
+    ## TP data type
     tp_dt = np.dtype([
                       ('adc_integral', np.uint32),
                       ('adc_peak', np.uint32),
@@ -31,6 +40,9 @@ class TPData:
                      ])
 
     def __init__(self, filename, quiet=False):
+        """
+        Loads the given HDF5 file and inits member data.
+        """
         self._h5_file = HDF5RawDataFile(filename)
         self._set_tp_frag_paths(self._h5_file.get_all_fragment_dataset_paths())
         self.tp_data = [] # Will have length == number of fragments
@@ -49,13 +61,19 @@ class TPData:
         return self._frag_paths
 
     def load_frag(self, frag_path) -> np.ndarray:
+        """
+        Load a fragment from a given fragment path
+        and append to self.tp_data.
+
+        Returns an np.ndarray of dtype self.tp_dt.
+        """
         tp = self._h5_file.get_frag(frag_path)
 
         data_size = tp.get_data_size()
         tp_size = trgdataformats.TriggerPrimitive.sizeof()
         num_tps = data_size // tp_size
         if (not self._quiet):
-            print(f"Loaded frag with {num_tps} TPs")
+            print(f"Loaded frag with {num_tps} TPs.")
 
         # TODO: Change name to frag_data since this object is all TPs in a frag
         np_tp_datum = np.zeros((num_tps,), dtype=self.tp_dt)
