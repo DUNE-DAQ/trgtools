@@ -94,7 +94,7 @@ def tp_channel_histogram(tp_data, quiet=False):
 
     counts, bins = np.histogram(channels, bins=np.arange(0.5, 3072.5, 1))
     total_counts = np.sum(counts)
-    if (!quiet):
+    if (not quiet):
         print("High TP Count Channels:", np.where(counts >= 500))
         print("Percentage Counts:", np.where(counts >= 0.01*total_counts))
 
@@ -115,6 +115,8 @@ def parse():
     parser = argparse.ArgumentParser(description="Display diagnostic information for TAs for a given tpstream file.")
     parser.add_argument("filename", help="Absolute path to tpstream file to display.")
     parser.add_argument("--quiet", action="store_true", help="Stops the output of printed information. Default: False.")
+    parser.add_argument("--start-frag", type=int, help="Fragment to start loading from (inclusive); can take negative integers. Default: -10", default=-10)
+    parser.add_argument("--end-frag", type=int, help="Fragment to stop loading at (exclusive); can take negative integers. Default: 0", default=0)
 
     return parser.parse_args()
 
@@ -123,16 +125,21 @@ def main():
     args = parse()
     filename = args.filename
     quiet = args.quiet
+    start_frag = args.start_frag
+    end_frag = args.end_frag
 
     data = trgtools.TPData(filename, quiet)
-    num_frags = 10
-    frag_paths = data.get_tp_frag_paths()
-    for path in frag_paths[-1*num_frags:]:
-        if (!quiet):
+    if end_frag == 0: # Ex: [-10:0] is bad.
+        frag_paths = data.get_tp_frag_paths()[start_frag:]
+    else:
+        frag_paths = data.get_tp_frag_paths()[start_frag:end_frag]
+
+    for path in frag_paths:
+        if (not quiet):
             print(path)
         data.load_frag(path)
 
-    if (!quiet):
+    if (not quiet):
         print("Length of tp_data:", len(data.tp_data))
     tp_channel_histogram(data.tp_data, quiet)
     channel_tot(data.tp_data)
