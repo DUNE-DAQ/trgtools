@@ -181,13 +181,6 @@ class TAData:
 
         return frag_ta_data, frag_tp_data
 
-    def _filter_frags(self) -> None:
-        """
-        Filters the empty arrays in ta_data using the nonempty
-        fragments mask.
-        """
-        self.ta_data = self.ta_data[self._nonempty_frags_mask]
-
     def load_all_frags(self) -> None:
         """
         Load all fragments.
@@ -202,5 +195,3 @@ class TAData:
                 miscount += 1
         if miscount != 0 and not self._quiet:
             print(self._FAIL_TEXT_COLOR + self._BOLD_TEXT + f"WARNING: Skipped {miscount} frags." + self._END_TEXT_COLOR)
-            print(self._WARNING_TEXT_COLOR + "INFO: Filtering skipped fragments." + self._END_TEXT_COLOR)
-            self._filter_frags()
