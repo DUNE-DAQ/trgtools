@@ -67,20 +67,19 @@ class TPData:
 
         Returns an np.ndarray of dtype self.tp_dt.
         """
-        tp = self._h5_file.get_frag(frag_path)
+        frag = self._h5_file.get_frag(frag_path)
 
-        data_size = tp.get_data_size()
+        data_size = frag.get_data_size()
         tp_size = trgdataformats.TriggerPrimitive.sizeof()
         num_tps = data_size // tp_size
         if (not self._quiet):
             print(f"Loaded frag with {num_tps} TPs.")
 
-        # TODO: Change name to frag_data since this object is all TPs in a frag
-        np_tp_datum = np.zeros((num_tps,), dtype=self.tp_dt)
-        for idx, tp_idx in enumerate(range(0, data_size, tp_size)):
-            tp_datum = trgdataformats.TriggerPrimitive(tp.get_data(tp_idx))
+        np_tp_data = np.zeros((num_tps,), dtype=self.tp_dt)
+        for idx, byte_idx in enumerate(range(0, data_size, tp_size)): # Increment by TP size
+            tp_datum = trgdataformats.TriggerPrimitive(frag.get_data(byte_idx))
 
-            np_tp_datum[idx] = np.array([(
+            np_tp_data[idx] = np.array([(
                                         tp_datum.adc_integral,
                                         tp_datum.adc_peak,
                                         tp_datum.algorithm,
@@ -93,9 +92,9 @@ class TPData:
                                         tp_datum.type,
                                         tp_datum.version)],
                                         dtype=self.tp_dt)
-        self.tp_data.append(np_tp_datum)
+        self.tp_data.append(np_tp_data)
 
-        return np_tp_datum
+        return np_tp_data
 
     def load_all_frags(self) -> None:
         """
