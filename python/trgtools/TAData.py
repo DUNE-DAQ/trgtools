@@ -121,7 +121,7 @@ class TAData:
                 print(self._WARNING_TEXT_COLOR + self._BOLD_TEXT + f"INFO: Fragment Path: {frag_path}" + self._END_TEXT_COLOR)
             if index != None:
                 self._nonempty_frags_mask[index] = False
-            return np.zeros((0,), dtype=self.ta_dt), np.zeros((0,), dtype=self.tp_dt)
+            return list(), list()
         if index == None:
             index = self._frag_paths.index(frag_path)
 
