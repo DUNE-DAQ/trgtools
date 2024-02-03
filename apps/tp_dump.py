@@ -9,6 +9,7 @@ import argparse
 
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.backends.backend_pdf import PdfPages
 
 import trgtools
 
@@ -111,12 +112,86 @@ def tp_channel_histogram(tp_data, quiet=False):
     plt.savefig("tp_channel_histogram.svg")
     plt.close()
 
+def plot_summary_stats(tp_data, no_anomaly=False, quiet=False):
+    """
+    Plot summary statistics on the various TP member data.
+    Displays as box plots on multiple pages of a PDF.
+    """
+    # 'Sanity' titles _should_ all be the same value.
+    titles = {
+                'adc_integral': "ADC Integral Summary",
+                'adc_peak': "ADC Peak Summary",
+                'algorithm': "Algorithm (Sanity) Summary",
+                'channel': "Channel Summary",
+                'detid': "Detector ID (Sanity) Summary",
+                'flag': "Flag (Sanity) Summary",
+                'time_over_threshold': "Time Over Threshold Summary",
+                'time_peak': "Time Peak Summary",
+                'time_start': "Time Start Summary",
+                'type': "Type (Sanity) Summary",
+                'version': "Version (Sanity) Summary"
+             }
+
+    anomaly_filename = 'anomaly_summary.txt'
+
+    if not no_anomaly:
+        if not quiet:
+            print(f"Writing descriptive statistics to {anomaly_filename}.")
+        import os
+        from scipy import stats # Only used when writing to file.
+        if os.path.isfile(anomaly_filename):
+            # Prepare a new anomaly_summary.txt
+            os.remove(anomaly_filename)
+
+    with PdfPages("tp_summary_stats.pdf") as pdf:
+        for tp_key, title in titles.items():
+            plot_data = []
+            for frag_data in tp_data:
+                plot_data = plot_data + list(frag_data[tp_key])
+            plot_data = np.array(plot_data)
+            plt.figure(figsize=(6,4))
+            ax = plt.gca()
+
+            plt.boxplot(plot_data, notch=True, vert=False, sym='+')
+            plt.yticks([])
+            ax.xaxis.grid(True)
+
+            plt.title(title)
+
+            pdf.savefig()
+            plt.close()
+
+            # Write anomalies to file.
+            if not no_anomaly:
+                if "Sanity" in title and np.all(plot_data == plot_data[0]):
+                    # Either passed check or all wrong in the same way.
+                    continue
+                summary = stats.describe(plot_data)
+                std = np.sqrt(summary.variance)
+                with open(anomaly_filename, 'a') as out:
+                    out.write(f"{title}\n")
+                    out.write(f"Reference Statistics:\n"            \
+                              f"\tTotal # TPs = {summary.nobs},\n"  \
+                              f"\tMean = {summary.mean:.2f},\n"     \
+                              f"\tStd = {std:.2f},\n"               \
+                              f"\tMin = {summary.minmax[0]},\n"     \
+                              f"\tMax = {summary.minmax[1]}.\n")
+                    std3_count = np.sum(plot_data > summary.mean + 3*std) \
+                               + np.sum(plot_data < summary.mean - 3*std)
+                    std2_count = np.sum(plot_data > summary.mean + 2*std) \
+                               + np.sum(plot_data < summary.mean - 2*std)
+                    out.write(f"Anomalies:\n"                           \
+                              f"\t# of >3 Sigma TPs = {std3_count},\n"  \
+                              f"\t# of >2 Sigma TPs = {std2_count}.\n")
+                    out.write("\n\n")
+
 def parse():
     parser = argparse.ArgumentParser(description="Display diagnostic information for TAs for a given tpstream file.")
     parser.add_argument("filename", help="Absolute path to tpstream file to display.")
     parser.add_argument("--quiet", action="store_true", help="Stops the output of printed information. Default: False.")
     parser.add_argument("--start-frag", type=int, help="Fragment to start loading from (inclusive); can take negative integers. Default: -10", default=-10)
     parser.add_argument("--end-frag", type=int, help="Fragment to stop loading at (exclusive); can take negative integers. Default: 0", default=0)
+    parser.add_argument("--no-anomaly", action="store_true", help="Pass to not write 'anomaly_summary.txt. Default: False.")
 
     return parser.parse_args()
 
@@ -127,6 +202,7 @@ def main():
     quiet = args.quiet
     start_frag = args.start_frag
     end_frag = args.end_frag
+    no_anomaly = args.no_anomaly
 
     data = trgtools.TPData(filename, quiet)
     if end_frag == 0: # Ex: [-10:0] is bad.
@@ -144,6 +220,7 @@ def main():
     tp_channel_histogram(data.tp_data, quiet)
     channel_tot(data.tp_data)
     tp_percent_histogram(data.tp_data)
+    plot_summary_stats(data.tp_data, no_anomaly, quiet)
 
 if __name__ == "__main__":
     main()
