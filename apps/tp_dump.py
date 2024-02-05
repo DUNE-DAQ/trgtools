@@ -132,7 +132,7 @@ def plot_summary_stats(tp_data, no_anomaly=False, quiet=False):
                 'version': "Version (Sanity) Summary"
              }
 
-    anomaly_filename = 'anomaly_summary.txt'
+    anomaly_filename = 'tp_anomaly_summary.txt'
 
     if not no_anomaly:
         if not quiet:

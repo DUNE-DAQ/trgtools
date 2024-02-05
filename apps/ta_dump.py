@@ -136,7 +136,7 @@ def plot_summary_stats(ta_data, no_anomaly=False, quiet=False):
                 'time_start': "Time Start Summary",
                 'type': "Type (Sanity) Summary"
              }
-    anomaly_filename = 'anomaly_summary.txt'
+    anomaly_filename = 'ta_anomaly_summary.txt'
 
     if not no_anomaly:
         if not quiet:
