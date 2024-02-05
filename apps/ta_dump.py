@@ -116,6 +116,82 @@ def adc_integral_hist(adc_integrals):
     plt.savefig("adc_integral_histogram.svg")
     plt.close()
 
+def plot_summary_stats(ta_data, no_anomaly=False, quiet=False):
+    """
+    Plot summary statistics on various TA member data.
+    Displays as box plots on multiple pages of a PDF.
+    """
+    # 'Sanity' titles _should_ all be the same value.
+    titles = {
+                'adc_integral': "ADC Integral Summary",
+                'adc_peak': "ADC Peak Summary",
+                'algorithm': "Algorithm (Sanity) Summary",
+                'channel_end': "Channel End Summary",
+                'channel_peak': "Channel Peak Summary",
+                'channel_start': "Channel Start Summary",
+                'detid': "Detector ID (Sanity) Summary",
+                'num_tps': "Number of TPs Summary",
+                'time_end': "Time End Summary",
+                'time_peak': "Time Peak Summary",
+                'time_start': "Time Start Summary",
+                'type': "Type (Sanity) Summary"
+             }
+    anomaly_filename = 'anomaly_summary.txt'
+
+    if not no_anomaly:
+        if not quiet:
+            print(f"Writing descriptive statistics to {anomaly_filename}.")
+        import os
+        from scipy import stats
+        if os.path.isfile(anomaly_filename):
+            # Prepare a new anomaly_summary.txt
+            os.remove(anomaly_filename)
+
+    with PdfPages("ta_summary_stats.pdf") as pdf:
+        for ta_key, title in titles.items():
+            plot_data = []
+            for frag_data in ta_data:
+                for ta in frag_data:
+                    plot_data = plot_data + list(ta[ta_key])
+            plot_data = np.array(plot_data)
+
+            plt.figure(figsize=(6,4))
+            ax = plt.gca()
+
+            plt.boxplot(plot_data, notch=True, vert=False, sym='+')
+            plt.yticks([]) # Would just show '1'.
+            ax.xaxis.grid(True)
+
+            plt.title(title)
+
+            pdf.savefig()
+            plt.close()
+
+            # Write anomalies to file.
+            if not no_anomaly:
+                if "Sanity" in title and np.all(plot_data == plot_data[0]):
+                    # Either passed check or all wrong in the same way.
+                    continue
+                summary = stats.describe(plot_data)
+                std = np.sqrt(summary.variance)
+                with open(anomaly_filename, 'a') as out:
+                    out.write(f"{title}\n")
+                    out.write(f"Reference Statistics:\n"            \
+                              f"\tTotal # TAs = {summary.nobs},\n"  \
+                              f"\tMean = {summary.mean:.2f},\n"     \
+                              f"\tStd = {std:.2f},\n"               \
+                              f"\tMin = {summary.minmax[0]},\n"     \
+                              f"\tMax = {summary.minmax[1]}.\n")
+                    std3_count = np.sum(plot_data > summary.mean + 3*std) \
+                               + np.sum(plot_data < summary.mean - 3*std)
+                    std2_count = np.sum(plot_data > summary.mean + 2*std) \
+                               + np.sum(plot_data < summary.mean - 2*std)
+                    out.write(f"Anomalies:\n"                           \
+                              f"\t# of >3 Sigma TAs = {std3_count},\n"  \
+                              f"\t# of >2 Sigma TAs = {std2_count}.\n")
+                    out.write("\n\n")
+
+
 def all_event_displays(tp_data, run_id, sub_run_id):
     """
     Plot all event_displays as pages in a PDF.
@@ -192,6 +268,7 @@ def parse():
     parser.add_argument("--no-displays", action="store_true", help="Stops the processing of event displays.")
     parser.add_argument("--start-frag", type=int, help="Starting fragment index to process from. Takes negative indexing. Default: -10.", default=-10)
     parser.add_argument("--end-frag", type=int, help="Fragment index to stop processing (i.e. not inclusive). Takes negative indexing. Default: 0.", default=0)
+    parser.add_argument("--no-anomaly", action="store_true", help="Pass to not write 'anomaly_summary.txt. Default: False.")
 
     return parser.parse_args()
 
@@ -203,6 +280,7 @@ def main():
     no_displays = args.no_displays
     start_frag = args.start_frag
     end_frag = args.end_frag
+    no_anomaly = args.no_anomaly
 
     diagnostics = {
                     "num_tps": [],
@@ -254,6 +332,7 @@ def main():
     adc_integral_hist(diagnostics["adc_integral"])
     time_start_plot(np.array(diagnostics["time_start"]).flatten())
     time_diff_hist(np.array(diagnostics["time_start"]).flatten(), np.array(diagnostics["time_end"]).flatten())
+    plot_summary_stats(data.ta_data, no_anomaly, quiet)
 
     if (not no_displays):
         all_event_displays(data.tp_data, run_id, sub_run_id)
