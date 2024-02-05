@@ -136,6 +136,21 @@ def plot_summary_stats(ta_data, no_anomaly=False, quiet=False):
                 'time_start': "Time Start Summary",
                 'type': "Type (Sanity) Summary"
              }
+    labels = {
+                'adc_integral': "ADC Integral",
+                'adc_peak': "ADC Count",
+                'algorithm': "",
+                'channel_end': "Channel Number",
+                'channel_peak': "Channel Number",
+                'channel_start': "Channel Number",
+                'detid': "",
+                'num_tps': "TP Count",
+                'time_end': "Ticks",
+                'time_peak': "Ticks",
+                'time_start': "Ticks",
+                'type': ""
+             }
+
     anomaly_filename = 'ta_anomaly_summary.txt'
 
     if not no_anomaly:
@@ -161,6 +176,7 @@ def plot_summary_stats(ta_data, no_anomaly=False, quiet=False):
             plt.boxplot(plot_data, notch=True, vert=False, sym='+')
             plt.yticks([]) # Would just show '1'.
             ax.xaxis.grid(True)
+            plt.xlabel(labels[ta_key])
 
             plt.title(title)
 
