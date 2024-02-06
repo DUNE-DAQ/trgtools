@@ -116,6 +116,34 @@ def adc_integral_hist(adc_integrals):
     plt.savefig("adc_integral_histogram.svg")
     plt.close()
 
+def plot_time_window_summary(ta_data, tp_data, quiet=False):
+    """
+    Plot summary statistics on time windows.
+
+    This uses 2 definitions for time windows:
+        Direct Diff: max(tp.time_start) - ta.time_start,
+        Max Diff: max(tp.time_start + tp.time_over_threshold) - ta.time_start
+    """
+    direct_diff = []
+    max_diff = []
+
+    for ta_frag, tp_frag in zip(ta_data, tp_data):
+        for ta, tps in zip(ta_frag, tp_frag):
+            direct_diff += list(np.max(tps['time_start']) - ta['time_start'])
+            max_diff += list(np.max(tps['time_start'] + tps['time_over_threshold']) - ta['time_start'])
+    direct_diff = np.array(direct_diff)
+    max_diff = np.array(max_diff)
+
+    plt.figure(figsize=(6,4))
+    plt.boxplot((direct_diff, max_diff), notch=True, vert=False, sym='+', labels=["Direct Difference", "Maximum Difference"])
+
+    plt.title("TA Time Windows Summary")
+    plt.xlabel("Ticks")
+
+    plt.tight_layout()
+    plt.savefig("ta_time_windows_summary.svg")
+    plt.close()
+
 def plot_summary_stats(ta_data, no_anomaly=False, quiet=False):
     """
     Plot summary statistics on various TA member data.
@@ -348,6 +376,7 @@ def main():
     adc_integral_hist(diagnostics["adc_integral"])
     time_start_plot(np.array(diagnostics["time_start"]).flatten())
     time_diff_hist(np.array(diagnostics["time_start"]).flatten(), np.array(diagnostics["time_end"]).flatten())
+    plot_time_window_summary(data.ta_data, data.tp_data, quiet)
     plot_summary_stats(data.ta_data, no_anomaly, quiet)
 
     if (not no_displays):
