@@ -73,7 +73,6 @@ def algorithm_hist(algorithms):
     num_tas = len(algorithms)
     plt.figure(figsize=(12,8))
     plt.hist(np.array(algorithms).flatten(), bins=np.arange(-0.5, 8, 1), range=(0,7), align='mid', color='k', label=f"Number of TAs: {num_tas}")
-    print(f"Number of TAs: {num_tas}") # Enforcing output for useful metric
 
     plt.title("TA Algorithm Histogram")
     plt.xticks(ticks=range(0,8), labels=("Unknown",
@@ -197,6 +196,7 @@ def plot_summary_stats(ta_data, no_anomaly=False, quiet=False):
 
     with PdfPages("ta_summary_stats.pdf") as pdf:
         for ta_key, title in titles.items():
+            # Extract only ta_key
             plot_data = []
             for frag_data in ta_data:
                 for ta in frag_data:
@@ -253,11 +253,12 @@ def all_event_displays(tp_data, run_id, sub_run_id):
 
                 plt.scatter(ta['time_peak'], ta['channel'], c='k', s=2)
 
+                # Auto limits were too wide; this narrows it.
                 max_time = np.max(ta['time_peak'])
                 min_time = np.min(ta['time_peak'])
                 time_diff = max_time - min_time
-
                 plt.xlim((min_time - 0.1*time_diff, max_time + 0.1*time_diff))
+
                 plt.title(f'Run {run_id}.{sub_run_id:04} Event Display: {fdx:03}.{tadx:03}')
                 plt.xlabel("Peak Time")
                 plt.ylabel("Channel")
@@ -376,6 +377,7 @@ def main():
 
     if (not quiet):
         print(f"Number of Fragments: {len(data.ta_data)}")
+    print(f"Number of TAs: {len(diagnostics['algorithm'])}") # Enforcing output for useful metric
 
     ## Plotting
     num_tps_hist(diagnostics["num_tps"])

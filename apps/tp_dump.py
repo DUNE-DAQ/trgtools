@@ -40,6 +40,7 @@ def channel_tot(tp_data):
     plt.ylabel("Time Over Threshold (Ticks)")
     plt.legend()
 
+    # Text of the channels with high counts
     #plt.annotate(f"High ToT Channels: {np.unique(hot_channels)}", xy=(750, 7250), va="center", ha="center", fontsize=8)
 
     plt.tight_layout()
@@ -160,6 +161,7 @@ def plot_summary_stats(tp_data, no_anomaly=False, quiet=False):
 
     with PdfPages("tp_summary_stats.pdf") as pdf:
         for tp_key, title in titles.items():
+            # Extract only ta_key
             plot_data = []
             for frag_data in tp_data:
                 plot_data = plot_data + list(frag_data[tp_key])
