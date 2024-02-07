@@ -77,6 +77,7 @@ def tp_percent_histogram(tp_data):
 
     plt.title(f"Number of Channels Contributing % To Total Count {total_counts}")
 
+    plt.tight_layout()
     plt.savefig("percent_total.svg")
     plt.close()
 
@@ -109,6 +110,7 @@ def tp_channel_histogram(tp_data, quiet=False):
 
     plt.ylim((0, 800))
 
+    plt.tight_layout()
     plt.savefig("tp_channel_histogram.svg")
     plt.close()
 
@@ -172,6 +174,7 @@ def plot_summary_stats(tp_data, no_anomaly=False, quiet=False):
 
             plt.title(title)
 
+            plt.tight_layout()
             pdf.savefig()
             plt.close()
 

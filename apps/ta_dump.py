@@ -25,6 +25,7 @@ def window_length_hist(window_lengths):
     plt.title("TA Time Window Length Histogram")
     plt.xlabel("Time Window Length (s)")
 
+    plt.tight_layout()
     plt.savefig("window_length_histogram.svg")
     plt.close()
 
@@ -38,6 +39,7 @@ def num_tps_hist(num_tps):
     plt.title("Number of TPs Histogram")
     plt.xlabel("Number of TPs")
 
+    plt.tight_layout()
     plt.savefig("num_tps_histogram.svg")
     plt.close()
 
@@ -60,6 +62,7 @@ def time_start_plot(start_times, frag_index=-1):
 
     plt.legend()
 
+    plt.tight_layout()
     plt.savefig("start_times.svg")
     plt.close()
 
@@ -100,6 +103,7 @@ def det_type_hist(det_types):
                                          "TPC",
                                          "PDS"), rotation=60)
 
+    plt.tight_layout()
     plt.savefig("det_types_histogram.svg")
     plt.close()
 
@@ -113,6 +117,7 @@ def adc_integral_hist(adc_integrals):
     plt.title("TA ADC Integral Histogram")
     plt.xlabel("ADC Integral")
 
+    plt.tight_layout()
     plt.savefig("adc_integral_histogram.svg")
     plt.close()
 
@@ -208,6 +213,7 @@ def plot_summary_stats(ta_data, no_anomaly=False, quiet=False):
 
             plt.title(title)
 
+            plt.tight_layout()
             pdf.savefig()
             plt.close()
 
@@ -256,6 +262,7 @@ def all_event_displays(tp_data, run_id, sub_run_id):
                 plt.xlabel("Peak Time")
                 plt.ylabel("Channel")
 
+                plt.tight_layout()
                 pdf.savefig()
                 plt.close()
 
@@ -279,6 +286,7 @@ def time_diff_hist(start_times, end_times):
     plt.xlabel("Seconds")
     plt.legend()
 
+    plt.tight_layout()
     plt.savefig("ta_timings_histogram.svg")
     plt.close()
 
@@ -299,6 +307,7 @@ def event_display(peak_times, channels, idx):
     plt.xlabel("Peak Time")
     plt.ylabel("Channel")
 
+    plt.tight_layout()
     plt.savefig(f"./event_display_{idx:03}.svg")
     plt.close()
 
