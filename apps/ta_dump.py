@@ -25,6 +25,7 @@ def window_length_hist(window_lengths):
     plt.title("TA Time Window Length Histogram")
     plt.xlabel("Time Window Length (s)")
 
+    plt.tight_layout()
     plt.savefig("window_length_histogram.svg")
     plt.close()
 
@@ -38,6 +39,7 @@ def num_tps_hist(num_tps):
     plt.title("Number of TPs Histogram")
     plt.xlabel("Number of TPs")
 
+    plt.tight_layout()
     plt.savefig("num_tps_histogram.svg")
     plt.close()
 
@@ -60,6 +62,7 @@ def time_start_plot(start_times, frag_index=-1):
 
     plt.legend()
 
+    plt.tight_layout()
     plt.savefig("start_times.svg")
     plt.close()
 
@@ -70,7 +73,6 @@ def algorithm_hist(algorithms):
     num_tas = len(algorithms)
     plt.figure(figsize=(12,8))
     plt.hist(np.array(algorithms).flatten(), bins=np.arange(-0.5, 8, 1), range=(0,7), align='mid', color='k', label=f"Number of TAs: {num_tas}")
-    print(f"Number of TAs: {num_tas}") # Enforcing output for useful metric
 
     plt.title("TA Algorithm Histogram")
     plt.xticks(ticks=range(0,8), labels=("Unknown",
@@ -100,6 +102,7 @@ def det_type_hist(det_types):
                                          "TPC",
                                          "PDS"), rotation=60)
 
+    plt.tight_layout()
     plt.savefig("det_types_histogram.svg")
     plt.close()
 
@@ -113,8 +116,131 @@ def adc_integral_hist(adc_integrals):
     plt.title("TA ADC Integral Histogram")
     plt.xlabel("ADC Integral")
 
+    plt.tight_layout()
     plt.savefig("adc_integral_histogram.svg")
     plt.close()
+
+def plot_time_window_summary(ta_data, tp_data, quiet=False):
+    """
+    Plot summary statistics on time windows.
+
+    This uses 2 definitions for time windows:
+        Direct Diff: max(tp.time_start) - ta.time_start,
+        Max Diff: max(tp.time_start + tp.time_over_threshold) - ta.time_start
+    """
+    direct_diff = []
+    max_diff = []
+
+    for ta_frag, tp_frag in zip(ta_data, tp_data):
+        for ta, tps in zip(ta_frag, tp_frag):
+            direct_diff += list(np.max(tps['time_start']) - ta['time_start'])
+            max_diff += list(np.max(tps['time_start'] + tps['time_over_threshold']) - ta['time_start'])
+    direct_diff = np.array(direct_diff)
+    max_diff = np.array(max_diff)
+
+    plt.figure(figsize=(6,4))
+    plt.boxplot((direct_diff, max_diff), notch=True, vert=False, sym='+', labels=["Direct Difference", "Maximum Difference"])
+
+    plt.title("TA Time Windows Summary")
+    plt.xlabel("Ticks")
+
+    plt.tight_layout()
+    plt.savefig("ta_time_windows_summary.svg")
+    plt.close()
+
+def plot_summary_stats(ta_data, no_anomaly=False, quiet=False):
+    """
+    Plot summary statistics on various TA member data.
+    Displays as box plots on multiple pages of a PDF.
+    """
+    # 'Sanity' titles _should_ all be the same value.
+    titles = {
+                'adc_integral': "ADC Integral Summary",
+                'adc_peak': "ADC Peak Summary",
+                'algorithm': "Algorithm (Sanity) Summary",
+                'channel_end': "Channel End Summary",
+                'channel_peak': "Channel Peak Summary",
+                'channel_start': "Channel Start Summary",
+                'detid': "Detector ID (Sanity) Summary",
+                'num_tps': "Number of TPs Summary",
+                'time_end': "Time End Summary",
+                'time_peak': "Time Peak Summary",
+                'time_start': "Time Start Summary",
+                'type': "Type (Sanity) Summary"
+             }
+    labels = {
+                'adc_integral': "ADC Integral",
+                'adc_peak': "ADC Count",
+                'algorithm': "",
+                'channel_end': "Channel Number",
+                'channel_peak': "Channel Number",
+                'channel_start': "Channel Number",
+                'detid': "",
+                'num_tps': "TP Count",
+                'time_end': "Ticks",
+                'time_peak': "Ticks",
+                'time_start': "Ticks",
+                'type': ""
+             }
+
+    anomaly_filename = 'ta_anomaly_summary.txt'
+
+    if not no_anomaly:
+        if not quiet:
+            print(f"Writing descriptive statistics to {anomaly_filename}.")
+        import os
+        from scipy import stats
+        if os.path.isfile(anomaly_filename):
+            # Prepare a new ta_anomaly_summary.txt
+            os.remove(anomaly_filename)
+
+    with PdfPages("ta_summary_stats.pdf") as pdf:
+        for ta_key, title in titles.items():
+            # Extract only ta_key
+            plot_data = []
+            for frag_data in ta_data:
+                for ta in frag_data:
+                    plot_data = plot_data + list(ta[ta_key])
+            plot_data = np.array(plot_data)
+
+            plt.figure(figsize=(6,4))
+            ax = plt.gca()
+
+            plt.boxplot(plot_data, notch=True, vert=False, sym='+')
+            plt.yticks([]) # Would just show '1'.
+            ax.xaxis.grid(True)
+            plt.xlabel(labels[ta_key])
+
+            plt.title(title)
+
+            plt.tight_layout()
+            pdf.savefig()
+            plt.close()
+
+            # Write anomalies to file.
+            if not no_anomaly:
+                if "Sanity" in title and np.all(plot_data == plot_data[0]):
+                    # Either passed check or all wrong in the same way.
+                    continue
+                summary = stats.describe(plot_data)
+                std = np.sqrt(summary.variance)
+                with open(anomaly_filename, 'a') as out:
+                    out.write(f"{title}\n")
+                    out.write(f"Reference Statistics:\n"            \
+                              f"\tTotal # TAs = {summary.nobs},\n"  \
+                              f"\tMean = {summary.mean:.2f},\n"     \
+                              f"\tStd = {std:.2f},\n"               \
+                              f"\tMin = {summary.minmax[0]},\n"     \
+                              f"\tMax = {summary.minmax[1]}.\n")
+                    std3_count = np.sum(plot_data > summary.mean + 3*std) \
+                               + np.sum(plot_data < summary.mean - 3*std)
+                    std2_count = np.sum(plot_data > summary.mean + 2*std) \
+                               + np.sum(plot_data < summary.mean - 2*std)
+                    out.write(f"Anomalies:\n"                           \
+                              f"\t# of >3 Sigma TAs = {std3_count},\n"  \
+                              f"\t# of >2 Sigma TAs = {std2_count}.\n")
+                    out.write("\n\n")
+
 
 def all_event_displays(tp_data, run_id, sub_run_id):
     """
@@ -127,15 +253,17 @@ def all_event_displays(tp_data, run_id, sub_run_id):
 
                 plt.scatter(ta['time_peak'], ta['channel'], c='k', s=2)
 
+                # Auto limits were too wide; this narrows it.
                 max_time = np.max(ta['time_peak'])
                 min_time = np.min(ta['time_peak'])
                 time_diff = max_time - min_time
-
                 plt.xlim((min_time - 0.1*time_diff, max_time + 0.1*time_diff))
+
                 plt.title(f'Run {run_id}.{sub_run_id:04} Event Display: {fdx:03}.{tadx:03}')
                 plt.xlabel("Peak Time")
                 plt.ylabel("Channel")
 
+                plt.tight_layout()
                 pdf.savefig()
                 plt.close()
 
@@ -159,6 +287,7 @@ def time_diff_hist(start_times, end_times):
     plt.xlabel("Seconds")
     plt.legend()
 
+    plt.tight_layout()
     plt.savefig("ta_timings_histogram.svg")
     plt.close()
 
@@ -179,6 +308,7 @@ def event_display(peak_times, channels, idx):
     plt.xlabel("Peak Time")
     plt.ylabel("Channel")
 
+    plt.tight_layout()
     plt.savefig(f"./event_display_{idx:03}.svg")
     plt.close()
 
@@ -192,6 +322,7 @@ def parse():
     parser.add_argument("--no-displays", action="store_true", help="Stops the processing of event displays.")
     parser.add_argument("--start-frag", type=int, help="Starting fragment index to process from. Takes negative indexing. Default: -10.", default=-10)
     parser.add_argument("--end-frag", type=int, help="Fragment index to stop processing (i.e. not inclusive). Takes negative indexing. Default: 0.", default=0)
+    parser.add_argument("--no-anomaly", action="store_true", help="Pass to not write 'ta_anomaly_summary.txt'. Default: False.")
 
     return parser.parse_args()
 
@@ -203,6 +334,7 @@ def main():
     no_displays = args.no_displays
     start_frag = args.start_frag
     end_frag = args.end_frag
+    no_anomaly = args.no_anomaly
 
     diagnostics = {
                     "num_tps": [],
@@ -245,6 +377,7 @@ def main():
 
     if (not quiet):
         print(f"Number of Fragments: {len(data.ta_data)}")
+    print(f"Number of TAs: {len(diagnostics['algorithm'])}") # Enforcing output for useful metric
 
     ## Plotting
     num_tps_hist(diagnostics["num_tps"])
@@ -254,6 +387,8 @@ def main():
     adc_integral_hist(diagnostics["adc_integral"])
     time_start_plot(np.array(diagnostics["time_start"]).flatten())
     time_diff_hist(np.array(diagnostics["time_start"]).flatten(), np.array(diagnostics["time_end"]).flatten())
+    plot_time_window_summary(data.ta_data, data.tp_data, quiet)
+    plot_summary_stats(data.ta_data, no_anomaly, quiet)
 
     if (not no_displays):
         all_event_displays(data.tp_data, run_id, sub_run_id)
