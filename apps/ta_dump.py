@@ -191,7 +191,7 @@ def plot_summary_stats(ta_data, no_anomaly=False, quiet=False):
         import os
         from scipy import stats
         if os.path.isfile(anomaly_filename):
-            # Prepare a new anomaly_summary.txt
+            # Prepare a new ta_anomaly_summary.txt
             os.remove(anomaly_filename)
 
     with PdfPages("ta_summary_stats.pdf") as pdf:
@@ -322,7 +322,7 @@ def parse():
     parser.add_argument("--no-displays", action="store_true", help="Stops the processing of event displays.")
     parser.add_argument("--start-frag", type=int, help="Starting fragment index to process from. Takes negative indexing. Default: -10.", default=-10)
     parser.add_argument("--end-frag", type=int, help="Fragment index to stop processing (i.e. not inclusive). Takes negative indexing. Default: 0.", default=0)
-    parser.add_argument("--no-anomaly", action="store_true", help="Pass to not write 'anomaly_summary.txt. Default: False.")
+    parser.add_argument("--no-anomaly", action="store_true", help="Pass to not write 'ta_anomaly_summary.txt'. Default: False.")
 
     return parser.parse_args()
 

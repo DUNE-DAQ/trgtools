@@ -8,6 +8,8 @@ One can specify which fragments to _attempt_ to load from with the `--start-frag
 
 Event displays are processed by default. If there are many TAs that were loaded, then this may take a while to plot. The `--no-display` options skips event display plotting.
 
+A text file named `ta_anomaly_summary.txt` is generated that gives reference statistics for each TA data member and gives a count of data members that are at least 2 sigma and 3 sigma from the mean. One can use `--no-anomaly` to stop this file generation.
+
 ## Example
 ```bash
 python ta_dump.py file.hdf5
@@ -15,6 +17,7 @@ python ta_dump.py file.hdf5 --help
 python ta_dump.py file.hdf5 --quiet
 python ta_dump.py file.hdf5 --start-frag 50 --end-frag 100 # Attempts 50 fragments
 python ta_dump.py file.hdf5 --no-display
+python ta_dump.py file.hdf5 --no-anomaly
 ```
 
 ## Run Numbers & File Naming

@@ -156,7 +156,7 @@ def plot_summary_stats(tp_data, no_anomaly=False, quiet=False):
         import os
         from scipy import stats # Only used when writing to file.
         if os.path.isfile(anomaly_filename):
-            # Prepare a new anomaly_summary.txt
+            # Prepare a new tp_anomaly_summary.txt
             os.remove(anomaly_filename)
 
     with PdfPages("tp_summary_stats.pdf") as pdf:
@@ -210,7 +210,7 @@ def parse():
     parser.add_argument("--quiet", action="store_true", help="Stops the output of printed information. Default: False.")
     parser.add_argument("--start-frag", type=int, help="Fragment to start loading from (inclusive); can take negative integers. Default: -10", default=-10)
     parser.add_argument("--end-frag", type=int, help="Fragment to stop loading at (exclusive); can take negative integers. Default: 0", default=0)
-    parser.add_argument("--no-anomaly", action="store_true", help="Pass to not write 'anomaly_summary.txt. Default: False.")
+    parser.add_argument("--no-anomaly", action="store_true", help="Pass to not write 'tp_anomaly_summary.txt'. Default: False.")
 
     return parser.parse_args()
 
