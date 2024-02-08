@@ -10,10 +10,11 @@ import argparse
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
+from scipy import stats
 
 import trgtools
 
-TICK_TO_SEC_SCALE = 512e-9 # secs per tick
+TICK_TO_SEC_SCALE = 16e-9 # secs per tick
 
 def channel_tot(tp_data):
     """
@@ -249,10 +250,11 @@ def plot_adc_integral_histogram(adc_integrals, quiet=False):
     plt.savefig("tp_adc_integral_histogram.svg")
     plt.close()
 
-def write_summary_stats(data, summary, filename, title):
+def write_summary_stats(data, filename, title):
     """
     Writes the given summary statistics to 'filename'.
     """
+    summary = stats.describe(data)
     std = np.sqrt(summary.variance)
     with open(filename, 'a') as out:
         out.write(f"{title}\n")
@@ -309,8 +311,6 @@ def plot_summary_stats(tp_data, no_anomaly=False, quiet=False):
     if not no_anomaly:
         if not quiet:
             print(f"Writing descriptive statistics to {anomaly_filename}.")
-        import os
-        from scipy import stats # Only used when writing to file.
         if os.path.isfile(anomaly_filename):
             # Prepare a new tp_anomaly_summary.txt
             os.remove(anomaly_filename)
@@ -337,7 +337,7 @@ def plot_summary_stats(tp_data, no_anomaly=False, quiet=False):
                 if "Sanity" in title and np.all(tp_data[tp_key] == tp_data[tp_key][0]):
                     # Either passed check or all wrong in the same way.
                     continue
-                write_summary_stats(tp_data[tp_key], stats.describe(tp_data[tp_key]), anomaly_filename, title)
+                write_summary_stats(tp_data[tp_key], anomaly_filename, title)
 
 def parse():
     parser = argparse.ArgumentParser(description="Display diagnostic information for TAs for a given tpstream file.")
