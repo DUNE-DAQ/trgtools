@@ -10,23 +10,31 @@ import argparse
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
+from scipy import stats
 
 import trgtools
 
-TICK_TO_SEC_SCALE = 512e-9 # s per tick
+TICK_TO_SEC_SCALE = 16e-9 # s per tick
 
-def window_length_hist(window_lengths):
+def window_length_hist(window_lengths, seconds=False):
     """
     Plot a histogram of the TA window lengths.
+
+    Optionally, use ticks or seconds for scaling.
     """
+    time_unit = 'Ticks'
+    if seconds:
+        window_lengths = window_lengths * TICK_TO_SEC_SCALE
+        unit = 's'
+
     plt.figure(figsize=(6,4))
-    plt.hist(np.array(window_lengths, dtype=np.uint64).flatten() * TICK_TO_SEC_SCALE, color='k')
+    plt.hist(window_lengths, color='k')
 
     plt.title("TA Time Window Length Histogram")
-    plt.xlabel("Time Window Length (s)")
+    plt.xlabel(f"Time Window Length ({time_unit})")
 
     plt.tight_layout()
-    plt.savefig("window_length_histogram.svg")
+    plt.savefig("ta_window_length_histogram.svg")
     plt.close()
 
 def num_tps_hist(num_tps):
@@ -34,45 +42,51 @@ def num_tps_hist(num_tps):
     Plot the number of TPs for each TA as a histogram.
     """
     plt.figure(figsize=(6,4))
-    plt.hist(np.array(num_tps).flatten(), bins=50, color='k')
+    plt.hist(num_tps, bins=50, color='k')
 
     plt.title("Number of TPs Histogram")
     plt.xlabel("Number of TPs")
 
     plt.tight_layout()
-    plt.savefig("num_tps_histogram.svg")
+    plt.savefig("ta_num_tps_histogram.svg")
     plt.close()
 
-def time_start_plot(start_times, frag_index=-1):
+def time_start_plot(start_times, seconds=False):
     """
     Plot TA start times vs TA index.
+
+    Optionally, use ticks or seconds for scaling.
     """
-    first_time = start_times[0] * TICK_TO_SEC_SCALE
-    total_ticks = start_times[-1] - start_times[0]
-    total_tas = len(start_times)
-    avg_rate_ticks = total_tas / total_ticks
-    avg_rate_secs = total_tas / (total_ticks * TICK_TO_SEC_SCALE)
+    time_unit = 'Ticks'
+    if seconds:
+        start_times = start_times * TICK_TO_SEC_SCALE
+        time_unit = 's'
+
+    first_time = start_times[0]
+    total_time = start_times[-1] - start_times[0]
+    total_tas = start_times.shape[0]
+    avg_rate = total_tas / total_time
 
     plt.figure(figsize=(6,4))
-    plt.plot(np.array(start_times, dtype=np.uint64) * TICK_TO_SEC_SCALE - first_time, 'k', label=f"Average Rate: {avg_rate_secs:.3} TA/s")
+    plt.plot(start_times - first_time, 'k', label=f"Average Rate: {avg_rate:.3} TA/{time_unit}")
 
-    plt.title(f"TA Start Times: Shifted by {first_time:.4e} s")
+    plt.title(f"TA Start Times: Shifted by {first_time:.4e} {time_unit}")
     plt.xlabel("TA Order")
-    plt.ylabel("Start Time (s)")
+    plt.ylabel(f"Start Time ({time_unit})")
 
     plt.legend()
 
     plt.tight_layout()
-    plt.savefig("start_times.svg")
+    plt.savefig("ta_start_times.svg")
     plt.close()
 
 def algorithm_hist(algorithms):
     """
     Plot a histogram of the algorithm types for each TA.
     """
-    num_tas = len(algorithms)
+    num_tas = algorithms.shape[0]
     plt.figure(figsize=(12,8))
-    plt.hist(np.array(algorithms).flatten(), bins=np.arange(-0.5, 8, 1), range=(0,7), align='mid', color='k', label=f"Number of TAs: {num_tas}")
+    plt.hist(algorithms, bins=np.arange(-0.5, 8, 1), range=(0,7), align='mid', color='k', label=f"Number of TAs: {num_tas}")
 
     plt.title("TA Algorithm Histogram")
     plt.xticks(ticks=range(0,8), labels=("Unknown",
@@ -87,7 +101,7 @@ def algorithm_hist(algorithms):
     plt.legend()
 
     plt.tight_layout()
-    plt.savefig("algorithm_histogram.svg")
+    plt.savefig("ta_algorithm_histogram.svg")
     plt.close()
 
 def det_type_hist(det_types):
@@ -95,7 +109,7 @@ def det_type_hist(det_types):
     Plot a histogram of the detector type for the TAs.
     """
     plt.figure(figsize=(12,8))
-    plt.hist(np.array(det_types).flatten(), bins=np.arange(-0.5, 3, 1), range=(0,2), align='mid', color='k')
+    plt.hist(det_types, bins=np.arange(-0.5, 3, 1), range=(0,2), align='mid', color='k')
 
     plt.title("TA Detector Type Histogram")
     plt.xticks(ticks=range(0,3), labels=("Unknown",
@@ -103,7 +117,7 @@ def det_type_hist(det_types):
                                          "PDS"), rotation=60)
 
     plt.tight_layout()
-    plt.savefig("det_types_histogram.svg")
+    plt.savefig("ta_det_types_histogram.svg")
     plt.close()
 
 def adc_integral_hist(adc_integrals):
@@ -111,16 +125,16 @@ def adc_integral_hist(adc_integrals):
     Plot a histogram of the ADC integrals for the TAs.
     """
     plt.figure(figsize=(6,4))
-    plt.hist(np.array(adc_integrals).flatten(), color='k')
+    plt.hist(adc_integrals, color='k')
 
     plt.title("TA ADC Integral Histogram")
     plt.xlabel("ADC Integral")
 
     plt.tight_layout()
-    plt.savefig("adc_integral_histogram.svg")
+    plt.savefig("ta_adc_integral_histogram.svg")
     plt.close()
 
-def plot_time_window_summary(ta_data, tp_data, quiet=False):
+def plot_time_window_summary(ta_data, tp_data, quiet=False, seconds=False):
     """
     Plot summary statistics on time windows.
 
@@ -128,25 +142,52 @@ def plot_time_window_summary(ta_data, tp_data, quiet=False):
         Direct Diff: max(tp.time_start) - ta.time_start,
         Max Diff: max(tp.time_start + tp.time_over_threshold) - ta.time_start
     """
-    direct_diff = []
-    max_diff = []
+    time_unit = 's' if seconds else 'Ticks'
 
-    for ta_frag, tp_frag in zip(ta_data, tp_data):
-        for ta, tps in zip(ta_frag, tp_frag):
-            direct_diff += list(np.max(tps['time_start']) - ta['time_start'])
-            max_diff += list(np.max(tps['time_start'] + tps['time_over_threshold']) - ta['time_start'])
-    direct_diff = np.array(direct_diff)
-    max_diff = np.array(max_diff)
+    direct_diff = np.zeros(ta_data.shape)
+    max_diff = np.zeros(ta_data.shape)
+
+    # Find the differences for each TA
+    for idx in np.arange(ta_data.shape[0]):
+        direct_diff[idx] = np.max(tp_data[idx]['time_start']) - ta_data[idx]['time_start']
+        max_diff[idx] = np.max(tp_data[idx]['time_start'] + tp_data[idx]['time_over_threshold']) - ta_data[idx]['time_start']
+
+    if seconds:
+        direct_diff = direct_diff * TICK_TO_SEC_SCALE
+        max_diff = max_diff * TICK_TO_SEC_SCALE
 
     plt.figure(figsize=(6,4))
     plt.boxplot((direct_diff, max_diff), notch=True, vert=False, sym='+', labels=["Direct Difference", "Maximum Difference"])
 
     plt.title("TA Time Windows Summary")
-    plt.xlabel("Ticks")
+    plt.xlabel(f"Time ({time_unit})")
 
     plt.tight_layout()
     plt.savefig("ta_time_windows_summary.svg")
     plt.close()
+
+def write_summary_stats(data, filename, title):
+    """
+    Writes the given summary statistics to 'filename'.
+    """
+    summary = stats.describe(data)
+    std = np.sqrt(summary.variance)
+    with open(filename, 'a') as out:
+        out.write(f"{title}\n")
+        out.write(f"Reference Statistics:\n"            \
+                  f"\tTotal # TPs = {summary.nobs},\n"  \
+                  f"\tMean = {summary.mean:.2f},\n"     \
+                  f"\tStd = {std:.2f},\n"               \
+                  f"\tMin = {summary.minmax[0]},\n"     \
+                  f"\tMax = {summary.minmax[1]}.\n")
+        std3_count = np.sum(data > summary.mean + 3*std) \
+                   + np.sum(data < summary.mean - 3*std)
+        std2_count = np.sum(data > summary.mean + 2*std) \
+                   + np.sum(data < summary.mean - 2*std)
+        out.write(f"Anomalies:\n"                           \
+                  f"\t# of >3 Sigma TPs = {std3_count},\n"  \
+                  f"\t# of >2 Sigma TPs = {std2_count}.\n")
+        out.write("\n\n")
 
 def plot_summary_stats(ta_data, no_anomaly=False, quiet=False):
     """
@@ -188,8 +229,6 @@ def plot_summary_stats(ta_data, no_anomaly=False, quiet=False):
     if not no_anomaly:
         if not quiet:
             print(f"Writing descriptive statistics to {anomaly_filename}.")
-        import os
-        from scipy import stats
         if os.path.isfile(anomaly_filename):
             # Prepare a new ta_anomaly_summary.txt
             os.remove(anomaly_filename)
@@ -197,16 +236,10 @@ def plot_summary_stats(ta_data, no_anomaly=False, quiet=False):
     with PdfPages("ta_summary_stats.pdf") as pdf:
         for ta_key, title in titles.items():
             # Extract only ta_key
-            plot_data = []
-            for frag_data in ta_data:
-                for ta in frag_data:
-                    plot_data = plot_data + list(ta[ta_key])
-            plot_data = np.array(plot_data)
-
             plt.figure(figsize=(6,4))
             ax = plt.gca()
 
-            plt.boxplot(plot_data, notch=True, vert=False, sym='+')
+            plt.boxplot(ta_data[ta_key], notch=True, vert=False, sym='+')
             plt.yticks([]) # Would just show '1'.
             ax.xaxis.grid(True)
             plt.xlabel(labels[ta_key])
@@ -219,82 +252,83 @@ def plot_summary_stats(ta_data, no_anomaly=False, quiet=False):
 
             # Write anomalies to file.
             if not no_anomaly:
-                if "Sanity" in title and np.all(plot_data == plot_data[0]):
+                if "Sanity" in title and np.all(ta_data[ta_key] == ta_data[ta_key][0]):
                     # Either passed check or all wrong in the same way.
                     continue
-                summary = stats.describe(plot_data)
-                std = np.sqrt(summary.variance)
-                with open(anomaly_filename, 'a') as out:
-                    out.write(f"{title}\n")
-                    out.write(f"Reference Statistics:\n"            \
-                              f"\tTotal # TAs = {summary.nobs},\n"  \
-                              f"\tMean = {summary.mean:.2f},\n"     \
-                              f"\tStd = {std:.2f},\n"               \
-                              f"\tMin = {summary.minmax[0]},\n"     \
-                              f"\tMax = {summary.minmax[1]}.\n")
-                    std3_count = np.sum(plot_data > summary.mean + 3*std) \
-                               + np.sum(plot_data < summary.mean - 3*std)
-                    std2_count = np.sum(plot_data > summary.mean + 2*std) \
-                               + np.sum(plot_data < summary.mean - 2*std)
-                    out.write(f"Anomalies:\n"                           \
-                              f"\t# of >3 Sigma TAs = {std3_count},\n"  \
-                              f"\t# of >2 Sigma TAs = {std2_count}.\n")
-                    out.write("\n\n")
+                write_summary_stats(ta_data[ta_key], anomaly_filename, title)
 
 
-def all_event_displays(tp_data, run_id, sub_run_id):
+def all_event_displays(tp_data, run_id, sub_run_id, seconds=False):
     """
     Plot all event_displays as pages in a PDF.
+
+    Optionally, use ticks or seconds for scaling.
     """
+    time_unit = 's' if seconds else 'Ticks'
+
     with PdfPages(f"event_displays_{run_id}.{sub_run_id:04}.pdf") as pdf:
-        for fdx, frag in enumerate(tp_data):
-            for tadx, ta in enumerate(frag):
-                fig = plt.figure(figsize=(6,4))
+        for tadx, ta in enumerate(tp_data):
+            if seconds:
+                ta = ta * TICK_TO_SEC_SCALE
+            fig = plt.figure(figsize=(6,4))
 
-                plt.scatter(ta['time_peak'], ta['channel'], c='k', s=2)
+            plt.scatter(ta['time_peak'], ta['channel'], c='k', s=2)
 
-                # Auto limits were too wide; this narrows it.
-                max_time = np.max(ta['time_peak'])
-                min_time = np.min(ta['time_peak'])
-                time_diff = max_time - min_time
-                plt.xlim((min_time - 0.1*time_diff, max_time + 0.1*time_diff))
+            # Auto limits were too wide; this narrows it.
+            max_time = np.max(ta['time_peak'])
+            min_time = np.min(ta['time_peak'])
+            time_diff = max_time - min_time
+            plt.xlim((min_time - 0.1*time_diff, max_time + 0.1*time_diff))
 
-                plt.title(f'Run {run_id}.{sub_run_id:04} Event Display: {fdx:03}.{tadx:03}')
-                plt.xlabel("Peak Time")
-                plt.ylabel("Channel")
+            plt.title(f'Run {run_id}.{sub_run_id:04} Event Display: {tadx:03}')
+            plt.xlabel(f"Peak Time ({time_unit})")
+            plt.ylabel("Channel")
 
-                plt.tight_layout()
-                pdf.savefig()
-                plt.close()
+            plt.tight_layout()
+            pdf.savefig()
+            plt.close()
 
-def time_diff_hist(start_times, end_times):
+def time_diff_hist(start_times, end_times, seconds=False):
     """
     Plot a histogram of the time differences.
-    """
-    # Difference between all the start times.
-    start_time_diff = (np.concatenate((start_times[1:], [0])) - np.array(start_times))[:-1]
-    # Difference between previous TA end time and current TA start time.
-    time_gaps = np.array(start_times)[1:] - np.array(end_times)[:-1]
 
-    start_time_diff = start_time_diff.astype(np.uint64) * TICK_TO_SEC_SCALE
-    time_gaps = time_gaps.astype(np.uint64) * TICK_TO_SEC_SCALE
+    Optionally, use ticks or seconds for scaling.
+    """
+    time_unit = 'Ticks'
+    if seconds:
+        start_times = start_times * TICK_TO_SEC_SCALE
+        end_times = end_times * TICK_TO_SEC_SCALE
+        time_unit = 's'
+
+    # Difference between all the start times.
+    start_time_diff = (np.concatenate((start_times[1:], [0])) - start_times)[:-1]
+    # Difference between previous TA end time and current TA start time.
+    time_gaps = start_times[1:] - end_times[:-1]
+
     plt.figure(figsize=(6,4))
 
     plt.hist(start_time_diff, bins=40, color='#63ACBE', label="Start Time Difference", alpha=0.2)
     plt.hist(time_gaps, bins=40, color="#EE442F", label="TA Time Gap", alpha=0.2)
 
     plt.title("TA Timings Histogram")
-    plt.xlabel("Seconds")
+    plt.xlabel(f"Time ({time_unit})")
     plt.legend()
 
     plt.tight_layout()
     plt.savefig("ta_timings_histogram.svg")
     plt.close()
 
-def event_display(peak_times, channels, idx):
+def event_display(peak_times, channels, idx, seconds=False):
     """
     Plot an individual event display.
+
+    Optionally, use ticks or seconds for scaling.
     """
+    time_unit = 'Ticks'
+    if seconds:
+        peak_times = peak_times * TICK_TO_SEC_SCALE
+        time_unit = 's'
+
     plt.figure(figsize=(6,4))
 
     plt.scatter(peak_times, channels, c='k', s=2)
@@ -305,7 +339,7 @@ def event_display(peak_times, channels, idx):
     plt.xlim((min_time - 0.1*time_diff, max_time + 0.1*time_diff))
 
     plt.title(f"Event Display: {idx:03}")
-    plt.xlabel("Peak Time")
+    plt.xlabel(f"Peak Time ({time_unit})")
     plt.ylabel("Channel")
 
     plt.tight_layout()
@@ -323,6 +357,7 @@ def parse():
     parser.add_argument("--start-frag", type=int, help="Starting fragment index to process from. Takes negative indexing. Default: -10.", default=-10)
     parser.add_argument("--end-frag", type=int, help="Fragment index to stop processing (i.e. not inclusive). Takes negative indexing. Default: 0.", default=0)
     parser.add_argument("--no-anomaly", action="store_true", help="Pass to not write 'ta_anomaly_summary.txt'. Default: False.")
+    parser.add_argument("--seconds", action="store_true", help="Pass to use seconds instead of time ticks. Default: False.")
 
     return parser.parse_args()
 
@@ -335,16 +370,7 @@ def main():
     start_frag = args.start_frag
     end_frag = args.end_frag
     no_anomaly = args.no_anomaly
-
-    diagnostics = {
-                    "num_tps": [],
-                    "window_length": [],
-                    "algorithm": [],
-                    "det_type": [],
-                    "adc_integral": [],
-                    "time_start": [],
-                    "time_end": []
-                  }
+    seconds = args.seconds
 
     data = trgtools.TAData(filename, quiet)
 
@@ -364,34 +390,21 @@ def main():
     run_id = data.run_id
     sub_run_id = data.sub_run_id
 
-    # Explicit plotting data
-    for frag in data.ta_data:
-        for ta in frag:
-            diagnostics["num_tps"].append(ta["num_tps"])
-            diagnostics["window_length"].append(ta["time_end"] - ta["time_start"])
-            diagnostics["algorithm"].append(ta["algorithm"])
-            diagnostics["det_type"].append(ta["type"])
-            diagnostics["adc_integral"].append(ta["adc_integral"])
-            diagnostics["time_start"].append(ta["time_start"])
-            diagnostics["time_end"].append(ta["time_end"])
-
-    if (not quiet):
-        print(f"Number of Fragments: {len(data.ta_data)}")
-    print(f"Number of TAs: {len(diagnostics['algorithm'])}") # Enforcing output for useful metric
+    print(f"Number of TAs: {data.ta_data.shape[0]}") # Enforcing output for useful metric
 
     ## Plotting
-    num_tps_hist(diagnostics["num_tps"])
-    window_length_hist(diagnostics["window_length"])
-    algorithm_hist(diagnostics["algorithm"])
-    det_type_hist(diagnostics["det_type"])
-    adc_integral_hist(diagnostics["adc_integral"])
-    time_start_plot(np.array(diagnostics["time_start"]).flatten())
-    time_diff_hist(np.array(diagnostics["time_start"]).flatten(), np.array(diagnostics["time_end"]).flatten())
-    plot_time_window_summary(data.ta_data, data.tp_data, quiet)
+    num_tps_hist(data.ta_data["num_tps"])
+    window_length_hist(data.ta_data["time_start"] - data.ta_data["time_end"])
+    algorithm_hist(data.ta_data["algorithm"])
+    det_type_hist(data.ta_data["type"])
+    adc_integral_hist(data.ta_data["adc_integral"])
+    time_start_plot(data.ta_data["time_start"], seconds)
+    time_diff_hist(data.ta_data["time_start"], data.ta_data["time_end"], seconds)
+    plot_time_window_summary(data.ta_data, data.tp_data, quiet, seconds)
     plot_summary_stats(data.ta_data, no_anomaly, quiet)
 
     if (not no_displays):
-        all_event_displays(data.tp_data, run_id, sub_run_id)
+        all_event_displays(data.tp_data, run_id, sub_run_id, seconds)
 
 if __name__ == "__main__":
     main()
