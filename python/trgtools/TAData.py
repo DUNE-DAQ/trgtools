@@ -67,7 +67,7 @@ class TAData:
         self._set_ta_frag_paths(self._h5_file.get_all_fragment_dataset_paths())
         self._quiet = quiet
 
-        self.ta_data = np.array([], dtype=self.ta_dt).reshape(0,1) # Will concatenate new TAs
+        self.ta_data = np.array([], dtype=self.ta_dt) # Will concatenate new TAs
         self.tp_data = [] # tp_data[i] will be a np.ndarray of TPs from the i-th TA
         self._ta_size = trgdataformats.TriggerActivityOverlay().sizeof()
 
@@ -150,14 +150,14 @@ class TAData:
                                     ta_datum.data.time_peak,
                                     ta_datum.data.time_start,
                                     np.uint8(ta_datum.data.type))],
-                                    dtype=self.ta_dt).reshape(1,1)
-            self.ta_data = np.vstack((self.ta_data, np_ta_datum))
+                                    dtype=self.ta_dt)
+            self.ta_data = np.hstack((self.ta_data, np_ta_datum))
             byte_idx += ta_datum.sizeof()
             if (not self._quiet):
                 print(f"Upcoming byte: {byte_idx}")
 
             ## Process TP data
-            np_tp_data = np.zeros(np_ta_datum['num_tps'][0], dtype=self.tp_dt)
+            np_tp_data = np.zeros(np_ta_datum['num_tps'], dtype=self.tp_dt)
             for tp_idx, tp in enumerate(ta_datum):
                 np_tp_data[tp_idx] = np.array([(
                                             tp.adc_integral,
