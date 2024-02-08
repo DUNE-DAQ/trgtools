@@ -350,6 +350,9 @@ def parse():
     return parser.parse_args()
 
 def main():
+    """
+    Drives the processing and plotting.
+    """
     ## Process Arguments & Data
     args = parse()
     filename = args.filename

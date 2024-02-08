@@ -25,7 +25,7 @@ def window_length_hist(window_lengths, seconds=False):
     time_unit = 'Ticks'
     if seconds:
         window_lengths = window_lengths * TICK_TO_SEC_SCALE
-        unit = 's'
+        time_unit = 's'
 
     plt.figure(figsize=(6,4))
     plt.hist(window_lengths, color='k')
@@ -270,7 +270,7 @@ def all_event_displays(tp_data, run_id, sub_run_id, seconds=False):
         for tadx, ta in enumerate(tp_data):
             if seconds:
                 ta = ta * TICK_TO_SEC_SCALE
-            fig = plt.figure(figsize=(6,4))
+            plt.figure(figsize=(6,4))
 
             plt.scatter(ta['time_peak'], ta['channel'], c='k', s=2)
 
@@ -362,6 +362,9 @@ def parse():
     return parser.parse_args()
 
 def main():
+    """
+    Drives the processing and plotting.
+    """
     ## Process Arguments & Data
     args = parse()
     filename = args.filename
