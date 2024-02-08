@@ -74,26 +74,9 @@ class TAData:
         # Masking frags that are found as empty.
         self._nonempty_frags_mask = np.ones((len(self._frag_paths),), dtype=bool)
 
-        if "run" in filename: # Waiting on hdf5libs PR to use get_int_attribute
-            tmp_name = filename.split("run")[1]
-            try:
-                self.run_id = int(tmp_name.split("_")[0])
-            except:
-                if not self._quiet:
-                    print(self._WARNING_TEXT_COLOR + "WARNING: Couldn't find Run ID in file name. Using run id 0." + self._END_TEXT_COLOR)
-                self.run_id = 0
-            try:
-                self.sub_run_id = int(tmp_name.split("_")[1])
-            except:
-                if not self._quiet:
-                    print(self._WARNING_TEXT_COLOR + "WARNING: Couldn't find SubRun ID in file name. Using SubRun ID 1000." + self._END_TEXT_COLOR)
-                self.sub_run_id = 1000
-        else:
-            if not self._quiet:
-                print(self._WARNING_TEXT_COLOR + "WARNING: Couldn't find Run ID in file name. Using run id 0." + self._END_TEXT_COLOR)
-                print(self._WARNING_TEXT_COLOR + "WARNING: Couldn't find SubRun ID in file name. Using SubRun ID 1000." + self._END_TEXT_COLOR)
-            self.run_id = 0
-            self.sub_run_id = 1000
+        # File identification attributes
+        self.run_id = self._h5_file.get_int_attribute('run_number')
+        self.file_index = self._h5_file.get_int_attribute('file_index')
 
     def _set_ta_frag_paths(self, frag_paths) -> None:
         """

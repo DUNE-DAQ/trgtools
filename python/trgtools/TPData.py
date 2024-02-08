@@ -48,6 +48,10 @@ class TPData:
         self.tp_data = [] # Will have length == number of fragments
         self._quiet = quiet
 
+        # File identification attributes
+        self.run_id = self._h5_file.get_int_attribute('run_number')
+        self.file_index = self._h5_file.get_int_attribute('file_index')
+
     def _set_tp_frag_paths(self, frag_paths) -> None:
         """
         Only collect the fragment paths that are for TAs.
