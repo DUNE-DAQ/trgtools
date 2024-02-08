@@ -157,7 +157,7 @@ class TAData:
                 print(f"Upcoming byte: {byte_idx}")
 
             ## Process TP data
-            np_tp_data = np.zeros((np_ta_datum['num_tps'],), dtype=self.tp_dt)
+            np_tp_data = np.zeros(np_ta_datum['num_tps'][0], dtype=self.tp_dt)
             for tp_idx, tp in enumerate(ta_datum):
                 np_tp_data[tp_idx] = np.array([(
                                             tp.adc_integral,
