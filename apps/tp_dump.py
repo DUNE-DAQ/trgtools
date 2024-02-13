@@ -66,6 +66,28 @@ def tp_percent_histogram(tp_data):
     plt.savefig("percent_total.svg")
     plt.close()
 
+def plot_adc_integral_vs_peak(tp_data):
+    """
+    Plot the ADC Integral vs ADC Peak.
+    """
+    plt.figure(figsize=(6, 4), dpi=200)
+    plt.scatter(tp_data['adc_peak'], tp_data['adc_integral'], c='k', s=2, label='TP')
+    #plt.plot(np.linspace(np.min(tp_data['adc_peak']), np.max(tp_data['adc_peak'])), color='#EE442F', label='Reference')
+    plt.hlines(np.power(2, 15), np.min(tp_data['adc_peak']), np.max(tp_data['adc_peak']), color='#EE442F', label=r'$2^{15}-1$', alpha=0.2)
+    print("Number of ADC Integrals at Signed 16 Limit:", np.sum(tp_data['adc_integral'] == np.power(2, 15)-1))
+    print("Total number of TPs:", len(tp_data['adc_peak']))
+    high_integral_locs = np.where(tp_data['adc_integral'] == np.power(2, 15)-1)
+    plt.scatter(tp_data['adc_peak'][high_integral_locs], tp_data['adc_integral'][high_integral_locs], c='#63ACBE', s=2, marker='+', label=r'$2^{15}-1$')
+
+    plt.title("ADC Integral vs ADC Peak")
+    plt.xlabel("ADC Peak")
+    plt.ylabel("ADC Integral")
+    plt.legend()
+
+    plt.tight_layout()
+    plt.savefig("tp_adc_integral_vs_peak.png")  # Many scatter plot points makes this a PNG
+    plt.close()
+
 def plot_pdf_histogram(data, plot_details_dict, pdf, linear=True, log=True):
     """
     Plot a histogram for the given data to a PdfPage object.
@@ -101,30 +123,6 @@ def plot_pdf_histogram(data, plot_details_dict, pdf, linear=True, log=True):
 
     plt.tight_layout()
     pdf.savefig()
-    plt.close()
-
-def plot_channel_histogram(channels, quiet=False):
-    """
-    Plot the TP channel histogram.
-    """
-    counts, bins = np.histogram(channels, bins=np.arange(0.5, 3072.5, 1))
-    total_counts = np.sum(counts)
-    if (not quiet):
-        print("High TP Count Channels:", np.where(counts >= 500))
-        print("Percentage Counts:", np.where(counts >= 0.01*total_counts))
-
-    plt.figure(figsize=(6,4))
-
-    plt.stairs(counts, bins, fill=True, color='k', label=f'TP Count: {total_counts}')
-
-    plt.title("TP Channel Histogram")
-    plt.xlabel("Channel")
-    plt.legend()
-
-    plt.ylim((0, 800))
-
-    plt.tight_layout()
-    plt.savefig("tp_channel_histogram.svg")
     plt.close()
 
 def write_summary_stats(data, filename, title):
@@ -269,6 +267,7 @@ def main():
     ## Plots with more involved analysis
     channel_tot(data.tp_data)
     tp_percent_histogram(data.tp_data)
+    plot_adc_integral_vs_peak(data.tp_data)
 
     ## Basic Plots: Histograms & Box Plots
     # Dictionary containing unique title, xlabel, and xticks (only some)
