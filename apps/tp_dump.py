@@ -94,15 +94,26 @@ def plot_pdf_histogram(data, plot_details_dict, pdf, linear=True, log=True):
     """
     plt.figure(figsize=(6,4))
     ax = plt.gca()
+    bins = 100
 
-    #bins = np.arange(np.min(tot), np.max(tot)+1, 100)
+    # Custom xticks are for specific typing. Expect to see much
+    # smaller plots, so only do linear and use less bins.
+    if 'xticks' in plot_details_dict:
+        linear = True
+        log = False
+        bins = len(plot_details_dict['xticks'][1])
+        plt.xticks(
+                plot_details_dict['xticks'][0],  # Ticks to change
+                plot_details_dict['xticks'][1]  # New labels
+        )
+
     if linear and log:
-        ax.hist(data, bins=100, color='#EE442F', label='Log', alpha=0.6)
-        ax.set_yscale('log')
+        ax.hist(data, bins=bins, color='#EE442F', label='Linear', alpha=0.6)
+        ax.set_yscale('linear')
 
         ax2 = ax.twinx()
-        ax2.hist(data, bins=100, color='#63ACBE', label='Linear', alpha=0.6)
-        ax2.set_yscale('linear')
+        ax2.hist(data, bins=bins, color='#63ACBE', label='Log', alpha=0.6)
+        ax2.set_yscale('log')
 
         handles, labels = ax.get_legend_handles_labels()
         handles2, labels2 = ax2.get_legend_handles_labels()
@@ -110,7 +121,7 @@ def plot_pdf_histogram(data, plot_details_dict, pdf, linear=True, log=True):
         labels = labels + labels2
         plt.legend(handles=handles, labels=labels)
     else:
-        plt.hist(data, bins=100, color='k')
+        plt.hist(data, bins=bins, color='k')
         if log:  # Default to linear, so only change on log
             plt.yscale('log')
 

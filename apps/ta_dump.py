@@ -146,16 +146,14 @@ def plot_pdf_histogram(data, plot_details_dict, pdf, linear=True, log=True):
                 plot_details_dict['xticks'][1],  # New labels
                 rotation=plot_details_dict['xticks'][2]
         )
-        #ax.tick_params(axis='x', labelrotation=plot_details_dict['xticks'][2])
 
-    #bins = np.arange(np.min(tot), np.max(tot)+1, 100)
     if linear and log:
-        ax.hist(data, bins=bins, color='#EE442F', label='Log', alpha=0.6)
-        ax.set_yscale('log')
+        ax.hist(data, bins=bins, color='#63ACBE', label='Linear', alpha=0.6)
+        ax.set_yscale('linear')
 
         ax2 = ax.twinx()
-        ax2.hist(data, bins=bins, color='#63ACBE', label='Linear', alpha=0.6)
-        ax2.set_yscale('linear')
+        ax2.hist(data, bins=bins, color='#EE442F', label='Log', alpha=0.6)
+        ax2.set_yscale('log')
 
         handles, labels = ax.get_legend_handles_labels()
         handles2, labels2 = ax2.get_legend_handles_labels()
