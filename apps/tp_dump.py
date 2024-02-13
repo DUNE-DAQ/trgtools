@@ -66,6 +66,43 @@ def tp_percent_histogram(tp_data):
     plt.savefig("percent_total.svg")
     plt.close()
 
+def plot_pdf_histogram(data, plot_details_dict, pdf, linear=True, log=True):
+    """
+    Plot a histogram for the given data to a PdfPage object.
+    """
+    plt.figure(figsize=(6,4))
+    ax = plt.gca()
+
+    #bins = np.arange(np.min(tot), np.max(tot)+1, 100)
+    if linear and log:
+        ax.hist(data, bins=100, color='#EE442F', label='Log', alpha=0.6)
+        ax.set_yscale('log')
+
+        ax2 = ax.twinx()
+        ax2.hist(data, bins=100, color='#63ACBE', label='Linear', alpha=0.6)
+        ax2.set_yscale('linear')
+
+        handles, labels = ax.get_legend_handles_labels()
+        handles2, labels2 = ax2.get_legend_handles_labels()
+        handles = handles + handles2
+        labels = labels + labels2
+        plt.legend(handles=handles, labels=labels)
+    else:
+        plt.hist(data, bins=100, color='k')
+        if log:  # Default to linear, so only change on log
+            plt.yscale('log')
+
+    plt.title(plot_details_dict['title'] + " Histogram")
+    plt.xlabel(plot_details_dict['xlabel'])
+    if 'xticks' in plot_details_dict:
+        plt.xticks(plot_details_dict['xticks'][0], plot_details_dict['xticks'][1])
+    if 'xlim' in plot_details_dict:
+        plt.xlim(plot_details_dict['xlim'])
+
+    plt.tight_layout()
+    pdf.savefig()
+    plt.close()
+
 def plot_channel_histogram(channels, quiet=False):
     """
     Plot the TP channel histogram.
@@ -90,170 +127,15 @@ def plot_channel_histogram(channels, quiet=False):
     plt.savefig("tp_channel_histogram.svg")
     plt.close()
 
-def plot_version_histogram(versions, quiet=False):
-    """
-    Plot the TP versions histogram.
-
-    Generally, this will be one value.
-    """
-    plt.figure(figsize=(6,4))
-
-    plt.hist(versions, color='k')
-
-    plt.title("TP Versions Histogram")
-    plt.xlabel("Versions")
-
-    plt.tight_layout()
-    plt.savefig("tp_versions_histogram.svg")
-    plt.close()
-
-def plot_type_histogram(types, quiet=False):
-    """
-    Plot the TP types histogram.
-    """
-    plt.figure(figsize=(6,4))
-
-    plt.hist(types, bins=np.arange(-0.5, 3, 1), range=(0,2), align='mid', color='k')
-
-    plt.title("TP Types Histogram")
-    plt.xlabel("Types")
-    plt.xticks([0,1,2], ["Unknown", "TPC", "PDS"]) # Taken from TriggerPrimitive.hpp
-
-    plt.tight_layout()
-    plt.savefig("tp_types_histogram.svg")
-    plt.close()
-
-def plot_time_start_histogram(times, quiet=False):
-    """
-    Plot the TP time starts histogram.
-    """
-    plt.figure(figsize=(6,4))
-
-    plt.hist(times, color='k')
-
-    plt.title("TP Time Starts Histogram")
-    plt.xlabel("Time Start (Ticks)")
-
-    plt.tight_layout()
-    plt.savefig("tp_time_start_histogram.svg")
-    plt.close()
-
-def plot_time_peak_histogram(times, quiet=False):
-    """
-    Plot the TP time peaks histogram.
-    """
-    plt.figure(figsize=(6,4))
-
-    plt.hist(times, color='k')
-
-    plt.title("TP Time Peaks Histogram")
-    plt.xlabel("Time Peak (Ticks)")
-
-    plt.tight_layout()
-    plt.savefig("tp_time_peak_histogram.svg")
-    plt.close()
-
-def plot_time_over_threshold_histogram(times, quiet=False):
-    """
-    Plot the TP time over threshold histogram.
-    """
-    plt.figure(figsize=(6,4))
-
-    plt.hist(times, color='k')
-
-    plt.title("TP Time Over Threshold Histogram")
-    plt.xlabel("Time Over Threshold (Ticks)")
-
-    plt.tight_layout()
-    plt.savefig("tp_time_over_threshold_histogram.svg")
-    plt.close()
-
-def plot_flag_histogram(flags, quiet=False):
-    """
-    Plot the TP flags histogram.
-
-    Generally, something notable. Likely difficult to read as a histogram.
-    """
-    plt.figure(figsize=(6,4))
-
-    plt.hist(flags, color='k')
-
-    plt.title("TP Flags Histogram")
-    plt.xlabel("Flags")
-
-    plt.tight_layout()
-    plt.savefig("tp_flags_histogram.svg")
-    plt.close()
-
-def plot_detid_histogram(det_ids, quiet=False):
-    """
-    Plot the TP detector IDs histogram.
-    """
-    plt.figure(figsize=(6,4))
-
-    plt.hist(det_ids, color='k')
-    # Uncertain what the values of the det_ids refer to, so they remain as numbers.
-
-    plt.title("TP Detector IDs Histogram")
-    plt.xlabel("Detector IDs")
-
-    plt.tight_layout()
-    plt.savefig("tp_det_ids_histogram.svg")
-    plt.close()
-
-def plot_algorithm_histogram(algorithms, quiet=False):
-    """
-    Plot the TP algoritm histogram.
-
-    Generally, this should be a single histogram.
-    """
-    plt.figure(figsize=(6,4))
-
-    plt.hist(algorithms, bins=np.arange(-0.5, 2, 1), range=(0,1), align='mid', color='k')
-
-    plt.title("TP Algorithms Histogram")
-    plt.xlabel("Algorithm")
-    plt.xticks([0,1], ["Unknown", "TPCDefault"])
-    # Values taken from TriggerPrimitive.hpp
-
-    plt.tight_layout()
-    plt.savefig("tp_algorithms_histogram.svg")
-    plt.close()
-
-def plot_adc_peak_histogram(adc_peaks, quiet=False):
-    """
-    Plot the TP peak histogram.
-    """
-    plt.figure(figsize=(6,4))
-
-    plt.hist(adc_peaks, color='k')
-
-    plt.title("TP ADC Peaks Histogram")
-    plt.xlabel("ADC Count")
-
-    plt.tight_layout()
-    plt.savefig("tp_adc_peaks_histogram.svg")
-    plt.close()
-
-def plot_adc_integral_histogram(adc_integrals, quiet=False):
-    """
-    Plot the TP ADC integral histogram.
-    """
-    plt.figure(figsize=(6,4))
-
-    plt.hist(adc_integrals, color='k')
-
-    plt.title("TP ADC Integrals Histogram")
-    plt.xlabel("ADC Integral")
-
-    plt.tight_layout()
-    plt.savefig("tp_adc_integral_histogram.svg")
-    plt.close()
-
 def write_summary_stats(data, filename, title):
     """
     Writes the given summary statistics to 'filename'.
     """
+    # Algorithm, Det ID, etc. are not expected to vary.
+    # Check first that they don't vary, and move on if so.
+    if np.all(data == data[0]):
+        print(f"{title} data member is the same for all TPs. Skipping summary statistics.")
+        return
     summary = stats.describe(data)
     std = np.sqrt(summary.variance)
     with open(filename, 'a') as out:
@@ -346,6 +228,8 @@ def parse():
     parser.add_argument("--start-frag", type=int, help="Fragment to start loading from (inclusive); can take negative integers. Default: -10", default=-10)
     parser.add_argument("--end-frag", type=int, help="Fragment to stop loading at (exclusive); can take negative integers. Default: 0", default=0)
     parser.add_argument("--no-anomaly", action="store_true", help="Pass to not write 'tp_anomaly_summary.txt'. Default: False.")
+    parser.add_argument("--linear", action="store_true", help="Pass to use linear histogram scaling. Default: plots both linear and log.")
+    parser.add_argument("--log", action="store_true", help="Pass to use logarithmic histogram scaling. Default: plots both linear and log.")
 
     return parser.parse_args()
 
@@ -360,6 +244,13 @@ def main():
     start_frag = args.start_frag
     end_frag = args.end_frag
     no_anomaly = args.no_anomaly
+    linear = args.linear
+    log = args.log
+
+    # User didn't pass either flag, so default to both being true.
+    if (not linear) and (not log):
+        linear = True
+        log = True
 
     data = trgtools.TPData(filename, quiet)
     if end_frag == 0: # Ex: [-10:0] is bad.
@@ -380,20 +271,80 @@ def main():
     tp_percent_histogram(data.tp_data)
 
     ## Basic Plots: Histograms & Box Plots
-    # For the moment, none of these functions make use of 'quiet'.
-    plot_adc_integral_histogram(data.tp_data['adc_integral'], quiet)
-    plot_adc_peak_histogram(data.tp_data['adc_peak'], quiet)
-    plot_algorithm_histogram(data.tp_data['algorithm'], quiet)
-    plot_channel_histogram(data.tp_data['channel'], quiet)
-    plot_detid_histogram(data.tp_data['detid'], quiet)
-    plot_flag_histogram(data.tp_data['flag'], quiet)
-    plot_time_over_threshold_histogram(data.tp_data['time_over_threshold'], quiet)
-    plot_time_peak_histogram(data.tp_data['time_peak'], quiet)
-    plot_time_start_histogram(data.tp_data['time_start'], quiet)
-    plot_type_histogram(data.tp_data['type'], quiet)
-    plot_version_histogram(data.tp_data['version'], quiet)
+    # Dictionary containing unique title, xlabel, and xticks (only some)
+    plot_dict = {
+            'adc_integral': {
+                'title': "ADC Integral",
+                'xlabel': "ADC Integral"
+            },
+            'adc_peak': {
+                'title': "ADC Peak",
+                'xlabel': "ADC Count"
+            },
+            'algorithm': {
+                'title': "Algorithm",
+                'xlabel': 'Algorithm Type',
+                'xlim': (-0.5, 1.5),
+                'xticks': (
+                    (0, 1),  # xticks to change
+                    ("Unknown", "TPCDefault"),
+                )
+            },
+            'channel': {
+                'title': "Channel",
+                'xlabel': "Channel Number"
+            },
+            'detid': {
+                'title': "Detector ID",
+                'xlabel': "Detector IDs"
+            },
+            'flag': {
+                'title': "Flag",
+                'xlabel': "Flags"
+            },
+            'time_over_threshold': {
+                'title': "Time Over Threshold",
+                'xlabel': "Ticks"
+            },
+            'time_peak': {
+                'title': "Relative Time Peak",
+                'xlabel': "Ticks"
+            },
+            'time_start': {
+                'title': "Relative Time Start",
+                'xlabel': "Ticks"
+            },
+            'type': {
+                'title': "Type",
+                'xlabel': "Type",
+                'xlim': (-0.5, 2.5),
+                'xticks': (
+                    (0, 1, 2),  # Ticks to change
+                    ('Unknown', 'TPC', 'PDS')
+                )
+            },
+            'version': {
+                'title': "Version",
+                'xlabel': "Versions"
+            }
+    }
+    if not no_anomaly:
+        anomaly_filename = "tp_anomalies.txt"
+        if not quiet:
+            print(f"Writing descriptive statistics to {anomaly_filename}.")
+        if os.path.isfile(anomaly_filename):
+            # Prepare a new tp_anomaly_summary.txt
+            os.remove(anomaly_filename)
 
-    plot_summary_stats(data.tp_data, no_anomaly, quiet)
+    with PdfPages("tp_data_member_histograms.pdf") as pdf:
+        for tp_key in data.tp_data.dtype.names:
+            if tp_key == 'time_start' or tp_key == 'time_peak':
+                min_time = np.min(data.tp_data[tp_key])
+                plot_pdf_histogram(data.tp_data[tp_key] - min_time, plot_dict[tp_key], pdf, linear, log)
+                continue
+            plot_pdf_histogram(data.tp_data[tp_key], plot_dict[tp_key], pdf, linear, log)
+            if not no_anomaly:
+                write_summary_stats(data.tp_data[tp_key], anomaly_filename, plot_dict[tp_key]['title'])
 
 if __name__ == "__main__":
     main()
