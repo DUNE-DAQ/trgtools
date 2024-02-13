@@ -37,20 +37,6 @@ def window_length_hist(window_lengths, seconds=False):
     plt.savefig("ta_window_length_histogram.svg")
     plt.close()
 
-def num_tps_hist(num_tps):
-    """
-    Plot the number of TPs for each TA as a histogram.
-    """
-    plt.figure(figsize=(6,4))
-    plt.hist(num_tps, bins=50, color='k')
-
-    plt.title("Number of TPs Histogram")
-    plt.xlabel("Number of TPs")
-
-    plt.tight_layout()
-    plt.savefig("ta_num_tps_histogram.svg")
-    plt.close()
-
 def time_start_plot(start_times, seconds=False):
     """
     Plot TA start times vs TA index.
@@ -78,60 +64,6 @@ def time_start_plot(start_times, seconds=False):
 
     plt.tight_layout()
     plt.savefig("ta_start_times.svg")
-    plt.close()
-
-def algorithm_hist(algorithms):
-    """
-    Plot a histogram of the algorithm types for each TA.
-    """
-    num_tas = algorithms.shape[0]
-    plt.figure(figsize=(12,8))
-    plt.hist(algorithms, bins=np.arange(-0.5, 8, 1), range=(0,7), align='mid', color='k', label=f"Number of TAs: {num_tas}")
-
-    plt.title("TA Algorithm Histogram")
-    plt.xticks(ticks=range(0,8), labels=("Unknown",
-                                         "Supernova",
-                                         "Prescale",
-                                         "ADCSimpleWindow",
-                                         "HorizontalMuon",
-                                         "MichelElectron",
-                                         "DBSCAN",
-                                         "PlaneCoincidence"), rotation=60)
-
-    plt.legend()
-
-    plt.tight_layout()
-    plt.savefig("ta_algorithm_histogram.svg")
-    plt.close()
-
-def det_type_hist(det_types):
-    """
-    Plot a histogram of the detector type for the TAs.
-    """
-    plt.figure(figsize=(12,8))
-    plt.hist(det_types, bins=np.arange(-0.5, 3, 1), range=(0,2), align='mid', color='k')
-
-    plt.title("TA Detector Type Histogram")
-    plt.xticks(ticks=range(0,3), labels=("Unknown",
-                                         "TPC",
-                                         "PDS"), rotation=60)
-
-    plt.tight_layout()
-    plt.savefig("ta_det_types_histogram.svg")
-    plt.close()
-
-def adc_integral_hist(adc_integrals):
-    """
-    Plot a histogram of the ADC integrals for the TAs.
-    """
-    plt.figure(figsize=(6,4))
-    plt.hist(adc_integrals, color='k')
-
-    plt.title("TA ADC Integral Histogram")
-    plt.xlabel("ADC Integral")
-
-    plt.tight_layout()
-    plt.savefig("ta_adc_integral_histogram.svg")
     plt.close()
 
 def plot_time_window_summary(ta_data, tp_data, quiet=False, seconds=False):
@@ -170,6 +102,12 @@ def write_summary_stats(data, filename, title):
     """
     Writes the given summary statistics to 'filename'.
     """
+    # Algorithm, Det ID, etc. are not expected to vary.
+    # Check first that they don't vary, and move on if so.
+    if np.all(data == data[0]):
+        print(f"{title} data member is the same for all TPs. Skipping summary statistics.")
+        return
+
     summary = stats.describe(data)
     std = np.sqrt(summary.variance)
     with open(filename, 'a') as out:
@@ -189,74 +127,54 @@ def write_summary_stats(data, filename, title):
                   f"\t# of >2 Sigma TPs = {std2_count}.\n")
         out.write("\n\n")
 
-def plot_summary_stats(ta_data, no_anomaly=False, quiet=False):
+def plot_pdf_histogram(data, plot_details_dict, pdf, linear=True, log=True):
     """
-    Plot summary statistics on various TA member data.
-    Displays as box plots on multiple pages of a PDF.
+    Plot a histogram for the given data to a PdfPage object.
     """
-    # 'Sanity' titles _should_ all be the same value.
-    titles = {
-                'adc_integral': "ADC Integral Summary",
-                'adc_peak': "ADC Peak Summary",
-                'algorithm': "Algorithm (Sanity) Summary",
-                'channel_end': "Channel End Summary",
-                'channel_peak': "Channel Peak Summary",
-                'channel_start': "Channel Start Summary",
-                'detid': "Detector ID (Sanity) Summary",
-                'num_tps': "Number of TPs Summary",
-                'time_end': "Time End Summary",
-                'time_peak': "Time Peak Summary",
-                'time_start': "Time Start Summary",
-                'type': "Type (Sanity) Summary"
-             }
-    labels = {
-                'adc_integral': "ADC Integral",
-                'adc_peak': "ADC Count",
-                'algorithm': "",
-                'channel_end': "Channel Number",
-                'channel_peak': "Channel Number",
-                'channel_start': "Channel Number",
-                'detid': "",
-                'num_tps': "TP Count",
-                'time_end': "Ticks",
-                'time_peak': "Ticks",
-                'time_start': "Ticks",
-                'type': ""
-             }
+    plt.figure(figsize=(6,4))
+    ax = plt.gca()
+    bins = 100
 
-    anomaly_filename = 'ta_anomaly_summary.txt'
+    # Custom xticks are for specific typing. Expect to see much
+    # smaller plots, so only do linear and use less bins.
+    if 'xticks' in plot_details_dict:
+        linear = True
+        log = False
+        bins = len(plot_details_dict['xticks'][1])
+        plt.xticks(
+                plot_details_dict['xticks'][0],  # Ticks to change
+                plot_details_dict['xticks'][1],  # New labels
+                rotation=plot_details_dict['xticks'][2]
+        )
+        #ax.tick_params(axis='x', labelrotation=plot_details_dict['xticks'][2])
 
-    if not no_anomaly:
-        if not quiet:
-            print(f"Writing descriptive statistics to {anomaly_filename}.")
-        if os.path.isfile(anomaly_filename):
-            # Prepare a new ta_anomaly_summary.txt
-            os.remove(anomaly_filename)
+    #bins = np.arange(np.min(tot), np.max(tot)+1, 100)
+    if linear and log:
+        ax.hist(data, bins=bins, color='#EE442F', label='Log', alpha=0.6)
+        ax.set_yscale('log')
 
-    with PdfPages("ta_summary_stats.pdf") as pdf:
-        for ta_key, title in titles.items():
-            # Extract only ta_key
-            plt.figure(figsize=(6,4))
-            ax = plt.gca()
+        ax2 = ax.twinx()
+        ax2.hist(data, bins=bins, color='#63ACBE', label='Linear', alpha=0.6)
+        ax2.set_yscale('linear')
 
-            plt.boxplot(ta_data[ta_key], notch=True, vert=False, sym='+')
-            plt.yticks([]) # Would just show '1'.
-            ax.xaxis.grid(True)
-            plt.xlabel(labels[ta_key])
+        handles, labels = ax.get_legend_handles_labels()
+        handles2, labels2 = ax2.get_legend_handles_labels()
+        handles = handles + handles2
+        labels = labels + labels2
+        plt.legend(handles=handles, labels=labels)
+    else:
+        plt.hist(data, bins=bins, color='k')
+        if log:  # Default to linear, so only change on log
+            plt.yscale('log')
 
-            plt.title(title)
+    plt.title(plot_details_dict['title'] + " Histogram")
+    plt.xlabel(plot_details_dict['xlabel'])
+    if 'xlim' in plot_details_dict:
+        plt.xlim(plot_details_dict['xlim'])
 
-            plt.tight_layout()
-            pdf.savefig()
-            plt.close()
-
-            # Write anomalies to file.
-            if not no_anomaly:
-                if "Sanity" in title and np.all(ta_data[ta_key] == ta_data[ta_key][0]):
-                    # Either passed check or all wrong in the same way.
-                    continue
-                write_summary_stats(ta_data[ta_key], anomaly_filename, title)
-
+    plt.tight_layout()
+    pdf.savefig()
+    plt.close()
 
 def all_event_displays(tp_data, run_id, sub_run_id, seconds=False):
     """
@@ -358,6 +276,8 @@ def parse():
     parser.add_argument("--end-frag", type=int, help="Fragment index to stop processing (i.e. not inclusive). Takes negative indexing. Default: 0.", default=0)
     parser.add_argument("--no-anomaly", action="store_true", help="Pass to not write 'ta_anomaly_summary.txt'. Default: False.")
     parser.add_argument("--seconds", action="store_true", help="Pass to use seconds instead of time ticks. Default: False.")
+    parser.add_argument("--linear", action="store_true", help="Pass to use linear histogram scaling. Default: plots both linear and log.")
+    parser.add_argument("--log", action="store_true", help="Pass to use logarithmic histogram scaling. Default: plots both linear and log.")
 
     return parser.parse_args()
 
@@ -374,6 +294,13 @@ def main():
     end_frag = args.end_frag
     no_anomaly = args.no_anomaly
     seconds = args.seconds
+    linear = args.linear
+    log = args.log
+
+    # User didn't pass either flag, so default to both being true.
+    if (not linear) and (not log):
+        linear = True
+        log = True
 
     data = trgtools.TAData(filename, quiet)
 
@@ -396,15 +323,105 @@ def main():
     print(f"Number of TAs: {data.ta_data.shape[0]}") # Enforcing output for useful metric
 
     ## Plotting
-    num_tps_hist(data.ta_data["num_tps"])
+    # Detailed Analysis Plots
     window_length_hist(data.ta_data["time_start"] - data.ta_data["time_end"])
-    algorithm_hist(data.ta_data["algorithm"])
-    det_type_hist(data.ta_data["type"])
-    adc_integral_hist(data.ta_data["adc_integral"])
-    time_start_plot(data.ta_data["time_start"], seconds)
     time_diff_hist(data.ta_data["time_start"], data.ta_data["time_end"], seconds)
     plot_time_window_summary(data.ta_data, data.tp_data, quiet, seconds)
-    plot_summary_stats(data.ta_data, no_anomaly, quiet)
+
+    # General Data Member Plots
+    # Dictionary containing unique title, xlabel, and xticks (only some)
+    plot_dict = {
+            'adc_integral': {
+                'title': "ADC Integral",
+                'xlabel': "ADC Integral"
+            },
+            'adc_peak': {
+                'title': "ADC Peak",
+                'xlabel': "ADC Count"
+            },
+            'algorithm': {
+                'title': "Algorithm",
+                'xlabel': 'Algorithm Type',
+                'xlim': (-0.5, 7.5),
+                'xticks': (
+                    range(0, 8),  # xticks to change
+                    (
+                        "Unknown",
+                        "Supernova",
+                        "Prescale",
+                        "ADCSimpleWindow",
+                        "HorizontalMuon",
+                        "MichelElectron",
+                        "DBSCAN",
+                        "PlaneCoincidence"
+                    ),
+                    60  # Rotation
+                )
+            },
+            'channel_end': {
+                'title': "Channel End",
+                'xlabel': "Channel Number"
+            },
+            'channel_peak': {
+                'title': "Channel Peak",
+                'xlabel': "Channel Number"
+            },
+            'channel_start': {
+                'title': "Channel Start",
+                'xlabel': "Channel Number"
+            },
+            'detid': {
+                'title': "Detector ID",
+                'xlabel': "Detector IDs"
+            },
+            'num_tps': {
+                'title': "Number of TPs per TA",
+                'xlabel': "Number of TPs"
+            },
+            'time_activity': {
+                'title': "Relative Time Activity",
+                'xlabel': "Ticks"
+            },
+            'time_end': {
+                'title': "Relative Time End",
+                'xlabel': "Ticks"
+            },
+            'time_peak': {
+                'title': "Relative Time Peak",
+                'xlabel': "Ticks"
+            },
+            'time_start': {
+                'title': "Relative Time Start",
+                'xlabel': "Ticks"
+            },
+            'type': {
+                'title': "Type",
+                'xlabel': "Type",
+                'xlim': (-0.5, 2.5),
+                'xticks': (
+                    (0, 1, 2),  # Ticks to change
+                    ('Unknown', 'TPC', 'PDS'),
+                    60  # Rotation
+                )
+            }
+    }
+    if not no_anomaly:
+        anomaly_filename = "ta_anomalies.txt"
+        if not quiet:
+            print(f"Writing descriptive statistics to {anomaly_filename}.")
+        if os.path.isfile(anomaly_filename):
+            # Prepare a new ta_anomaly_summary.txt
+            os.remove(anomaly_filename)
+
+    with PdfPages("ta_data_member_histograms.pdf") as pdf:
+        for ta_key in data.ta_data.dtype.names:
+            if 'time' in ta_key:
+                min_time = np.min(data.ta_data[ta_key])
+                plot_pdf_histogram(data.ta_data[ta_key] - min_time, plot_dict[ta_key], pdf, linear, log)
+                continue
+            plot_pdf_histogram(data.ta_data[ta_key], plot_dict[ta_key], pdf, linear, log)
+            if not no_anomaly:
+                write_summary_stats(data.ta_data[ta_key], anomaly_filename, plot_dict[ta_key]['title'])
 
     if (not no_displays):
         all_event_displays(data.tp_data, run_id, sub_run_id, seconds)
