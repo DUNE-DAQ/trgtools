@@ -67,12 +67,13 @@ class TAData:
         self._set_ta_frag_paths(self._h5_file.get_all_fragment_dataset_paths())
         self._quiet = quiet
 
-        self.ta_data = [] # Length = number of frags, elem = TAs in frag
-        self.tp_data = [] # Length = number of frags, elem = list of TPs in TAs
+        self.ta_data = np.array([], dtype=self.ta_dt) # Will concatenate new TAs
+        self.tp_data = [] # tp_data[i] will be a np.ndarray of TPs from the i-th TA
         self._ta_size = trgdataformats.TriggerActivityOverlay().sizeof()
 
         # Masking frags that are found as empty.
         self._nonempty_frags_mask = np.ones((len(self._frag_paths),), dtype=bool)
+        self._num_empty = 0
 
         # File identification attributes
         self.run_id = self._h5_file.get_int_attribute('run_number')
@@ -90,27 +91,24 @@ class TAData:
     def get_ta_frag_paths(self) -> list:
         return self._frag_paths
 
-    def load_frag(self, frag_path, index=None) -> (list, list):
+    def load_frag(self, frag_path, index=None) -> None:
         """
         Load a fragment from a given fragment path.
-
-        Returns two lists: TA data and TP data.
+        Saves the results to self.ta_data and self.tp_data.
+        Returns nothing.
         """
         frag = self._h5_file.get_frag(frag_path)
         frag_data_size = frag.get_data_size()
         if frag_data_size == 0:
+            self._num_empty += 1
             if not self._quiet:
                 print(self._FAIL_TEXT_COLOR + self._BOLD_TEXT + "WARNING: Empty fragment. Returning empty array." + self._END_TEXT_COLOR)
                 print(self._WARNING_TEXT_COLOR + self._BOLD_TEXT + f"INFO: Fragment Path: {frag_path}" + self._END_TEXT_COLOR)
             if index != None:
                 self._nonempty_frags_mask[index] = False
-            return list(), list()
+            return
         if index == None:
             index = self._frag_paths.index(frag_path)
-
-        # Unknown number of TAs or TPs per TA.
-        frag_ta_data = []
-        frag_tp_data = []
 
         ta_idx = 0 # Only used to output.
         byte_idx = 0 # Variable TA sizing, must do while loop.
@@ -136,14 +134,13 @@ class TAData:
                                     ta_datum.data.time_start,
                                     np.uint8(ta_datum.data.type))],
                                     dtype=self.ta_dt)
-            frag_ta_data.append(np_ta_datum)
+            self.ta_data = np.hstack((self.ta_data, np_ta_datum))
             byte_idx += ta_datum.sizeof()
             if (not self._quiet):
                 print(f"Upcoming byte: {byte_idx}")
 
             ## Process TP data
-            num_tps = ta_datum.n_inputs()
-            np_tp_data = np.zeros((num_tps,), dtype=self.tp_dt)
+            np_tp_data = np.zeros(np_ta_datum['num_tps'], dtype=self.tp_dt)
             for tp_idx, tp in enumerate(ta_datum):
                 np_tp_data[tp_idx] = np.array([(
                                             tp.adc_integral,
@@ -158,11 +155,9 @@ class TAData:
                                             tp.type,
                                             tp.version)],
                                             dtype=self.tp_dt)
-            frag_tp_data.append(np_tp_data) # Jagged array
-        self.tp_data.append(frag_tp_data)
-        self.ta_data.append(frag_ta_data)
+            self.tp_data.append(np_tp_data) # Jagged array
 
-        return frag_ta_data, frag_tp_data
+        return
 
     def load_all_frags(self) -> None:
         """
@@ -171,10 +166,7 @@ class TAData:
         Returns nothing. Data is accessible from obj.ta_data
         and obj.tp_data.
         """
-        miscount = 0
         for idx, frag_path in enumerate(self._frag_paths):
-            ta_datum, _ = self.load_frag(frag_path, idx)
-            if len(ta_datum) == 0:
-                miscount += 1
-        if miscount != 0 and not self._quiet:
-            print(self._FAIL_TEXT_COLOR + self._BOLD_TEXT + f"WARNING: Skipped {miscount} frags." + self._END_TEXT_COLOR)
+            self.load_frag(frag_path, idx)
+        if self._num_empty != 0 and not self._quiet:
+            print(self._FAIL_TEXT_COLOR + self._BOLD_TEXT + f"WARNING: Skipped {self._num_empty} frags." + self._END_TEXT_COLOR)

@@ -45,7 +45,7 @@ class TPData:
         """
         self._h5_file = HDF5RawDataFile(filename)
         self._set_tp_frag_paths(self._h5_file.get_all_fragment_dataset_paths())
-        self.tp_data = [] # Will have length == number of fragments
+        self.tp_data = np.array([], dtype=self.tp_dt) # Will concatenate TPs
         self._quiet = quiet
 
         # File identification attributes
@@ -96,7 +96,7 @@ class TPData:
                                         tp_datum.type,
                                         tp_datum.version)],
                                         dtype=self.tp_dt)
-        self.tp_data.append(np_tp_data)
+        self.tp_data = np.hstack((self.tp_data, np_tp_data))
 
         return np_tp_data
 

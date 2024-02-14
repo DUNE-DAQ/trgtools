@@ -10,51 +10,35 @@ import argparse
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
+from scipy import stats
 
 import trgtools
 
-TICK_TO_SEC_SCALE = 512e-9 # secs per tick
+TICK_TO_SEC_SCALE = 16e-9 # secs per tick
 
 def channel_tot(tp_data):
     """
     Plot the TP channel vs time over threshold scatter plot.
     """
-    channels = []
-    tots = []
-    for frag_data in tp_data:
-        channel_data = frag_data['channel']
-        channels = channels + list(channel_data)
-        tot_data = frag_data['time_over_threshold']# * TICK_TO_SEC_SCALE
-        tots = tots + list(tot_data)
-
-    channels = np.array(channels)
-    tots = np.array(tots)
-    hot_channels = channels[np.where(tots >= 0.0075)]
-
     plt.figure(figsize=(6,4), dpi=200)
 
-    plt.scatter(channels, tots, c='k', s=2, label='TP')
+    plt.scatter(tp_data['channel'], tp_data['time_over_threshold'], c='k', s=2, label='TP')
 
     plt.title("TP Time Over Threshold vs Channel")
     plt.xlabel("Channel")
     plt.ylabel("Time Over Threshold (Ticks)")
     plt.legend()
 
-    # Text of the channels with high counts
-    #plt.annotate(f"High ToT Channels: {np.unique(hot_channels)}", xy=(750, 7250), va="center", ha="center", fontsize=8)
-
     plt.tight_layout()
-    plt.savefig("channel_vs_tot.png")
+    plt.savefig("tp_channel_vs_tot.png") # Many scatter points makes this a PNG
     plt.close()
 
 def tp_percent_histogram(tp_data):
-
-    channels = []
-    for frag_data in tp_data:
-        channel_data = frag_data['channel']
-        channels = channels + list(channel_data)
-    channels = np.array(channels)
-    counts, bins = np.histogram(channels, bins=np.arange(0.5, 3072.5, 1))
+    """
+    Plot the count of TPs that account for 1%, 0.1%, and 0.01%
+    of the total channel count.
+    """
+    counts, _ = np.histogram(tp_data['channel'], bins=np.arange(0.5, 3072.5, 1))
 
     count_mask = np.ones(counts.shape, dtype=bool)
     total_counts = np.sum(counts)
@@ -266,6 +250,29 @@ def plot_adc_integral_histogram(adc_integrals, quiet=False):
     plt.savefig("tp_adc_integral_histogram.svg")
     plt.close()
 
+def write_summary_stats(data, filename, title):
+    """
+    Writes the given summary statistics to 'filename'.
+    """
+    summary = stats.describe(data)
+    std = np.sqrt(summary.variance)
+    with open(filename, 'a') as out:
+        out.write(f"{title}\n")
+        out.write(f"Reference Statistics:\n"            \
+                  f"\tTotal # TPs = {summary.nobs},\n"  \
+                  f"\tMean = {summary.mean:.2f},\n"     \
+                  f"\tStd = {std:.2f},\n"               \
+                  f"\tMin = {summary.minmax[0]},\n"     \
+                  f"\tMax = {summary.minmax[1]}.\n")
+        std3_count = np.sum(data > summary.mean + 3*std) \
+                   + np.sum(data < summary.mean - 3*std)
+        std2_count = np.sum(data > summary.mean + 2*std) \
+                   + np.sum(data < summary.mean - 2*std)
+        out.write(f"Anomalies:\n"                           \
+                  f"\t# of >3 Sigma TPs = {std3_count},\n"  \
+                  f"\t# of >2 Sigma TPs = {std2_count}.\n")
+        out.write("\n\n")
+
 def plot_summary_stats(tp_data, no_anomaly=False, quiet=False):
     """
     Plot summary statistics on the various TP member data.
@@ -304,23 +311,17 @@ def plot_summary_stats(tp_data, no_anomaly=False, quiet=False):
     if not no_anomaly:
         if not quiet:
             print(f"Writing descriptive statistics to {anomaly_filename}.")
-        import os
-        from scipy import stats # Only used when writing to file.
         if os.path.isfile(anomaly_filename):
             # Prepare a new tp_anomaly_summary.txt
             os.remove(anomaly_filename)
 
     with PdfPages("tp_summary_stats.pdf") as pdf:
         for tp_key, title in titles.items():
-            # Extract only ta_key
-            plot_data = []
-            for frag_data in tp_data:
-                plot_data = plot_data + list(frag_data[tp_key])
-            plot_data = np.array(plot_data)
             plt.figure(figsize=(6,4))
             ax = plt.gca()
 
-            plt.boxplot(plot_data, notch=True, vert=False, sym='+')
+            # Only plot the 'tp_key'
+            plt.boxplot(tp_data[tp_key], notch=True, vert=False, sym='+')
             plt.yticks([])
             ax.xaxis.grid(True)
             plt.xlabel(labels[tp_key])
@@ -333,27 +334,10 @@ def plot_summary_stats(tp_data, no_anomaly=False, quiet=False):
 
             # Write anomalies to file.
             if not no_anomaly:
-                if "Sanity" in title and np.all(plot_data == plot_data[0]):
+                if "Sanity" in title and np.all(tp_data[tp_key] == tp_data[tp_key][0]):
                     # Either passed check or all wrong in the same way.
                     continue
-                summary = stats.describe(plot_data)
-                std = np.sqrt(summary.variance)
-                with open(anomaly_filename, 'a') as out:
-                    out.write(f"{title}\n")
-                    out.write(f"Reference Statistics:\n"            \
-                              f"\tTotal # TPs = {summary.nobs},\n"  \
-                              f"\tMean = {summary.mean:.2f},\n"     \
-                              f"\tStd = {std:.2f},\n"               \
-                              f"\tMin = {summary.minmax[0]},\n"     \
-                              f"\tMax = {summary.minmax[1]}.\n")
-                    std3_count = np.sum(plot_data > summary.mean + 3*std) \
-                               + np.sum(plot_data < summary.mean - 3*std)
-                    std2_count = np.sum(plot_data > summary.mean + 2*std) \
-                               + np.sum(plot_data < summary.mean - 2*std)
-                    out.write(f"Anomalies:\n"                           \
-                              f"\t# of >3 Sigma TPs = {std3_count},\n"  \
-                              f"\t# of >2 Sigma TPs = {std2_count}.\n")
-                    out.write("\n\n")
+                write_summary_stats(tp_data[tp_key], anomaly_filename, title)
 
 def parse():
     parser = argparse.ArgumentParser(description="Display diagnostic information for TAs for a given tpstream file.")
@@ -366,6 +350,9 @@ def parse():
     return parser.parse_args()
 
 def main():
+    """
+    Drives the processing and plotting.
+    """
     ## Process Arguments & Data
     args = parse()
     filename = args.filename
@@ -386,45 +373,25 @@ def main():
         data.load_frag(path)
 
     if (not quiet):
-        print("Length of tp_data:", len(data.tp_data))
+        print("Size of tp_data:", data.tp_data.shape)
 
     ## Plots with more involved analysis
     channel_tot(data.tp_data)
     tp_percent_histogram(data.tp_data)
 
     ## Basic Plots: Histograms & Box Plots
-    diagnostics = {
-                    'adc_integral': [],
-                    'adc_peak': [],
-                    'algorithm': [],
-                    'channel': [],
-                    'detid': [],
-                    'flag': [],
-                    'time_over_threshold': [],
-                    'time_peak': [],
-                    'time_start': [],
-                    'type': [],
-                    'version': [],
-                  }
-
-    # Each fragment can be different sizes, so must iterate over all fragments
-    # and stack dynamically.
-    for frag_data in data.tp_data:
-        for key in diagnostics:
-            diagnostics[key] += list(frag_data[key])
-
     # For the moment, none of these functions make use of 'quiet'.
-    plot_adc_integral_histogram(diagnostics['adc_integral'], quiet)
-    plot_adc_peak_histogram(diagnostics['adc_peak'], quiet)
-    plot_algorithm_histogram(diagnostics['algorithm'], quiet)
-    plot_channel_histogram(diagnostics['channel'], quiet)
-    plot_detid_histogram(diagnostics['detid'], quiet)
-    plot_flag_histogram(diagnostics['flag'], quiet)
-    plot_time_over_threshold_histogram(diagnostics['time_over_threshold'], quiet)
-    plot_time_peak_histogram(diagnostics['time_peak'], quiet)
-    plot_time_start_histogram(diagnostics['time_start'], quiet)
-    plot_type_histogram(diagnostics['type'], quiet)
-    plot_version_histogram(diagnostics['version'], quiet)
+    plot_adc_integral_histogram(data.tp_data['adc_integral'], quiet)
+    plot_adc_peak_histogram(data.tp_data['adc_peak'], quiet)
+    plot_algorithm_histogram(data.tp_data['algorithm'], quiet)
+    plot_channel_histogram(data.tp_data['channel'], quiet)
+    plot_detid_histogram(data.tp_data['detid'], quiet)
+    plot_flag_histogram(data.tp_data['flag'], quiet)
+    plot_time_over_threshold_histogram(data.tp_data['time_over_threshold'], quiet)
+    plot_time_peak_histogram(data.tp_data['time_peak'], quiet)
+    plot_time_start_histogram(data.tp_data['time_start'], quiet)
+    plot_type_histogram(data.tp_data['type'], quiet)
+    plot_version_histogram(data.tp_data['version'], quiet)
 
     plot_summary_stats(data.tp_data, no_anomaly, quiet)
 
