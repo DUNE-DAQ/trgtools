@@ -372,6 +372,16 @@ def main():
             print("Fragment Path:", path)
         data.load_frag(path)
 
+    # Try to find an empty plotting directory
+    plot_iter = 0
+    plot_dir = f"{data.run_id}-{data.file_index}_figures_{plot_iter:04}"
+    while os.path.isdir(plot_dir):
+        plot_iter += 1
+        plot_dir = f"{data.run_id}-{data.file_index}_figures_{plot_iter:04}"
+    print(f"Saving figures to {plot_dir}")
+    os.mkdir(plot_dir)
+    os.chdir(plot_dir)
+
     if (not quiet):
         print("Size of tp_data:", data.tp_data.shape)
 
