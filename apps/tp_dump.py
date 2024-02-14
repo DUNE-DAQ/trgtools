@@ -101,11 +101,12 @@ def plot_pdf_histogram(data, plot_details_dict, pdf, linear=True, log=True):
     if 'xticks' in plot_details_dict:
         linear = True
         log = False
-        bins = len(plot_details_dict['xticks'][1])
         plt.xticks(
                 plot_details_dict['xticks'][0],  # Ticks to change
                 plot_details_dict['xticks'][1]  # New labels
         )
+    if 'bins' in plot_details_dict:
+        bins = plot_details_dict['bins']
 
     if linear and log:
         ax.hist(data, bins=bins, color='#EE442F', label='Linear', alpha=0.6)
@@ -126,7 +127,7 @@ def plot_pdf_histogram(data, plot_details_dict, pdf, linear=True, log=True):
             plt.yscale('log')
 
     plt.title(plot_details_dict['title'] + " Histogram")
-    plt.xlabel(plot_details_dict['xlabel'])
+    ax.set_xlabel(plot_details_dict['xlabel'])
     if 'xticks' in plot_details_dict:
         plt.xticks(plot_details_dict['xticks'][0], plot_details_dict['xticks'][1])
     if 'xlim' in plot_details_dict:
@@ -237,6 +238,7 @@ def parse():
     parser.add_argument("--start-frag", type=int, help="Fragment to start loading from (inclusive); can take negative integers. Default: -10", default=-10)
     parser.add_argument("--end-frag", type=int, help="Fragment to stop loading at (exclusive); can take negative integers. Default: 0", default=0)
     parser.add_argument("--no-anomaly", action="store_true", help="Pass to not write 'tp_anomaly_summary.txt'. Default: False.")
+    parser.add_argument("--seconds", action="store_true", help="Pass to use seconds instead of time ticks. Default: False.")
     parser.add_argument("--linear", action="store_true", help="Pass to use linear histogram scaling. Default: plots both linear and log.")
     parser.add_argument("--log", action="store_true", help="Pass to use logarithmic histogram scaling. Default: plots both linear and log.")
 
@@ -255,6 +257,7 @@ def main():
     no_anomaly = args.no_anomaly
     linear = args.linear
     log = args.log
+    seconds = args.seconds
 
     # User didn't pass either flag, so default to both being true.
     if (not linear) and (not log):
@@ -282,6 +285,8 @@ def main():
 
     ## Basic Plots: Histograms & Box Plots
     # Dictionary containing unique title, xlabel, and xticks (only some)
+    time_label = "Time (s)" if seconds else "Time (Ticks)"
+
     plot_dict = {
             'adc_integral': {
                 'title': "ADC Integral",
@@ -294,12 +299,17 @@ def main():
             'algorithm': {
                 'title': "Algorithm",
                 'xlabel': 'Algorithm Type',
-                'xlim': (-0.5, 1.5),
+                'xlim': (-1, 2),
                 'xticks': (
                     (0, 1),  # xticks to change
                     ("Unknown", "TPCDefault"),
-                )
+                ),
+                'bins': (-0.5, 0.5, 1.5) # TODO: Dangerous. Hides values outside of this range.
             },
+            # TODO: Channel should bin on the available
+            # channels; however, this is inconsistent
+            # between detectors (APA/CRP).
+            # Requires loading channel maps.
             'channel': {
                 'title': "Channel",
                 'xlabel': "Channel Number"
@@ -314,24 +324,25 @@ def main():
             },
             'time_over_threshold': {
                 'title': "Time Over Threshold",
-                'xlabel': "Ticks"
+                'xlabel': time_label
             },
             'time_peak': {
                 'title': "Relative Time Peak",
-                'xlabel': "Ticks"
+                'xlabel': time_label
             },
             'time_start': {
                 'title': "Relative Time Start",
-                'xlabel': "Ticks"
+                'xlabel': time_label
             },
             'type': {
                 'title': "Type",
                 'xlabel': "Type",
-                'xlim': (-0.5, 2.5),
+                'xlim': (-1, 3),
                 'xticks': (
                     (0, 1, 2),  # Ticks to change
                     ('Unknown', 'TPC', 'PDS')
-                )
+                ),
+                'bins': (-0.5, 0.5, 1.5, 2.5)  # TODO: Dangerous. Hides values outside of this range.
             },
             'version': {
                 'title': "Version",
@@ -348,13 +359,16 @@ def main():
 
     with PdfPages("tp_data_member_histograms.pdf") as pdf:
         for tp_key in data.tp_data.dtype.names:
-            if tp_key == 'time_start' or tp_key == 'time_peak':
-                min_time = np.min(data.tp_data[tp_key])
-                plot_pdf_histogram(data.tp_data[tp_key] - min_time, plot_dict[tp_key], pdf, linear, log)
-                continue
-            plot_pdf_histogram(data.tp_data[tp_key], plot_dict[tp_key], pdf, linear, log)
             if not no_anomaly:
                 write_summary_stats(data.tp_data[tp_key], anomaly_filename, plot_dict[tp_key]['title'])
+            if tp_key == 'time_start' or tp_key == 'time_peak':
+                time = data.tp_data[tp_key]
+                if seconds:
+                    time = time * TICK_TO_SEC_SCALE
+                min_time = np.min(time)
+                plot_pdf_histogram(time - min_time, plot_dict[tp_key], pdf, linear, log)
+                continue
+            plot_pdf_histogram(data.tp_data[tp_key], plot_dict[tp_key], pdf, linear, log)
 
 if __name__ == "__main__":
     main()

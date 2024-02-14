@@ -105,7 +105,7 @@ def write_summary_stats(data, filename, title):
     # Algorithm, Det ID, etc. are not expected to vary.
     # Check first that they don't vary, and move on if so.
     if np.all(data == data[0]):
-        print(f"{title} data member is the same for all TPs. Skipping summary statistics.")
+        print(f"{title} data member is the same for all TAs. Skipping summary statistics.")
         return
 
     summary = stats.describe(data)
@@ -140,12 +140,13 @@ def plot_pdf_histogram(data, plot_details_dict, pdf, linear=True, log=True):
     if 'xticks' in plot_details_dict:
         linear = True
         log = False
-        bins = len(plot_details_dict['xticks'][1])
         plt.xticks(
                 plot_details_dict['xticks'][0],  # Ticks to change
                 plot_details_dict['xticks'][1],  # New labels
                 rotation=plot_details_dict['xticks'][2]
         )
+    if 'bins' in plot_details_dict:
+        bins = plot_details_dict['bins']
 
     if linear and log:
         ax.hist(data, bins=bins, color='#63ACBE', label='Linear', alpha=0.6)
@@ -166,7 +167,7 @@ def plot_pdf_histogram(data, plot_details_dict, pdf, linear=True, log=True):
             plt.yscale('log')
 
     plt.title(plot_details_dict['title'] + " Histogram")
-    plt.xlabel(plot_details_dict['xlabel'])
+    ax.set_xlabel(plot_details_dict['xlabel'])
     if 'xlim' in plot_details_dict:
         plt.xlim(plot_details_dict['xlim'])
 
@@ -327,6 +328,8 @@ def main():
     plot_time_window_summary(data.ta_data, data.tp_data, quiet, seconds)
 
     # General Data Member Plots
+    time_label = "Time (s)" if seconds else "Time (Ticks)"
+
     # Dictionary containing unique title, xlabel, and xticks (only some)
     plot_dict = {
             'adc_integral': {
@@ -356,6 +359,10 @@ def main():
                     60  # Rotation
                 )
             },
+            # TODO: Channel data members should bin on
+            # the available channels; however, this is
+            # inconsistent between detectors (APA/CRP).
+            # Requires loading channel maps.
             'channel_end': {
                 'title': "Channel End",
                 'xlabel': "Channel Number"
@@ -378,19 +385,19 @@ def main():
             },
             'time_activity': {
                 'title': "Relative Time Activity",
-                'xlabel': "Ticks"
+                'xlabel': time_label
             },
             'time_end': {
                 'title': "Relative Time End",
-                'xlabel': "Ticks"
+                'xlabel': time_label
             },
             'time_peak': {
                 'title': "Relative Time Peak",
-                'xlabel': "Ticks"
+                'xlabel': time_label
             },
             'time_start': {
                 'title': "Relative Time Start",
-                'xlabel': "Ticks"
+                'xlabel': time_label
             },
             'type': {
                 'title': "Type",
@@ -413,13 +420,16 @@ def main():
 
     with PdfPages("ta_data_member_histograms.pdf") as pdf:
         for ta_key in data.ta_data.dtype.names:
-            if 'time' in ta_key:
-                min_time = np.min(data.ta_data[ta_key])
-                plot_pdf_histogram(data.ta_data[ta_key] - min_time, plot_dict[ta_key], pdf, linear, log)
-                continue
-            plot_pdf_histogram(data.ta_data[ta_key], plot_dict[ta_key], pdf, linear, log)
             if not no_anomaly:
                 write_summary_stats(data.ta_data[ta_key], anomaly_filename, plot_dict[ta_key]['title'])
+            if 'time' in ta_key:
+                time = data.ta_data[ta_key]
+                if seconds:
+                    time = time * TICK_TO_SEC_SCALE
+                min_time = np.min(time)  # Prefer making the relative time change.
+                plot_pdf_histogram(time - min_time, plot_dict[ta_key], pdf, linear, log)
+                continue
+            plot_pdf_histogram(data.ta_data[ta_key], plot_dict[ta_key], pdf, linear, log)
 
     if (not no_displays):
         all_event_displays(data.tp_data, run_id, sub_run_id, seconds)
