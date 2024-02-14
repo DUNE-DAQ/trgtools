@@ -381,7 +381,9 @@ def main():
         plot_iter += 1
         plot_dir = f"{data.run_id}-{data.file_index}_figures_{plot_iter:04}"
     print(f"Saving outputs to ./{plot_dir}/")
-    if not overwrite:  # Can only create new dirs.
+    # If overwriting and it does exist, don't need to make it.
+    # So take the inverse to mkdir.
+    if not (overwrite and os.path.isdir(plot_dir)):
         os.mkdir(plot_dir)
     os.chdir(plot_dir)
 
