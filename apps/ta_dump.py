@@ -358,6 +358,7 @@ def parse():
     parser.add_argument("--end-frag", type=int, help="Fragment index to stop processing (i.e. not inclusive). Takes negative indexing. Default: 0.", default=0)
     parser.add_argument("--no-anomaly", action="store_true", help="Pass to not write 'ta_anomaly_summary.txt'. Default: False.")
     parser.add_argument("--seconds", action="store_true", help="Pass to use seconds instead of time ticks. Default: False.")
+    parser.add_argument("--overwrite", action="store_true", help="Overwrite old outputs. Default: False.")
 
     return parser.parse_args()
 
@@ -374,6 +375,7 @@ def main():
     end_frag = args.end_frag
     no_anomaly = args.no_anomaly
     seconds = args.seconds
+    overwrite = args.overwrite
 
     data = trgtools.TAData(filename, quiet)
 
@@ -393,11 +395,12 @@ def main():
     # Try to find an empty plotting directory
     plot_iter = 0
     plot_dir = f"{data.run_id}-{data.file_index}_figures_{plot_iter:04}"
-    while os.path.isdir(plot_dir):
+    while not overwrite and os.path.isdir(plot_dir):
         plot_iter += 1
         plot_dir = f"{data.run_id}-{data.file_index}_figures_{plot_iter:04}"
-    print(f"Saving figures to {plot_dir}")
-    os.mkdir(plot_dir)
+    print(f"Saving outputs to ./{plot_dir}/")
+    if not overwrite:  # Can only create new dirs.
+        os.mkdir(plot_dir)
     os.chdir(plot_dir)
 
     print(f"Number of TAs: {data.ta_data.shape[0]}") # Enforcing output for useful metric

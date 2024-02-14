@@ -346,6 +346,7 @@ def parse():
     parser.add_argument("--start-frag", type=int, help="Fragment to start loading from (inclusive); can take negative integers. Default: -10", default=-10)
     parser.add_argument("--end-frag", type=int, help="Fragment to stop loading at (exclusive); can take negative integers. Default: 0", default=0)
     parser.add_argument("--no-anomaly", action="store_true", help="Pass to not write 'tp_anomaly_summary.txt'. Default: False.")
+    parser.add_argument("--overwrite", action="store_true", help="Overwrite old outputs. Default: False.")
 
     return parser.parse_args()
 
@@ -360,6 +361,7 @@ def main():
     start_frag = args.start_frag
     end_frag = args.end_frag
     no_anomaly = args.no_anomaly
+    overwrite = args.overwrite
 
     data = trgtools.TPData(filename, quiet)
     if end_frag == 0: # Ex: [-10:0] is bad.
@@ -375,11 +377,12 @@ def main():
     # Try to find an empty plotting directory
     plot_iter = 0
     plot_dir = f"{data.run_id}-{data.file_index}_figures_{plot_iter:04}"
-    while os.path.isdir(plot_dir):
+    while not overwrite and os.path.isdir(plot_dir):
         plot_iter += 1
         plot_dir = f"{data.run_id}-{data.file_index}_figures_{plot_iter:04}"
-    print(f"Saving figures to {plot_dir}")
-    os.mkdir(plot_dir)
+    print(f"Saving outputs to ./{plot_dir}/")
+    if not overwrite:  # Can only create new dirs.
+        os.mkdir(plot_dir)
     os.chdir(plot_dir)
 
     if (not quiet):
