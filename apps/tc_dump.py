@@ -283,7 +283,14 @@ def main():
 
     # Plotting
 
-    anomaly_filename = "tc_anomalies.txt"
+    anomaly_filename = f"tc_anomalies_{run_id}-{file_index:04}.txt"
+    if not no_anomaly:
+        if not quiet:
+            print(f"Writing descriptive statistics to {anomaly_filename}.")
+        if os.path.isfile(anomaly_filename):
+            # Prepare a new ta_anomaly_summary.txt
+            os.remove(anomaly_filename)
+
     time_label = "Time (s)" if seconds else "Time (Ticks)"
 
     # Dictionary containing unique title, xlabel, and xticks (only some)
@@ -362,20 +369,23 @@ def main():
                 'xlabel': "Version"
             }
     }
-    with PdfPages("tc_data_member_histograms.pdf") as pdf:
+    with PdfPages(f"tc_data_member_histograms_{run_id}-{file_index:04}.pdf") as pdf:
 
         # Generic plots
         for tc_key in data.tc_data.dtype.names:
-            if not no_anomaly:
-                write_summary_stats(data.tc_data[tc_key], anomaly_filename, plot_dict[tc_key]['title'])
-            if 'time' in tc_key:
+            if 'time' in tc_key:  # Special case.
                 time = data.tc_data[tc_key]
                 if seconds:
                     time = time * TICK_TO_SEC_SCALE
                 min_time = np.min(time)  # Prefer making the relative time change.
                 plot_pdf_histogram(time - min_time, plot_dict[tc_key], pdf, linear, log)
+                if not no_anomaly:
+                    write_summary_stats(time - min_time, anomaly_filename, plot_dict[tc_key]['title'])
                 continue
+
             plot_pdf_histogram(data.tc_data[tc_key], plot_dict[tc_key], pdf, linear, log)
+            if not no_anomaly:
+                write_summary_stats(data.tc_data[tc_key], anomaly_filename, plot_dict[tc_key]['title'])
 
         # "Analysis" plots
         plot_pdf_time_delta_histograms(data.tc_data, data.ta_data, pdf, time_label)
