@@ -62,6 +62,11 @@ def plot_pdf_histogram(
         ax2.hist(data, bins=bins, color='#EE442F', label='Log', alpha=0.6)
         ax2.set_yscale('log')
 
+        # Setting the plot order
+        ax.set_zorder(2)
+        ax.patch.set_visible(False)
+        ax2.set_zorder(1)
+
         handles, labels = ax.get_legend_handles_labels()
         handles2, labels2 = ax2.get_legend_handles_labels()
         handles = handles + handles2
@@ -440,7 +445,7 @@ def main():
             },
             'version': {
                 'title': "Version",
-                'xlabel': "Version"
+                'xlabel': "Versions"
             }
     }
     with PdfPages(f"tc_data_member_histograms_{run_id}-{file_index:04}.pdf") as pdf:
