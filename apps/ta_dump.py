@@ -140,11 +140,7 @@ def plot_pdf_histogram(data, plot_details_dict, pdf, linear=True, log=True):
     if 'xticks' in plot_details_dict:
         linear = True
         log = False
-        plt.xticks(
-                plot_details_dict['xticks'][0],  # Ticks to change
-                plot_details_dict['xticks'][1],  # New labels
-                rotation=plot_details_dict['xticks'][2]
-        )
+        plt.xticks(**plot_details_dict['xticks'])
     if 'bins' in plot_details_dict:
         bins = plot_details_dict['bins']
 
@@ -155,6 +151,11 @@ def plot_pdf_histogram(data, plot_details_dict, pdf, linear=True, log=True):
         ax2 = ax.twinx()
         ax2.hist(data, bins=bins, color='#EE442F', label='Log', alpha=0.6)
         ax2.set_yscale('log')
+
+        # Setting the plot order
+        ax.set_zorder(2)
+        ax.patch.set_visible(False)
+        ax2.set_zorder(1)
 
         handles, labels = ax.get_legend_handles_labels()
         handles2, labels2 = ax2.get_legend_handles_labels()
@@ -343,10 +344,11 @@ def main():
             'algorithm': {
                 'title': "Algorithm",
                 'xlabel': 'Algorithm Type',
+                'bins': 8,
                 'xlim': (-0.5, 7.5),
-                'xticks': (
-                    range(0, 8),  # xticks to change
-                    (
+                'xticks': {
+                    'ticks': range(0, 8),  # xticks to change
+                    'labels': (
                         "Unknown",
                         "Supernova",
                         "Prescale",
@@ -356,8 +358,9 @@ def main():
                         "DBSCAN",
                         "PlaneCoincidence"
                     ),
-                    60  # Rotation
-                )
+                    'rotation': 60,
+                    'ha': 'right'  # Horizontal alignment
+                }
             },
             # TODO: Channel data members should bin on
             # the available channels; however, this is
@@ -402,12 +405,14 @@ def main():
             'type': {
                 'title': "Type",
                 'xlabel': "Type",
+                'bins': 3,
                 'xlim': (-0.5, 2.5),
-                'xticks': (
-                    (0, 1, 2),  # Ticks to change
-                    ('Unknown', 'TPC', 'PDS'),
-                    60  # Rotation
-                )
+                'xticks': {
+                    'ticks': (0, 1, 2),  # Ticks to change
+                    'labels': ('Unknown', 'TPC', 'PDS'),
+                    'rotation': 60,
+                    'ha': 'right'  # Horizontal alignment
+                }
             }
     }
     if not no_anomaly:

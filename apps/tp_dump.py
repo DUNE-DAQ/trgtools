@@ -101,20 +101,22 @@ def plot_pdf_histogram(data, plot_details_dict, pdf, linear=True, log=True):
     if 'xticks' in plot_details_dict:
         linear = True
         log = False
-        plt.xticks(
-                plot_details_dict['xticks'][0],  # Ticks to change
-                plot_details_dict['xticks'][1]  # New labels
-        )
+        plt.xticks(**plot_details_dict['xticks'])
     if 'bins' in plot_details_dict:
         bins = plot_details_dict['bins']
 
     if linear and log:
-        ax.hist(data, bins=bins, color='#EE442F', label='Linear', alpha=0.6)
+        ax.hist(data, bins=bins, color='#63ACBE', label='Linear', alpha=0.6)
         ax.set_yscale('linear')
 
         ax2 = ax.twinx()
-        ax2.hist(data, bins=bins, color='#63ACBE', label='Log', alpha=0.6)
+        ax2.hist(data, bins=bins, color='#EE442F', label='Log', alpha=0.6)
         ax2.set_yscale('log')
+
+        # Setting the plot order
+        ax.set_zorder(2)
+        ax.patch.set_visible(False)
+        ax2.set_zorder(1)
 
         handles, labels = ax.get_legend_handles_labels()
         handles2, labels2 = ax2.get_legend_handles_labels()
@@ -128,8 +130,6 @@ def plot_pdf_histogram(data, plot_details_dict, pdf, linear=True, log=True):
 
     plt.title(plot_details_dict['title'] + " Histogram")
     ax.set_xlabel(plot_details_dict['xlabel'])
-    if 'xticks' in plot_details_dict:
-        plt.xticks(plot_details_dict['xticks'][0], plot_details_dict['xticks'][1])
     if 'xlim' in plot_details_dict:
         plt.xlim(plot_details_dict['xlim'])
 
@@ -300,10 +300,10 @@ def main():
                 'title': "Algorithm",
                 'xlabel': 'Algorithm Type',
                 'xlim': (-1, 2),
-                'xticks': (
-                    (0, 1),  # xticks to change
-                    ("Unknown", "TPCDefault"),
-                ),
+                'xticks': {
+                    'ticks': (0, 1),
+                    'labels': ("Unknown", "TPCDefault")
+                },
                 'bins': (-0.5, 0.5, 1.5) # TODO: Dangerous. Hides values outside of this range.
             },
             # TODO: Channel should bin on the available
@@ -338,10 +338,10 @@ def main():
                 'title': "Type",
                 'xlabel': "Type",
                 'xlim': (-1, 3),
-                'xticks': (
-                    (0, 1, 2),  # Ticks to change
-                    ('Unknown', 'TPC', 'PDS')
-                ),
+                'xticks': {
+                    'ticks': (0, 1, 2),
+                    'labels': ('Unknown', 'TPC', 'PDS')
+                },
                 'bins': (-0.5, 0.5, 1.5, 2.5)  # TODO: Dangerous. Hides values outside of this range.
             },
             'version': {
