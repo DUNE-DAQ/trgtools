@@ -258,7 +258,7 @@ def plot_summary_stats(ta_data, no_anomaly=False, quiet=False):
                 write_summary_stats(ta_data[ta_key], anomaly_filename, title)
 
 
-def all_event_displays(tp_data, run_id, sub_run_id, seconds=False):
+def all_event_displays(tp_data, run_id, file_index, seconds=False):
     """
     Plot all event_displays as pages in a PDF.
 
@@ -266,7 +266,7 @@ def all_event_displays(tp_data, run_id, sub_run_id, seconds=False):
     """
     time_unit = 's' if seconds else 'Ticks'
 
-    with PdfPages(f"event_displays_{run_id}.{sub_run_id:04}.pdf") as pdf:
+    with PdfPages(f"event_displays_{run_id}.{file_index:04}.pdf") as pdf:
         for tadx, ta in enumerate(tp_data):
             if seconds:
                 ta = ta * TICK_TO_SEC_SCALE
@@ -280,7 +280,7 @@ def all_event_displays(tp_data, run_id, sub_run_id, seconds=False):
             time_diff = max_time - min_time
             plt.xlim((min_time - 0.1*time_diff, max_time + 0.1*time_diff))
 
-            plt.title(f'Run {run_id}.{sub_run_id:04} Event Display: {tadx:03}')
+            plt.title(f'Run {run_id}.{file_index:04} Event Display: {tadx:03}')
             plt.xlabel(f"Peak Time ({time_unit})")
             plt.ylabel("Channel")
 
@@ -358,6 +358,7 @@ def parse():
     parser.add_argument("--end-frag", type=int, help="Fragment index to stop processing (i.e. not inclusive). Takes negative indexing. Default: 0.", default=0)
     parser.add_argument("--no-anomaly", action="store_true", help="Pass to not write 'ta_anomaly_summary.txt'. Default: False.")
     parser.add_argument("--seconds", action="store_true", help="Pass to use seconds instead of time ticks. Default: False.")
+    parser.add_argument("--overwrite", action="store_true", help="Overwrite old outputs. Default: False.")
 
     return parser.parse_args()
 
@@ -374,6 +375,7 @@ def main():
     end_frag = args.end_frag
     no_anomaly = args.no_anomaly
     seconds = args.seconds
+    overwrite = args.overwrite
 
     data = trgtools.TAData(filename, quiet)
 
@@ -390,8 +392,18 @@ def main():
         for path in frag_paths:
             data.load_frag(path)
 
-    run_id = data.run_id
-    sub_run_id = data.sub_run_id
+    # Try to find an empty plotting directory
+    plot_iter = 0
+    plot_dir = f"{data.run_id}-{data.file_index}_figures_{plot_iter:04}"
+    while not overwrite and os.path.isdir(plot_dir):
+        plot_iter += 1
+        plot_dir = f"{data.run_id}-{data.file_index}_figures_{plot_iter:04}"
+    print(f"Saving outputs to ./{plot_dir}/")
+    # If overwriting and it does exist, don't need to make it.
+    # So take the inverse to mkdir.
+    if not (overwrite and os.path.isdir(plot_dir)):
+        os.mkdir(plot_dir)
+    os.chdir(plot_dir)
 
     print(f"Number of TAs: {data.ta_data.shape[0]}") # Enforcing output for useful metric
 
@@ -407,7 +419,7 @@ def main():
     plot_summary_stats(data.ta_data, no_anomaly, quiet)
 
     if (not no_displays):
-        all_event_displays(data.tp_data, run_id, sub_run_id, seconds)
+        all_event_displays(data.tp_data, data.run_id, data.file_index, seconds)
 
 if __name__ == "__main__":
     main()
