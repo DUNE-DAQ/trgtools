@@ -144,7 +144,7 @@ def plot_pdf_errorbar(
     Returns:
         Nothing. Mutates :pdf: with the new plot.
     """
-    plt.figure(figsize=plot_details_dict.get('figsize', (6,4)))
+    plt.figure(figsize=plot_details_dict.get('figsize', (6, 4)))
 
     errorbar_style = plot_details_dict.get('errorbar_style', {})
     plt.errorbar(x_data, y_data, **errorbar_style)

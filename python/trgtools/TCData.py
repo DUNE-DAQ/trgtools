@@ -10,6 +10,7 @@ import daqdataformats
 from hdf5libs import HDF5RawDataFile
 import trgdataformats
 
+
 class TCData():
     """
     Class that reads a given HDF5 TPStream file and stores
@@ -66,7 +67,7 @@ class TCData():
             filename (str): HDF5 file to open.
             quiet (bool): Quiets outputs if true.
         """
-        self._h5_file = HDF5RawDataFile(filename)
+        self._h5_file = HDF5RawDataFile(os.path.expanduser(filename))
         self._set_tc_frag_paths(self._h5_file.get_all_fragment_dataset_paths())
         self._quiet = quiet
         self.run_id = self._h5_file.get_int_attribute('run_number')
@@ -111,8 +112,18 @@ class TCData():
         if frag_data_size == 0:  # Empty fragment
             self._num_empty += 1
             if not self._quiet:
-                print(self._FAIL_TEXT_COLOR + self._BOLD_TEXT + "WARNING: Empty fragment." + self._END_TEXT_COLOR)
-                print(self._WARNING_TEXT_COLOR + self._BOLD_TEXT + f"INFO: Fragment Path: {fragment_path}" + self._END_TEXT_COLOR)
+                print(
+                        self._FAIL_TEXT_COLOR
+                        + self._BOLD_TEXT
+                        + "WARNING: Empty fragment."
+                        + self._END_TEXT_COLOR
+                )
+                print(
+                        self._WARNING_TEXT_COLOR
+                        + self._BOLD_TEXT
+                        + f"INFO: Fragment Path: {fragment_path}"
+                        + self._END_TEXT_COLOR
+                )
 
         tc_idx = 0  # Debugging output.
         byte_idx = 0  # Variable TC sizing, must do a while loop.
