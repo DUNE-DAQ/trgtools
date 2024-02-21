@@ -150,7 +150,7 @@ class TCData():
 
             byte_idx += tc_datum.sizeof()
             if not self._quiet:
-                print(f"Upcoming byte: {byte_idx}.")
+                print(f"Upcoming byte index: {byte_idx}.")
 
             # Process TA data
             np_ta_data = np.zeros(np_tc_datum['num_tas'], dtype=self.ta_dt)
