@@ -2,13 +2,13 @@
 TriggerCandidate reader class to read and store data
 from an HDF5 file.
 """
-import os
+import daqdataformats  # Not directly used, but necessary to interpret formats.
+from hdf5libs import HDF5RawDataFile
+import trgdataformats
 
 import numpy as np
 
-import daqdataformats
-from hdf5libs import HDF5RawDataFile
-import trgdataformats
+import os
 
 
 class TCData():

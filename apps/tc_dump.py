@@ -3,15 +3,15 @@ Display diagnostic information for TCs for a given
 tpstream file.
 """
 
-import os
-import argparse
+import trgtools
 
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from scipy import stats
 
-import trgtools
+import os
+import argparse
 
 
 TICK_TO_SEC_SCALE = 16e-9  # s per tick
