@@ -511,6 +511,7 @@ def main():
             time_start = time_start * TICK_TO_SEC_SCALE
 
         yerr = np.array([time_candidate - time_start, time_end - time_candidate]).astype(np.int64)
+        time_unit = "Seconds" if seconds else "Ticks"
         time_spans_dict = {
                 'title': "TC Relative Time Spans",
                 'xlabel': "TC",
@@ -520,7 +521,7 @@ def main():
                     'capsize': 4,
                     'color': 'k',
                     'ecolor': 'r',
-                    'label': f"Avg Ticks / TC: {(time_candidate[-1] - time_candidate[0]) / len(time_candidate):.2f}",
+                    'label': f"Avg {time_unit} / TC: {(time_candidate[-1] - time_candidate[0]) / len(time_candidate):.2f}",
                     'marker': '.',
                     'markersize': 0.01
                 }
