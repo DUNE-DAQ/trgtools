@@ -72,8 +72,6 @@ def plot_adc_integral_vs_peak(tp_data):
     """
     plt.figure(figsize=(6, 4), dpi=200)
     plt.scatter(tp_data['adc_peak'], tp_data['adc_integral'], c='k', s=2, label='TP')
-    #plt.plot(np.linspace(np.min(tp_data['adc_peak']), np.max(tp_data['adc_peak'])), color='#EE442F', label='Reference')
-    plt.hlines(np.power(2, 15), np.min(tp_data['adc_peak']), np.max(tp_data['adc_peak']), color='#EE442F', label=r'$2^{15}-1$', alpha=0.2)
     print("Number of ADC Integrals at Signed 16 Limit:", np.sum(tp_data['adc_integral'] == np.power(2, 15)-1))
     print("Total number of TPs:", len(tp_data['adc_peak']))
     high_integral_locs = np.where(tp_data['adc_integral'] == np.power(2, 15)-1)
