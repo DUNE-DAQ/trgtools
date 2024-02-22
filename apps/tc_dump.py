@@ -350,9 +350,9 @@ def main():
         data.load_all_frags()  # Has extra debug/warning info
     else:  # Only load some.
         if end_frag != 0:  # Python doesn't like [n:0]
-            frag_paths = data.get_ta_frag_paths()[start_frag:end_frag]
+            frag_paths = data.get_tc_frag_paths()[start_frag:end_frag]
         elif end_frag == 0:
-            frag_paths = data.get_ta_frag_paths()[start_frag:]
+            frag_paths = data.get_tc_frag_paths()[start_frag:]
 
         # Does not count empty frags.
         for path in frag_paths:
