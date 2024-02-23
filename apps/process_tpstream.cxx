@@ -185,12 +185,12 @@ int main(int argc, char const *argv[])
   std::ifstream config_stream(config_name);
   nlohmann::json config = nlohmann::json::parse(config_stream);
 
-  nlohmann::json ta_algo = config["activitymaker"]["algorithm"];
-  nlohmann::json ta_config = config["activitymaker"]["config"];
+  // Only use the first plugin for now.
+  nlohmann::json ta_algo = config["trigger_activity_plugin"][0];
+  nlohmann::json ta_config = config["trigger_activity_config"][0];
 
-
-  nlohmann::json tc_algo = config["candidatemaker"]["algorithm"];
-  nlohmann::json tc_config = config["candidatemaker"]["config"];
+  nlohmann::json tc_algo = config["trigger_candidate_plugin"][0];
+  nlohmann::json tc_config = config["trigger_candidate_config"][0];
 
 
   // Finally create a TA maker
@@ -308,34 +308,31 @@ int main(int argc, char const *argv[])
         fmt::print("  ta_buffer in bytes = {}\n", payload_size);
 
       
-      // Skip saving
-      if ( true ) {
-        // Create the fragment buffer
-        void* payload = malloc(payload_size);
+      // Create the fragment buffer
+      void* payload = malloc(payload_size);
 
-        size_t offset(0);
-        for ( const auto& ta : ta_buffer ) {
-          triggeralgs::write_overlay(ta, payload+offset);
-          offset += triggeralgs::get_overlay_nbytes(ta);
-        }
-
-        // Hand it to the fragment
-        std::unique_ptr<daqdataformats::Fragment> ta_frag = std::make_unique<daqdataformats::Fragment>(payload, payload_size);
-
-        // And release it
-        free(payload);
-
-        daqdataformats::FragmentHeader ta_hdr = frag->get_header();
-
-        // Customise the source id (add 1000 to id)
-        ta_hdr.element_id = daqdataformats::SourceID{daqdataformats::SourceID::Subsystem::kTrigger, frag->get_element_id().id+1000};
-
-        ta_frag->set_header_fields(ta_hdr);
-        ta_frag->set_type(daqdataformats::FragmentType::kTriggerActivity);
-
-
-        tsl.add_fragment(std::move(ta_frag));
+      size_t payload_offset(0);
+      for ( const auto& ta : ta_buffer ) {
+        triggeralgs::write_overlay(ta, payload + payload_offset);
+        payload_offset += triggeralgs::get_overlay_nbytes(ta);
       }
+
+      // Hand it to the fragment
+      std::unique_ptr<daqdataformats::Fragment> ta_frag = std::make_unique<daqdataformats::Fragment>(payload, payload_size);
+
+      // And release it
+      free(payload);
+
+      daqdataformats::FragmentHeader frag_hdr = frag->get_header();
+
+      // Customise the source id (add 1000 to id)
+      frag_hdr.element_id = daqdataformats::SourceID{daqdataformats::SourceID::Subsystem::kTrigger, frag->get_element_id().id+1000};
+
+      ta_frag->set_header_fields(frag_hdr);
+      ta_frag->set_type(daqdataformats::FragmentType::kTriggerActivity);
+
+
+      tsl.add_fragment(std::move(ta_frag));
       //
       // TA Processing Ends
       //
@@ -370,7 +367,7 @@ int main(int argc, char const *argv[])
         }
       }
 
-      // Count how many TAs were generated
+      // Count how many TCs were generated
       if (!quiet)
         fmt::print("  tc_buffer.size() = {}\n", tc_buffer.size());
 
@@ -384,18 +381,47 @@ int main(int argc, char const *argv[])
       if (!quiet)
         fmt::print("tc_buffer in bytes = {}\n", tc_payload_size);
 
+      // Create the fragment buffer
+      // Reuse the old payload since it's still defined.
+      payload = malloc(tc_payload_size);
+
+      if (!quiet)
+        fmt::print("Post payload memory allocation.");
+
+      // Reuse the old payload_offset.
+      // TODO: TA/TC scopes should be separated, so should probably use a new function for each.
+      payload_offset = 0;
+      for ( const auto& tc : tc_buffer ) {
+        triggeralgs::write_overlay(tc, payload + payload_offset);
+        payload_offset += triggeralgs::get_overlay_nbytes(tc);
+      }
+      if (!quiet)
+        fmt::print("Post write_overlay and offset calculation.");
+
+      // Hand it to the fragment
+      std::unique_ptr<daqdataformats::Fragment> tc_frag = std::make_unique<daqdataformats::Fragment>(payload, payload_size);
+      if (!quiet)
+        fmt::print("Post fragment creation.");
+
+      // And release it
+      free(payload);
+      if (!quiet)
+        fmt::print("Post payload freeing.");
+
+      tc_frag->set_header_fields(frag_hdr);
+      tc_frag->set_type(daqdataformats::FragmentType::kTriggerCandidate);
+      if (!quiet)
+        fmt::print("Post tc_frag header set.");
+
+
+      tsl.add_fragment(std::move(tc_frag));
+      if (!quiet)
+        fmt::print("Post fragment movement.");
     }
-
-
-
-
 
   });
 
   rp.loop(num_rec, skip_rec);
-
-  
-
 
   /* code */
   return 0;
