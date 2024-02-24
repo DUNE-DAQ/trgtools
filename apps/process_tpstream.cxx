@@ -307,6 +307,13 @@ int main(int argc, char const *argv[])
       if (!quiet)
         fmt::print("  ta_buffer in bytes = {}\n", payload_size);
 
+      // Could be that a TA is empty; skip as it will show up in the next fragment.
+      // TC also gets skipped, but what's the use of trying to propagate a TC with no TAs?
+      if (payload_size == 0) {
+        if (!quiet)
+          fmt::print("Skipped saving an empty TA frag.");
+        continue;
+      }
       
       // Create the fragment buffer
       void* payload = malloc(payload_size);
@@ -380,6 +387,13 @@ int main(int argc, char const *argv[])
       // Print the total size
       if (!quiet)
         fmt::print("tc_buffer in bytes = {}\n", tc_payload_size);
+
+      // Could be that a TC is empty. Skip, as it will show up in the next fragment.
+      if (tc_payload_size == 0) {
+        if (!quiet)
+          fmt::print("Skipped saving an empty TC frag.");
+        continue;
+      }
 
       // Create the fragment buffer
       // Reuse the old payload since it's still defined.
