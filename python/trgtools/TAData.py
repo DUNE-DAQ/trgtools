@@ -42,7 +42,8 @@ class TAData:
                       ('time_end', np.uint64),
                       ('time_peak', np.uint64),
                       ('time_start', np.uint64),
-                      ('type', np.uint8)
+                      ('type', np.uint8),
+                      ('version', np.uint16)
                      ])
     ## TP data type
     tp_dt = np.dtype([
@@ -132,7 +133,8 @@ class TAData:
                                     ta_datum.data.time_end,
                                     ta_datum.data.time_peak,
                                     ta_datum.data.time_start,
-                                    np.uint8(ta_datum.data.type))],
+                                    np.uint8(ta_datum.data.type),
+                                    np.uint16(ta_datum.data.version))],
                                     dtype=self.ta_dt)
             self.ta_data = np.hstack((self.ta_data, np_ta_datum))
             byte_idx += ta_datum.sizeof()

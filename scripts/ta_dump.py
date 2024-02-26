@@ -405,6 +405,10 @@ def main():
                     'rotation': 60,
                     'ha': 'right'  # Horizontal alignment
                 }
+            },
+            'version': {
+                    'title': "Version",
+                    'xlabel': "Versions"
             }
     }
     if not no_anomaly:
