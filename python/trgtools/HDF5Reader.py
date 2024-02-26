@@ -39,7 +39,7 @@ class HDF5Reader(abc.ABC):
 
         self._quiet = quiet
 
-        # Derived classes should filter the fragment paths after super().__init__.
+        self._filter_fragment_paths()  # Derived class must define this.
 
         return None
 
