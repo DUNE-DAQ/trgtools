@@ -17,27 +17,6 @@ import trgtools
 
 TICK_TO_SEC_SCALE = 16e-9 # s per tick
 
-def window_length_hist(window_lengths, seconds=False):
-    """
-    Plot a histogram of the TA window lengths.
-
-    Optionally, use ticks or seconds for scaling.
-    """
-    time_unit = 'Ticks'
-    if seconds:
-        window_lengths = window_lengths * TICK_TO_SEC_SCALE
-        time_unit = 's'
-
-    plt.figure(figsize=(6,4))
-    plt.hist(window_lengths, color='k')
-
-    plt.title("TA Time Window Length Histogram")
-    plt.xlabel(f"Time Window Length ({time_unit})")
-
-    plt.tight_layout()
-    plt.savefig("ta_window_length_histogram.svg")
-    plt.close()
-
 def time_start_plot(start_times, seconds=False):
     """
     Plot TA start times vs TA index.
@@ -67,37 +46,70 @@ def time_start_plot(start_times, seconds=False):
     plt.savefig("ta_start_times.svg")
     plt.close()
 
-def plot_time_window_summary(ta_data, tp_data, quiet=False, seconds=False):
+
+def plot_pdf_time_delta_histograms(
+        ta_data: np.ndarray,
+        tp_data: list[np.ndarray],
+        pdf: PdfPages,
+        time_label: str) -> None:
     """
-    Plot summary statistics on time windows.
+    Plot the different time delta histograms to a PdfPages.
 
-    This uses 2 definitions for time windows:
-        Direct Diff: max(tp.time_start) - ta.time_start,
-        Max Diff: max(tp.time_start + tp.time_over_threshold) - ta.time_start
+    Parameters:
+        ta_data (np.ndarray): Array of TA data members.
+        tp_data (list[np.ndarray]): List of TPs per TA. tp_data[i] holds TP data for the i-th TA.
+        pdf (PdfPages): PdfPages object to append plot to.
+        time_label (str): Time label to plot with (ticks vs seconds).
+
+    Returns:
+        Nothing. Mutates :pdf: with the new plot.
     """
-    time_unit = 's' if seconds else 'Ticks'
+    direct_diff = ta_data['time_end'] - ta_data['time_start']
+    last_tp_start_diff = []
+    last_tp_peak_diff = []
+    for idx, tp in enumerate(tp_data):
+        last_tp_start_diff.append(np.max(tp['time_start']) - ta_data[idx]['time_start'])
+        last_tp_peak_diff.append(np.max(tp['time_peak']) - ta_data[idx]['time_start'])
 
-    direct_diff = np.zeros(ta_data.shape)
-    max_diff = np.zeros(ta_data.shape)
+    last_tp_start_diff = np.array(last_tp_start_diff)
+    last_tp_peak_diff = np.array(last_tp_peak_diff)
 
-    # Find the differences for each TA
-    for idx in np.arange(ta_data.shape[0]):
-        direct_diff[idx] = np.max(tp_data[idx]['time_start']) - ta_data[idx]['time_start']
-        max_diff[idx] = np.max(tp_data[idx]['time_start'] + tp_data[idx]['time_over_threshold']) - ta_data[idx]['time_start']
-
-    if seconds:
+    # Seconds case.
+    if "Ticks" not in time_label:
         direct_diff = direct_diff * TICK_TO_SEC_SCALE
-        max_diff = max_diff * TICK_TO_SEC_SCALE
+        last_tp_start_diff = last_tp_start_diff * TICK_TO_SEC_SCALE
+        last_tp_peak_diff = last_tp_peak_diff * TICK_TO_SEC_SCALE
 
-    plt.figure(figsize=(6,4))
-    plt.boxplot((direct_diff, max_diff), notch=True, vert=False, sym='+', labels=["Direct Difference", "Maximum Difference"])
+    bins = 40
 
-    plt.title("TA Time Windows Summary")
-    plt.xlabel(f"Time ({time_unit})")
+    plt.figure(figsize=(6, 4))
+
+    plt.hist(
+            (direct_diff, last_tp_start_diff, last_tp_peak_diff),
+            bins=bins,
+            label=(
+                "TA(End) - TA(Start)",
+                "Last TP(Start) - TA(Start)",
+                "Last TP(Peak) - TA(Start)"
+            ),
+            color=(
+                "#B2182B",
+                "#3BB27A",
+                "#2166AC"
+            ),
+            alpha=0.6
+    )
+
+    plt.title("Time Difference Histograms")
+    plt.xlabel(time_label)
+    plt.legend(framealpha=0.4)
 
     plt.tight_layout()
-    plt.savefig("ta_time_windows_summary.svg")
+    pdf.savefig()
+
     plt.close()
+    return None
+
 
 def write_summary_stats(data, filename, title):
     """
@@ -207,35 +219,6 @@ def all_event_displays(tp_data, run_id, file_index, seconds=False):
             pdf.savefig()
             plt.close()
 
-def time_diff_hist(start_times, end_times, seconds=False):
-    """
-    Plot a histogram of the time differences.
-
-    Optionally, use ticks or seconds for scaling.
-    """
-    time_unit = 'Ticks'
-    if seconds:
-        start_times = start_times * TICK_TO_SEC_SCALE
-        end_times = end_times * TICK_TO_SEC_SCALE
-        time_unit = 's'
-
-    # Difference between all the start times.
-    start_time_diff = (np.concatenate((start_times[1:], [0])) - start_times)[:-1]
-    # Difference between previous TA end time and current TA start time.
-    time_gaps = start_times[1:] - end_times[:-1]
-
-    plt.figure(figsize=(6,4))
-
-    plt.hist(start_time_diff, bins=40, color='#63ACBE', label="Start Time Difference", alpha=0.2)
-    plt.hist(time_gaps, bins=40, color="#EE442F", label="TA Time Gap", alpha=0.2)
-
-    plt.title("TA Timings Histogram")
-    plt.xlabel(f"Time ({time_unit})")
-    plt.legend()
-
-    plt.tight_layout()
-    plt.savefig("ta_timings_histogram.svg")
-    plt.close()
 
 def event_display(peak_times, channels, idx, seconds=False):
     """
@@ -337,11 +320,6 @@ def main():
     print(f"Number of TAs: {data.ta_data.shape[0]}") # Enforcing output for useful metric
 
     ## Plotting
-    # Detailed Analysis Plots
-    window_length_hist(data.ta_data["time_start"] - data.ta_data["time_end"])
-    time_diff_hist(data.ta_data["time_start"], data.ta_data["time_end"], seconds)
-    plot_time_window_summary(data.ta_data, data.tp_data, quiet, seconds)
-
     # General Data Member Plots
     time_label = "Time (s)" if seconds else "Time (Ticks)"
 
@@ -449,6 +427,9 @@ def main():
                 plot_pdf_histogram(time - min_time, plot_dict[ta_key], pdf, linear, log)
                 continue
             plot_pdf_histogram(data.ta_data[ta_key], plot_dict[ta_key], pdf, linear, log)
+
+        # Analysis Plots
+        plot_pdf_time_delta_histograms(data.ta_data, data.tp_data, pdf, time_label)
 
     if (not no_displays):
         all_event_displays(data.tp_data, data.run_id, data.file_index, seconds)
