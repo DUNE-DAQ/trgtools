@@ -289,20 +289,20 @@ def main():
         linear = True
         log = True
 
-    data = trgtools.TAData(filename, quiet)
+    data = trgtools.TAReader(filename, quiet)
 
     # Load all case.
     if start_frag == 0 and end_frag == -1:
-        data.load_all_frags() # Has extra debug/warning info
+        data.read_all_fragments() # Has extra debug/warning info
     else: # Only load some.
         if end_frag != 0: # Python doesn't like [n:0]
-            frag_paths = data.get_ta_frag_paths()[start_frag:end_frag]
+            frag_paths = data.get_fragment_paths()[start_frag:end_frag]
         elif end_frag == 0:
-            frag_paths = data.get_ta_frag_paths()[start_frag:]
+            frag_paths = data.get_fragment_paths()[start_frag:]
 
         # Does not count empty frags.
         for path in frag_paths:
-            data.load_frag(path)
+            data.read_fragment(path)
 
     # Try to find an empty plotting directory
     plot_iter = 0

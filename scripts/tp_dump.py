@@ -265,16 +265,16 @@ def main():
         linear = True
         log = True
 
-    data = trgtools.TPData(filename, quiet)
+    data = trgtools.TPReader(filename, quiet)
     if end_frag == 0: # Ex: [-10:0] is bad.
-        frag_paths = data.get_tp_frag_paths()[start_frag:]
+        frag_paths = data.get_fragment_paths()[start_frag:]
     else:
-        frag_paths = data.get_tp_frag_paths()[start_frag:end_frag]
+        frag_paths = data.get_fragment_paths()[start_frag:end_frag]
 
     for path in frag_paths:
         if (not quiet):
             print("Fragment Path:", path)
-        data.load_frag(path)
+        data.read_fragment(path)
 
     # Try to find an empty plotting directory
     plot_iter = 0

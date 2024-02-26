@@ -1,3 +1,3 @@
-from .TAData import TAData
-from .TPData import TPData
-from .TCData import TCData
+from .TAReader import TAReader
+from .TCReader import TCReader
+from .TPReader import TPReader

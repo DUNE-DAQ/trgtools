@@ -342,22 +342,22 @@ def main():
         linear = True
         log = True
 
-    data = trgtools.TCData(filename, quiet)
+    data = trgtools.TCReader(filename, quiet)
     run_id = data.run_id
     file_index = data.file_index
 
     # Load all case.
     if start_frag == 0 and end_frag == -1:
-        data.load_all_frags()  # Has extra debug/warning info
+        data.read_all_fragments()  # Has extra debug/warning info
     else:  # Only load some.
         if end_frag != 0:  # Python doesn't like [n:0]
-            frag_paths = data.get_tc_frag_paths()[start_frag:end_frag]
+            frag_paths = data.get_fragment_paths()[start_frag:end_frag]
         elif end_frag == 0:
-            frag_paths = data.get_tc_frag_paths()[start_frag:]
+            frag_paths = data.get_fragment_paths()[start_frag:]
 
         # Does not count empty frags.
         for path in frag_paths:
-            data.load_frag(path)
+            data.read_fragment(path)
 
     print(f"Number of TCs: {data.tc_data.shape[0]}")  # Enforcing output for useful metric
 
