@@ -67,14 +67,15 @@ def tp_percent_histogram(tp_data):
     plt.savefig("percent_total.svg")
     plt.close()
 
-def plot_adc_integral_vs_peak(tp_data):
+def plot_adc_integral_vs_peak(tp_data, verbosity: int = 0):
     """
     Plot the ADC Integral vs ADC Peak.
     """
     plt.figure(figsize=(6, 4), dpi=200)
     plt.scatter(tp_data['adc_peak'], tp_data['adc_integral'], c='k', s=2, label='TP')
-    print("Number of ADC Integrals at Signed 16 Limit:", np.sum(tp_data['adc_integral'] == np.power(2, 15)-1))
-    print("Total number of TPs:", len(tp_data['adc_peak']))
+    if verbosity >= 2:
+        print("Number of ADC Integrals at Signed 16 Limit:", np.sum(tp_data['adc_integral'] == np.power(2, 15)-1))
+        print("Total number of TPs:", len(tp_data['adc_peak']))
     high_integral_locs = np.where(tp_data['adc_integral'] == np.power(2, 15)-1)
     plt.scatter(tp_data['adc_peak'][high_integral_locs], tp_data['adc_integral'][high_integral_locs], c='#63ACBE', s=2, marker='+', label=r'$2^{15}-1$')
 
@@ -164,7 +165,7 @@ def write_summary_stats(data, filename, title):
                   f"\t# of >2 Sigma TPs = {std2_count}.\n")
         out.write("\n\n")
 
-def plot_summary_stats(tp_data, no_anomaly=False, quiet=False):
+def plot_summary_stats(tp_data, no_anomaly=False):
     """
     Plot summary statistics on the various TP member data.
     Displays as box plots on multiple pages of a PDF.
@@ -200,8 +201,7 @@ def plot_summary_stats(tp_data, no_anomaly=False, quiet=False):
     anomaly_filename = 'tp_anomaly_summary.txt'
 
     if not no_anomaly:
-        if not quiet:
-            print(f"Writing descriptive statistics to {anomaly_filename}.")
+        print(f"Writing descriptive statistics to {anomaly_filename}.")
         if os.path.isfile(anomaly_filename):
             # Prepare a new tp_anomaly_summary.txt
             os.remove(anomaly_filename)
@@ -233,7 +233,7 @@ def plot_summary_stats(tp_data, no_anomaly=False, quiet=False):
 def parse():
     parser = argparse.ArgumentParser(description="Display diagnostic information for TAs for a given tpstream file.")
     parser.add_argument("filename", help="Absolute path to tpstream file to display.")
-    parser.add_argument("--quiet", action="store_true", help="Stops the output of printed information. Default: False.")
+    parser.add_argument("--verbose", "-v", action="count", help="Increment the verbose level (errors, warnings, all). Save names and skipped writes are always printed. Default: 0.", default=0)
     parser.add_argument("--start-frag", type=int, help="Fragment to start loading from (inclusive); can take negative integers. Default: -10", default=-10)
     parser.add_argument("--end-frag", type=int, help="Fragment to stop loading at (exclusive); can take negative integers. Default: 0", default=0)
     parser.add_argument("--no-anomaly", action="store_true", help="Pass to not write 'tp_anomaly_summary.txt'. Default: False.")
@@ -251,7 +251,7 @@ def main():
     ## Process Arguments & Data
     args = parse()
     filename = args.filename
-    quiet = args.quiet
+    verbosity = args.verbose
     start_frag = args.start_frag
     end_frag = args.end_frag
     no_anomaly = args.no_anomaly
@@ -265,16 +265,19 @@ def main():
         linear = True
         log = True
 
-    data = trgtools.TPReader(filename, quiet)
-    if end_frag == 0: # Ex: [-10:0] is bad.
-        frag_paths = data.get_fragment_paths()[start_frag:]
-    else:
-        frag_paths = data.get_fragment_paths()[start_frag:end_frag]
+    data = trgtools.TPReader(filename, verbosity)
 
-    for path in frag_paths:
-        if (not quiet):
-            print("Fragment Path:", path)
-        data.read_fragment(path)
+    # Load all case
+    if start_frag == 0 and end_frag == -1:
+        data.read_all_fragments()  # Has extra debug/warning info
+    else:
+        if end_frag == 0:  # Ex: [-10:0] is bad.
+            frag_paths = data.get_fragment_paths()[start_frag:]
+        else:
+            frag_paths = data.get_fragment_paths()[start_frag:end_frag]
+
+        for path in frag_paths:
+            data.read_fragment(path)
 
     # Try to find an empty plotting directory
     plot_iter = 0
@@ -289,8 +292,7 @@ def main():
         os.mkdir(plot_dir)
     os.chdir(plot_dir)
 
-    if (not quiet):
-        print("Size of tp_data:", data.tp_data.shape)
+    print(f"Number of TPs: {data.tp_data.shape[0]}")  # Enforcing output for a useful metric.
 
     ## Plots with more involved analysis
     channel_tot(data.tp_data)
@@ -364,9 +366,8 @@ def main():
             }
     }
     if not no_anomaly:
-        anomaly_filename = "tp_anomalies.txt"
-        if not quiet:
-            print(f"Writing descriptive statistics to {anomaly_filename}.")
+        anomaly_filename = f"tp_anomalies_{data.run_id}-{data.file_index:04}.txt"
+        print(f"Writing descriptive statistics to {anomaly_filename}.")
         if os.path.isfile(anomaly_filename):
             # Prepare a new tp_anomaly_summary.txt
             os.remove(anomaly_filename)

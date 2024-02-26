@@ -281,9 +281,11 @@ def parse():
         help="Absolute path to tpstream file to display."
     )
     parser.add_argument(
-        "--quiet",
-        action="store_true",
-        help="Stops the output of printed information. Default: False."
+        "--verbose", "-v",
+        action="count",
+        help="Increment the verbose level (errors, warnings, all)."
+        "Save names and skipped writes are always printed. Default: 0.",
+        default=0
     )
     parser.add_argument(
         "--start-frag",
@@ -329,7 +331,7 @@ def main():
     # Process Arguments & Data
     args = parse()
     filename = args.filename
-    quiet = args.quiet
+    verbosity = args.verbose
     start_frag = args.start_frag
     end_frag = args.end_frag
     no_anomaly = args.no_anomaly
@@ -342,9 +344,7 @@ def main():
         linear = True
         log = True
 
-    data = trgtools.TCReader(filename, quiet)
-    run_id = data.run_id
-    file_index = data.file_index
+    data = trgtools.TCReader(filename, verbosity)
 
     # Load all case.
     if start_frag == 0 and end_frag == -1:
@@ -355,7 +355,6 @@ def main():
         elif end_frag == 0:
             frag_paths = data.get_fragment_paths()[start_frag:]
 
-        # Does not count empty frags.
         for path in frag_paths:
             data.read_fragment(path)
 
@@ -363,10 +362,9 @@ def main():
 
     # Plotting
 
-    anomaly_filename = f"tc_anomalies_{run_id}-{file_index:04}.txt"
     if not no_anomaly:
-        if not quiet:
-            print(f"Writing descriptive statistics to {anomaly_filename}.")
+        anomaly_filename = f"tc_anomalies_{data.run_id}-{data.file_index:04}.txt"
+        print(f"Writing descriptive statistics to {anomaly_filename}.")
         if os.path.isfile(anomaly_filename):
             # Prepare a new ta_anomaly_summary.txt
             os.remove(anomaly_filename)
@@ -449,7 +447,7 @@ def main():
                 'xlabel': "Versions"
             }
     }
-    with PdfPages(f"tc_data_member_histograms_{run_id}-{file_index:04}.pdf") as pdf:
+    with PdfPages(f"tc_data_member_histograms_{data.run_id}-{data.file_index:04}.pdf") as pdf:
 
         # Generic plots
         for tc_key in data.tc_data.dtype.names:

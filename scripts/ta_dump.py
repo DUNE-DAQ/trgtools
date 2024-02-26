@@ -254,10 +254,10 @@ def parse():
     """
     parser = argparse.ArgumentParser(description="Display diagnostic information for TAs for a given tpstream file.")
     parser.add_argument("filename", help="Absolute path to tpstream file to display.")
-    parser.add_argument("--quiet", action="store_true", help="Stops the output of printed information. Default: False.")
+    parser.add_argument("--verbose", '-v', action="count", help="Increment the verbose level (errors, warnings, all). Save names and skipped writes are always printed. Default: 0.", default=0)
     parser.add_argument("--no-displays", action="store_true", help="Stops the processing of event displays.")
     parser.add_argument("--start-frag", type=int, help="Starting fragment index to process from. Takes negative indexing. Default: -10.", default=-10)
-    parser.add_argument("--end-frag", type=int, help="Fragment index to stop processing (i.e. not inclusive). Takes negative indexing. Default: 0.", default=0)
+    parser.add_argument("--end-frag", type=int, help="Fragment index to stop processing (i.e. not inclusive). Takes negative indexing. Default: N.", default=0)
     parser.add_argument("--no-anomaly", action="store_true", help="Pass to not write 'ta_anomaly_summary.txt'. Default: False.")
     parser.add_argument("--seconds", action="store_true", help="Pass to use seconds instead of time ticks. Default: False.")
     parser.add_argument("--linear", action="store_true", help="Pass to use linear histogram scaling. Default: plots both linear and log.")
@@ -273,7 +273,7 @@ def main():
     ## Process Arguments & Data
     args = parse()
     filename = args.filename
-    quiet = args.quiet
+    verbosity = args.verbose
     no_displays = args.no_displays
     start_frag = args.start_frag
     end_frag = args.end_frag
@@ -289,7 +289,7 @@ def main():
         linear = True
         log = True
 
-    data = trgtools.TAReader(filename, quiet)
+    data = trgtools.TAReader(filename, verbosity)
 
     # Load all case.
     if start_frag == 0 and end_frag == -1:
@@ -412,9 +412,8 @@ def main():
             }
     }
     if not no_anomaly:
-        anomaly_filename = "ta_anomalies.txt"
-        if not quiet:
-            print(f"Writing descriptive statistics to {anomaly_filename}.")
+        anomaly_filename = f"ta_anomalies_{data.run_id}-{data.file_index:04}.txt"
+        print(f"Writing descriptive statistics to {anomaly_filename}.")
         if os.path.isfile(anomaly_filename):
             # Prepare a new ta_anomaly_summary.txt
             os.remove(anomaly_filename)

@@ -23,13 +23,15 @@ class HDF5Reader(abc.ABC):
     # Counts the number of empty fragments.
     _num_empty = 0
 
-    def __init__(self, filename: str, quiet: bool = False) -> None:
+    def __init__(self, filename: str, verbosity: int = 0) -> None:
         """
         Loads a given HDF5 file.
 
         Parameters:
             filename (str): HDF5 file to open.
-            quiet (bool): Quiets outputs if true.
+            verbosity (int): Verbose level. 0: Only errors. 1: Warnings. 2: All.
+
+        Returns nothing.
         """
         # Generic loading
         self._h5_file = HDF5RawDataFile(filename)
@@ -37,7 +39,7 @@ class HDF5Reader(abc.ABC):
         self.run_id = self._h5_file.get_int_attribute('run_number')
         self.file_index = self._h5_file.get_int_attribute('file_index')
 
-        self._quiet = quiet
+        self._verbosity = verbosity
 
         self._filter_fragment_paths()  # Derived class must define this.
 
@@ -69,7 +71,7 @@ class HDF5Reader(abc.ABC):
 
         # self.read_fragment should increment self._num_empty.
         # Print how many were empty as a debug.
-        if not self._quiet and self._num_empty != 0:
+        if self._verbosity >= 1 and self._num_empty != 0:
             print(
                     self._FAIL_TEXT_COLOR
                     + self._BOLD_TEXT

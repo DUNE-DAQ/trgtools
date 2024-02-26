@@ -18,9 +18,9 @@ class TAReader(HDF5Reader):
     NumPy dtypes of :self.ta_data: and :self.tp_data: are available
     as :TAReader.ta_dt: and :TAReader.tp_dt:.
 
-    TA reading will print any information that is relevant about the
-    loading process. To hide these prints, specify :quiet = True: on
-    init.
+    TA reading can print information that is relevant about the
+    loading process by specifying the verbose level. 0 for errors
+    only. 1 for warnings. 2 for all information.
     """
     # TA data type
     ta_dt = np.dtype([
@@ -57,17 +57,17 @@ class TAReader(HDF5Reader):
                      ])
     tp_data = []
 
-    def __init__(self, filename: str, quiet: bool = False) -> None:
+    def __init__(self, filename: str, verbosity: int = 0) -> None:
         """
         Loads a given HDF5 file.
 
         Parameters:
             filename (str): HDF5 file to open.
-            quiet (bool): Quiets outputs if true.
+            verbosity (int): Verbose level. 0: Only errors. 1: Warnings. 2: All.
 
         Returns nothing.
         """
-        super().__init__(filename, quiet)
+        super().__init__(filename, verbosity)
         return None
 
     def _filter_fragment_paths(self) -> None:
@@ -89,7 +89,7 @@ class TAReader(HDF5Reader):
         Returns a np.ndarray of the TAs that were read and appends to
         :self.ta_data:.
         """
-        if not self._quiet:
+        if self._verbosity >= 2:
             print("="*60)
             print(f"INFO: Reading from the path\n{fragment_path}")
 
@@ -98,7 +98,7 @@ class TAReader(HDF5Reader):
 
         if fragment_data_size == 0:
             self._num_empty += 1
-            if not self._quiet:
+            if self._verbosity >= 1:
                 print(
                         self._FAIL_TEXT_COLOR
                         + self._BOLD_TEXT
@@ -111,7 +111,7 @@ class TAReader(HDF5Reader):
         ta_idx = 0  # Debugging output.
         byte_idx = 0  # Variable TA sizing, must do while loop.
         while byte_idx < fragment_data_size:
-            if not self._quiet:
+            if self._verbosity >= 2:
                 print(f"INFO: Fragment Index: {ta_idx}.")
                 ta_idx += 1
                 print(f"INFO: Byte Index / Frag Size: {byte_idx} / {fragment_data_size}")
@@ -138,8 +138,8 @@ class TAReader(HDF5Reader):
             self.ta_data = np.hstack((self.ta_data, np_ta_datum))
 
             byte_idx += ta_datum.sizeof()
-            if not self._quiet:
-                print(f"Upcoming byte index: {byte_idx}")
+            if self._verbosity >= 2:
+                print(f"INFO: Upcoming byte index: {byte_idx}")
 
             # Process TP data
             np_tp_data = np.zeros(np_ta_datum['num_tps'], dtype=self.tp_dt)
@@ -159,7 +159,7 @@ class TAReader(HDF5Reader):
                                             dtype=self.tp_dt)
             self.tp_data.append(np_tp_data)  # Jagged array
 
-        if not self._quiet:
+        if self._verbosity >= 2:
             print("INFO: Finished reading.")
             print("="*60)
         return np_ta_datum

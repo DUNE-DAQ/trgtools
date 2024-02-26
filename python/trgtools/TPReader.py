@@ -18,9 +18,9 @@ class TPReader(HDF5Reader):
     NumPy dtypes of :self.tp_data: is available as
     :TPReader.tp_dt:.
 
-    TP reading will print any information that is
-    relevant about the loading process. To hide these
-    prints, specify :quiet = True: on init.
+    TP reading can print information that is relevant about the
+    loading process by specifying the verbose level. 0 for errors
+    only. 1 for warnings. 2 for all information.
     """
     # TP data type
     tp_dt = np.dtype([
@@ -38,17 +38,17 @@ class TPReader(HDF5Reader):
                      ])
     tp_data = np.array([], dtype=tp_dt)
 
-    def __init__(self, filename: str, quiet: bool = False) -> None:
+    def __init__(self, filename: str, verbosity: int = 0) -> None:
         """
         Loads a given HDF5 file.
 
         Parameters:
             filename (str): HDF5 file to open.
-            quiet (bool): Quiets outputs if true.
+            verbosity (int): Verbose level. 0: Only errors. 1: Warnings. 2: All.
 
         Returns nothing.
         """
-        super().__init__(filename, quiet)
+        super().__init__(filename, verbosity)
         return None
 
     def _filter_fragment_paths(self) -> None:
@@ -70,7 +70,7 @@ class TPReader(HDF5Reader):
         Returns a np.ndarray of the TPs that were read and appends to
         :self.tp_data:.
         """
-        if not self._quiet:
+        if self._verbosity >= 2:
             print("="*60)
             print(f"INFO: Reading from the path\n{fragment_path}")
 
@@ -79,7 +79,7 @@ class TPReader(HDF5Reader):
 
         if fragment_data_size == 0:
             self._num_empty += 1
-            if not self._quiet:
+            if self._verbosity >= 1:
                 print(
                         self._FAIL_TEXT_COLOR
                         + self._BOLD_TEXT
@@ -91,7 +91,7 @@ class TPReader(HDF5Reader):
 
         tp_size = trgdataformats.TriggerPrimitive.sizeof()
         num_tps = fragment_data_size // tp_size
-        if not self._quiet:
+        if self._verbosity >= 2:
             print(f"INFO: Loaded fragment with {num_tps} TPs.")
 
         np_tp_data = np.zeros((num_tps,), dtype=self.tp_dt)
@@ -113,7 +113,7 @@ class TPReader(HDF5Reader):
                                     dtype=self.tp_dt)
         self.tp_data = np.hstack((self.tp_data, np_tp_data))
 
-        if not self._quiet:
+        if self._verbosity >= 2:
             print("INFO: Finished reading.")
             print("="*60)
         return np_tp_data
