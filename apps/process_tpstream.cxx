@@ -8,6 +8,7 @@
 #include "hdf5libs/HDF5RawDataFile.hpp"
 #include "trgdataformats/TriggerPrimitive.hpp"
 #include "triggeralgs/TriggerActivityFactory.hpp"
+#include "triggeralgs/TriggerCandidateFactory.hpp"
 #include "triggeralgs/TriggerObjectOverlay.hpp"
 #include "detchannelmaps/TPCChannelMap.hpp"
 
@@ -39,16 +40,19 @@ public:
 
 };
 
+//-----------------------------------------------------------------------------
 TimeSliceProcessor::TimeSliceProcessor(std::string input_path, std::string output_path) 
 {
   this->open_files(input_path, output_path);
 }
 
+//-----------------------------------------------------------------------------
 TimeSliceProcessor::~TimeSliceProcessor()
 {
   this->close_files();
 }
 
+//-----------------------------------------------------------------------------
 void
 TimeSliceProcessor::open_files(std::string input_path, std::string output_path) {
   // Open input file
@@ -65,33 +69,39 @@ TimeSliceProcessor::open_files(std::string input_path, std::string output_path) 
 
   fmt::print("Run Number: {}\nFile Index: {}\nApp name: '{}'\n", run_number, file_index, application_name);
 
-  // Open output file
-  m_output_file = std::make_unique<hdf5libs::HDF5RawDataFile>(
-    output_path,
-    m_input_file->get_attribute<daqdataformats::run_number_t>("run_number"),
-    m_input_file->get_attribute<size_t>("file_index"),
-    m_input_file->get_attribute<std::string>("application_name"),
-    m_input_file->get_file_layout().get_file_layout_params(),
-    m_input_file->get_srcid_geoid_map()
-  );
+  if (!output_path.empty()) {
+    // Open output file
+    m_output_file = std::make_unique<hdf5libs::HDF5RawDataFile>(
+      output_path,
+      m_input_file->get_attribute<daqdataformats::run_number_t>("run_number"),
+      m_input_file->get_attribute<size_t>("file_index"),
+      m_input_file->get_attribute<std::string>("application_name"),
+      m_input_file->get_file_layout().get_file_layout_params(),
+      m_input_file->get_srcid_geoid_map()
+    );
+  }
 }
 
+//-----------------------------------------------------------------------------
 void
 TimeSliceProcessor::close_files() {
   // Do something?
 }
 
+//-----------------------------------------------------------------------------
 void
 TimeSliceProcessor::set_processor(std::function<void(daqdataformats::TimeSlice& )> processor) {
   m_processor = processor;
 }
 
+//-----------------------------------------------------------------------------
 void
 TimeSliceProcessor::process( daqdataformats::TimeSlice& tls ) {
   if (m_processor)
     m_processor(tls);
 }
 
+//-----------------------------------------------------------------------------
 void
 TimeSliceProcessor::loop(uint64_t num_records, uint64_t offset, bool quiet) {
 
@@ -113,23 +123,28 @@ TimeSliceProcessor::loop(uint64_t num_records, uint64_t offset, bool quiet) {
     }
 
     if (!quiet)
-      fmt::print("Processing TL {}:{}\n", rid.first, rid.second);
+      fmt::print("\n-- Processing TSL {}:{}\n\n", rid.first, rid.second);
     auto tsl = m_input_file->get_timeslice(rid);
     // Or filter on a selection here using a lambda?
 
-    if (!quiet)
-      fmt::print("TSL number {}\n", tsl.get_header().timeslice_number);
+    // if (!quiet)
+      // fmt::print("TSL number {}\n", tsl.get_header().timeslice_number);
 
     // Add a process method
     this->process(tsl);
 
-    m_output_file->write(tsl);
+    if (m_output_file)
+      m_output_file->write(tsl);
 
     ++i_rec;
+    fmt::print("\n-- Finished TSL {}:{}\n\n", rid.first, rid.second);
+
   }
 
 }
 
+
+//-----------------------------------------------------------------------------
 int main(int argc, char const *argv[])
 {
 
@@ -139,17 +154,15 @@ int main(int argc, char const *argv[])
   std::string input_file_path;
   app.add_option("-i", input_file_path, "Input TPStream file path")->required();
   std::string output_file_path;
-  app.add_option("-o", output_file_path, "Output TPStream file path")->required();
+  app.add_option("-o", output_file_path, "Output TPStream file path");
   std::string channel_map_name = "VDColdboxChannelMap";
   app.add_option("-m", channel_map_name, "Detector Channel Map");
-  std::string plugin_name = "TriggerActivityMakerHorizontalMuonPlugin";
-  app.add_option("-p", plugin_name, "Trigger Activity plugin name.");
   std::string config_name;
-  app.add_option("-j", config_name, "Trigger Activity config JSON to use.");
+  app.add_option("-j", config_name, "Trigger Activity and Candidate config JSON to use.")->required();
   uint64_t skip_rec(0);
   app.add_option("-s", skip_rec, "Skip records");
   uint64_t num_rec(0);
-  app.add_option("-n", num_rec, "Skip records");
+  app.add_option("-n", num_rec, "Process records");
 
   bool quiet = false;
   app.add_flag("--quiet", quiet, "Quiet outputs.");
@@ -165,29 +178,28 @@ int main(int argc, char const *argv[])
   auto tp_subsystem_requirement = daqdataformats::SourceID::Subsystem::kTrigger;
 
   auto channel_map = dunedaq::detchannelmaps::make_map(channel_map_name);
-  // Finally create a TA maker
-  auto ta_factory = triggeralgs::TriggerActivityFactory::get_instance();
-  auto ta_maker = ta_factory->build_maker(plugin_name);
-  // We should config the algo, really
-  nlohmann::json config;
-  if (config_name.length()) {
-    std::ifstream config_stream(config_name);
-    config = nlohmann::json::parse(config_stream);
-  } else {
-    config = nlohmann::json::parse(R"(
-      {
-        "trigger_on_adc": false,
-        "trigger_on_n_channels": false,
-        "trigger_on_tot": false,
-        "trigger_on_adjacency": true,
-        "adjacency_threshold": 100,
-        "adj_tolerance": 3,
-        "prescale": 1
-      }
-    )");
-  }
 
-  ta_maker->configure(config);
+  // Read configuration
+  std::ifstream config_stream(config_name);
+  nlohmann::json config = nlohmann::json::parse(config_stream);
+
+  // Only use the first plugin for now.
+  nlohmann::json ta_algo = config["trigger_activity_plugin"][0];
+  nlohmann::json ta_config = config["trigger_activity_config"][0];
+
+  nlohmann::json tc_algo = config["trigger_candidate_plugin"][0];
+  nlohmann::json tc_config = config["trigger_candidate_config"][0];
+
+
+  // Finally create a TA maker
+  auto ta_maker = triggeralgs::TriggerActivityFactory::get_instance()->build_maker(ta_algo);
+  ta_maker->configure(ta_config);
+
+
+  // Finally create a TA maker
+  auto tc_maker = triggeralgs::TriggerCandidateFactory::get_instance()->build_maker(tc_algo);
+  tc_maker->configure(tc_config);
+
 
   // Generic filter hook
   std::function<bool(const trgdataformats::TriggerPrimitive&)> tp_filter;
@@ -233,6 +245,7 @@ int main(int argc, char const *argv[])
       // Prepare the TP buffer, checking for time ordering
       tp_buffer.reserve(tp_buffer.size()+n_tps);
 
+      // Populate the TP buffer
       trgdataformats::TriggerPrimitive* tp_array = static_cast<trgdataformats::TriggerPrimitive*>(frag->get_data());
       uint64_t last_ts = 0;
       for(size_t i(0); i<n_tps; ++i) {
@@ -248,6 +261,9 @@ int main(int argc, char const *argv[])
       if (!quiet)
         fmt::print("  TS gap: {} {} ms\n", d_ts, d_ts*16.0/1'000'000);
 
+      //
+      // TA Processing
+      //
       // Create the output buffer
       std::vector<triggeralgs::TriggerActivity> ta_buffer;
 
@@ -257,18 +273,19 @@ int main(int argc, char const *argv[])
       for( const auto& tp : tp_buffer ) {
 
         if ( tp_filter(tp) ){
-          if(!quiet)
-              fmt::print("  TP filtered out!");
+          // if(!quiet)
+              // fmt::print("  TP filtered out!");
           continue;
         }
 
         (*ta_maker)(tp, ta_buffer);
 
         if (n_tas != ta_buffer.size()) {
-          for( size_t i=n_tas; i<ta_buffer.size(); ++i){
-            const auto& ta = ta_buffer[i];
-            if (!quiet)
-              fmt::print("  {} c_s={} c_e={} t_s={}, t_e={} | tp_s={} tp_s-ta_s={}\n", i, ta.channel_start, ta.channel_end, ta.time_start, ta.time_end, tp.time_start, (tp.time_start-ta.time_start) );
+          if (!quiet) {
+            for( size_t i=n_tas; i<ta_buffer.size(); ++i){
+              const auto& ta = ta_buffer[i];
+              fmt::print("  + {} : ca_s={} ca_e={} ta_s={}, ta_e={} d_ta = {} | tp_s={} tp_s-ta_s={}\n", i, ta.channel_start, ta.channel_end, ta.time_start, ta.time_end, ta.time_end-ta.time_start, tp.time_start, (tp.time_start-ta.time_start) );
+            }
           }
           n_tas = ta_buffer.size();
         }
@@ -286,15 +303,23 @@ int main(int argc, char const *argv[])
 
       // Print the total size
       if (!quiet)
-        fmt::print("ta_buffer in bytes = {}\n", payload_size);
+        fmt::print("  ta_buffer in bytes = {}\n", payload_size);
 
+      // Could be that a TA is empty; skip as it will show up in the next fragment.
+      // TC also gets skipped, but what's the use of trying to propagate a TC with no TAs?
+      if (payload_size == 0) {
+        if (!quiet)
+          fmt::print("Skipped saving an empty TA frag.");
+        continue;
+      }
+      
       // Create the fragment buffer
       void* payload = malloc(payload_size);
 
-      size_t offset(0);
+      size_t payload_offset(0);
       for ( const auto& ta : ta_buffer ) {
-        triggeralgs::write_overlay(ta, payload+offset);
-        offset += triggeralgs::get_overlay_nbytes(ta);
+        triggeralgs::write_overlay(ta, payload + payload_offset);
+        payload_offset += triggeralgs::get_overlay_nbytes(ta);
       }
 
       // Hand it to the fragment
@@ -303,25 +328,112 @@ int main(int argc, char const *argv[])
       // And release it
       free(payload);
 
-      daqdataformats::FragmentHeader ta_hdr = frag->get_header();
+      daqdataformats::FragmentHeader frag_hdr = frag->get_header();
 
       // Customise the source id (add 1000 to id)
-      ta_hdr.element_id = daqdataformats::SourceID{daqdataformats::SourceID::Subsystem::kTrigger, frag->get_element_id().id+1000};
+      frag_hdr.element_id = daqdataformats::SourceID{daqdataformats::SourceID::Subsystem::kTrigger, frag->get_element_id().id+1000};
 
-      ta_frag->set_header_fields(ta_hdr);
+      ta_frag->set_header_fields(frag_hdr);
       ta_frag->set_type(daqdataformats::FragmentType::kTriggerActivity);
 
 
       tsl.add_fragment(std::move(ta_frag));
+      //
+      // TA Processing Ends
+      //
 
+      //
+      // TC Processing
+      //
+      // Create the output buffer
+      std::vector<triggeralgs::TriggerCandidate> tc_buffer;
+
+      // Loop over TPs
+      size_t n_tcs = 0;
+
+      for( const auto& ta : ta_buffer ) {
+
+        // if ( tp_filter(tp) ){
+        //   if(!quiet)
+        //       fmt::print("  TP filtered out!");
+        //   continue;
+        // }
+
+        (*tc_maker)(ta, tc_buffer);
+
+        if (n_tcs != tc_buffer.size()) {
+          if (!quiet){
+            for( size_t i=n_tcs; i<tc_buffer.size(); ++i){
+              const auto& tc = tc_buffer[i];
+                fmt::print("  + {} tc_s={}, tc_e={} | ta_s={} ta_s-tc_s={}\n", i, tc.time_start, tc.time_end, ta.time_start, (ta.time_start-tc.time_start) );
+            }
+          }
+          n_tcs = tc_buffer.size();
+        }
+      }
+
+      // Count how many TCs were generated
+      if (!quiet)
+        fmt::print("  tc_buffer.size() = {}\n", tc_buffer.size());
+
+      // Their size
+      size_t tc_payload_size(0);
+      for ( const auto& tc : tc_buffer ) {
+        tc_payload_size += triggeralgs::get_overlay_nbytes(tc);
+      }
+
+      // Print the total size
+      if (!quiet)
+        fmt::print("tc_buffer in bytes = {}\n", tc_payload_size);
+
+      // Could be that a TC is empty. Skip, as it will show up in the next fragment.
+      if (tc_payload_size == 0) {
+        if (!quiet)
+          fmt::print("Skipped saving an empty TC frag.");
+        continue;
+      }
+
+      // Create the fragment buffer
+      // Reuse the old payload since it's still defined.
+      payload = malloc(tc_payload_size);
+
+      if (!quiet)
+        fmt::print("Post payload memory allocation.");
+
+      // Reuse the old payload_offset.
+      // TODO: TA/TC scopes should be separated, so should probably use a new function for each.
+      payload_offset = 0;
+      for ( const auto& tc : tc_buffer ) {
+        triggeralgs::write_overlay(tc, payload + payload_offset);
+        payload_offset += triggeralgs::get_overlay_nbytes(tc);
+      }
+      if (!quiet)
+        fmt::print("Post write_overlay and offset calculation.");
+
+      // Hand it to the fragment
+      std::unique_ptr<daqdataformats::Fragment> tc_frag = std::make_unique<daqdataformats::Fragment>(payload, payload_size);
+      if (!quiet)
+        fmt::print("Post fragment creation.");
+
+      // And release it
+      free(payload);
+      if (!quiet)
+        fmt::print("Post payload freeing.");
+
+      tc_frag->set_header_fields(frag_hdr);
+      tc_frag->set_type(daqdataformats::FragmentType::kTriggerCandidate);
+      if (!quiet)
+        fmt::print("Post tc_frag header set.");
+
+
+      tsl.add_fragment(std::move(tc_frag));
+      if (!quiet)
+        fmt::print("Post fragment movement.");
     }
 
   });
 
   rp.loop(num_rec, skip_rec);
-
-  
-
 
   /* code */
   return 0;
