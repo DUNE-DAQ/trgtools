@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 """
 Display diagnostic information for TAs for a given
 tpstream file.

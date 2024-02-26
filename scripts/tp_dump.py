@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 """
 Display diagnostic information for TPs in a given
 tpstream file.
