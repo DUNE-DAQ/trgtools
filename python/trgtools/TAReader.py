@@ -163,3 +163,7 @@ class TAReader(HDF5Reader):
             print("INFO: Finished reading.")
             print("="*60)
         return np_ta_datum
+
+    def clear_data(self) -> None:
+        self.ta_data = np.array([], dtype=self.ta_dt)
+        self.tp_data = []

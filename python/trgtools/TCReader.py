@@ -154,3 +154,7 @@ class TCReader(HDF5Reader):
             print("INFO: Finished reading.")
             print("="*60)
         return np_tc_datum
+
+    def clear_data(self) -> None:
+        self.tc_data = np.array([], dtype=self.tc_dt)
+        ta_data = []

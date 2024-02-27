@@ -117,3 +117,6 @@ class TPReader(HDF5Reader):
             print("INFO: Finished reading.")
             print("="*60)
         return np_tp_data
+
+    def clear_data(self) -> None:
+        self.tp_data = np.array([], dtype=self.tp_dt)

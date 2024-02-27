@@ -59,6 +59,11 @@ class HDF5Reader(abc.ABC):
         """ Return the list of fragment paths. """
         return list(self._fragment_paths)
 
+    def set_fragment_paths(self, fragment_paths: list[str]) -> None:
+        """ Set the list of fragment paths. """
+        self._fragment_paths = fragment_paths
+        return None
+
     @abc.abstractmethod
     def read_fragment(self, fragment_path: str) -> None:
         """ Read one fragment from :fragment_path:. """
@@ -80,3 +85,13 @@ class HDF5Reader(abc.ABC):
             )
 
         return None
+
+    @abc.abstractmethod
+    def clear_data(self) -> None:
+        """ Clear the contents of the member data. """
+        ...
+
+    def reset_fragment_paths(self) -> None:
+        """ Reset the fragment paths to the initialized state. """
+        self._fragment_paths = self._h5_file.get_all_fragment_dataset_paths()
+        self._filter_fragment_paths()
