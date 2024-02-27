@@ -4,6 +4,7 @@ Display diagnostic information for TPs in a given
 tpstream file.
 """
 import trgtools
+from trgtools.plot import PDFPlotter
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -43,73 +44,6 @@ def find_save_name(run_id: int, file_index: int, overwrite: bool) -> str:
     print(f"Saving outputs to ./{save_name}.*")
 
     return save_name
-
-
-def plot_pdf_histogram(
-        data: np.ndarray,
-        plot_details_dict: dict,
-        pdf: PdfPages,
-        linear: bool = True,
-        log: bool = True) -> None:
-    """
-    Plot a histogram for the given data to a PdfPages object.
-
-    Parameters:
-        data (np.ndarray): Array to plot a histogram of.
-        plot_details_dict (dict): Dictionary with keys such as 'title', 'xlabel', etc.
-        pdf (PdfPages): The PdfPages object that this plot will be appended to.
-        linear (bool): Option to use linear y-scale.
-        log (bool): Option to use logarithmic y-scale.
-
-    Returns:
-        Nothing. Mutates :pdf: with the new plot.
-    """
-    plt.figure(figsize=(6, 4))
-    ax = plt.gca()
-    bins = 100
-
-    # Custom xticks are for specific typing. Expect to see much
-    # smaller plots, so only do linear and use less bins.
-    if 'xticks' in plot_details_dict:
-        linear = True
-        log = False
-        plt.xticks(**plot_details_dict['xticks'])
-    if 'bins' in plot_details_dict:
-        bins = plot_details_dict['bins']
-
-    if linear and log:
-        ax.hist(data, bins=bins, color='#63ACBE', label='Linear', alpha=0.6)
-        ax.set_yscale('linear')
-
-        ax2 = ax.twinx()
-        ax2.hist(data, bins=bins, color='#EE442F', label='Log', alpha=0.6)
-        ax2.set_yscale('log')
-
-        # Setting the plot order
-        ax.set_zorder(2)
-        ax.patch.set_visible(False)
-        ax2.set_zorder(1)
-
-        handles, labels = ax.get_legend_handles_labels()
-        handles2, labels2 = ax2.get_legend_handles_labels()
-        handles = handles + handles2
-        labels = labels + labels2
-        plt.legend(handles=handles, labels=labels)
-    else:
-        plt.hist(data, bins=bins, color='k')
-        if log:  # Default to linear, so only change on log
-            plt.yscale('log')
-
-    plt.title(plot_details_dict['title'] + " Histogram")
-    ax.set_xlabel(plot_details_dict['xlabel'])
-    if 'xlim' in plot_details_dict:
-        plt.xlim(plot_details_dict['xlim'])
-
-    plt.tight_layout()
-    pdf.savefig()
-    plt.close()
-
-    return None
 
 
 def plot_pdf_tot_vs_channel(tp_data: np.ndarray, pdf: PdfPages) -> None:
@@ -337,18 +271,32 @@ def main():
     time_label = "Time (s)" if seconds else "Time (Ticks)"
 
     # Dictionary containing unique title, xlabel, and xticks (only some)
-    plot_dict = {
+    plot_hist_dict = {
             'adc_integral': {
-                'title': "ADC Integral",
-                'xlabel': "ADC Integral"
+                'title': "ADC Integral Histogram",
+                'xlabel': "ADC Integral",
+                'ylabel': "Count",
+                'linear': linear,
+                'linear_style': dict(color='#63ACBE', alpha=0.6, label='Linear'),
+                'log': log,
+                'log_style': dict(color='#EE442F', alpha=0.6, label='Log')
             },
             'adc_peak': {
-                'title': "ADC Peak",
-                'xlabel': "ADC Count"
+                'title': "ADC Peak Histogram",
+                'xlabel': "ADC Count",
+                'ylabel': "Count",
+                'linear': linear,
+                'linear_style': dict(color='#63ACBE', alpha=0.6, label='Linear'),
+                'log': log,
+                'log_style': dict(color='#EE442F', alpha=0.6, label='Log')
             },
             'algorithm': {
-                'title': "Algorithm",
+                'title': "Algorithm Histogram",
                 'xlabel': 'Algorithm Type',
+                'ylabel': "Count",
+                'linear': True,  # TODO: Hard set for now
+                'linear_style': dict(color='k'),
+                'log': False,
                 'xlim': (-1, 2),
                 'xticks': {
                     'ticks': (0, 1),
@@ -361,32 +309,66 @@ def main():
             # between detectors (APA/CRP).
             # Requires loading channel maps.
             'channel': {
-                'title': "Channel",
-                'xlabel': "Channel Number"
+                'title': "Channel Histogram",
+                'xlabel': "Channel Number",
+                'ylabel': "Count",
+                'linear': linear,
+                'linear_style': dict(color='#63ACBE', alpha=0.6, label='Linear'),
+                'log': log,
+                'log_style': dict(color='#EE442F', alpha=0.6, label='Log')
             },
             'detid': {
-                'title': "Detector ID",
-                'xlabel': "Detector IDs"
+                'title': "Detector ID Histogram",
+                'xlabel': "Detector IDs",
+                'ylabel': "Count",
+                'linear': linear,
+                'linear_style': dict(color='#63ACBE', alpha=0.6, label='Linear'),
+                'log': log,
+                'log_style': dict(color='#EE442F', alpha=0.6, label='Log')
             },
             'flag': {
-                'title': "Flag",
-                'xlabel': "Flags"
+                'title': "Flag Histogram",
+                'xlabel': "Flags",
+                'ylabel': "Count",
+                'linear': linear,
+                'linear_style': dict(color='#63ACBE', alpha=0.6, label='Linear'),
+                'log': log,
+                'log_style': dict(color='#EE442F', alpha=0.6, label='Log')
             },
             'time_over_threshold': {
-                'title': "Time Over Threshold",
-                'xlabel': time_label
+                'title': "Time Over Threshold Histogram",
+                'xlabel': time_label,
+                'ylabel': "Count",
+                'linear': linear,
+                'linear_style': dict(color='#63ACBE', alpha=0.6, label='Linear'),
+                'log': log,
+                'log_style': dict(color='#EE442F', alpha=0.6, label='Log')
             },
             'time_peak': {
-                'title': "Relative Time Peak",
-                'xlabel': time_label
+                'title': "Relative Time Peak Histogram",
+                'xlabel': time_label,
+                'ylabel': "Count",
+                'linear': linear,
+                'linear_style': dict(color='#63ACBE', alpha=0.6, label='Linear'),
+                'log': log,
+                'log_style': dict(color='#EE442F', alpha=0.6, label='Log')
             },
             'time_start': {
-                'title': "Relative Time Start",
-                'xlabel': time_label
+                'title': "Relative Time Start Histogram",
+                'xlabel': time_label,
+                'ylabel': "Count",
+                'linear': linear,
+                'linear_style': dict(color='#63ACBE', alpha=0.6, label='Linear'),
+                'log': log,
+                'log_style': dict(color='#EE442F', alpha=0.6, label='Log')
             },
             'type': {
-                'title': "Type",
+                'title': "Type Histogram",
                 'xlabel': "Type",
+                'ylabel': "Count",
+                'linear': True,  # TODO: Hard set for now
+                'linear_style': dict(color='k'),
+                'log': False,
                 'xlim': (-1, 3),
                 'xticks': {
                     'ticks': (0, 1, 2),
@@ -395,38 +377,43 @@ def main():
                 'bins': (-0.5, 0.5, 1.5, 2.5)  # TODO: Dangerous. Hides values outside of this range.
             },
             'version': {
-                'title': "Version",
-                'xlabel': "Versions"
+                'title': "Version Histogram",
+                'xlabel': "Versions",
+                'ylabel': "Count",
+                'linear': linear,
+                'linear_style': dict(color='#63ACBE', alpha=0.6, label='Linear'),
+                'log': log,
+                'log_style': dict(color='#EE442F', alpha=0.6, label='Log')
             }
     }
-    with PdfPages(f"{save_name}.pdf") as pdf:
 
-        # Generic plots
-        for tp_key in data.tp_data.dtype.names:
-            if 'time' in tp_key:  # Special case.
-                time = data.tp_data[tp_key]
-                if seconds:
-                    time = time * TICK_TO_SEC_SCALE
-                min_time = np.min(time)  # Prefer making the relative time change.
-                plot_pdf_histogram(time - min_time, plot_dict[tp_key], pdf, linear, log)
-                if not no_anomaly:
-                    write_summary_stats(time - min_time, anomaly_filename,
-                                        plot_dict[tp_key]['title'])
-                continue
+    pdf_plotter = PDFPlotter(save_name)
 
-            plot_pdf_histogram(data.tp_data[tp_key], plot_dict[tp_key], pdf, linear, log)
+    # Generic plots
+    for tp_key in data.tp_data.dtype.names:
+        if 'time' in tp_key:  # Special case.
+            time = data.tp_data[tp_key]
+            if seconds:
+                time = time * TICK_TO_SEC_SCALE
+            min_time = np.min(time)  # Prefer making the relative time change.
+            pdf_plotter.plot_histogram(time - min_time, plot_hist_dict[tp_key])
             if not no_anomaly:
-                write_summary_stats(data.tp_data[tp_key], anomaly_filename,
-                                    plot_dict[tp_key]['title'])
+                write_summary_stats(time - min_time, anomaly_filename, tp_key)
+            continue
 
-        # Analysis plots
-        # ==== Time Over Threshold vs Channel ====
-        plot_pdf_tot_vs_channel(data.tp_data, pdf)
-        # ========================================
+        pdf_plotter.plot_histogram(data.tp_data[tp_key], plot_hist_dict[tp_key])
+        if not no_anomaly:
+            write_summary_stats(data.tp_data[tp_key], anomaly_filename, tp_key)
 
-        # ==== ADC Integral vs ADC Peak ====
-        plot_pdf_adc_integral_vs_peak(data.tp_data, pdf, verbosity)
-        # ===================================
+    pdf = pdf_plotter.get_pdf()
+    # Analysis plots
+    # ==== Time Over Threshold vs Channel ====
+    plot_pdf_tot_vs_channel(data.tp_data, pdf)
+    # ========================================
+
+    # ==== ADC Integral vs ADC Peak ====
+    plot_pdf_adc_integral_vs_peak(data.tp_data, pdf, verbosity)
+    # ===================================
 
     return None
 
