@@ -485,12 +485,12 @@ def main():
             write_summary_stats(data.ta_data[ta_key], anomaly_filename, ta_key)
 
     # Analysis Plots
-    #pdf = pdf_plotter.get_pdf()  # Needed for extra plots that are not general.
+    pdf = pdf_plotter.get_pdf()  # Needed for extra plots that are not general.
     # ==== Time Delta Comparisons =====
     if linear:
-        plot_pdf_time_delta_histograms(data.ta_data, data.tp_data, pdf_plotter._pdf, time_label, False)
+        plot_pdf_time_delta_histograms(data.ta_data, data.tp_data, pdf, time_label, False)
     if log:
-        plot_pdf_time_delta_histograms(data.ta_data, data.tp_data, pdf_plotter._pdf, time_label, True)
+        plot_pdf_time_delta_histograms(data.ta_data, data.tp_data, pdf, time_label, True)
     # =================================
 
     # ==== Time Spans Per TA ====
