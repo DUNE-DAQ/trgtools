@@ -3,7 +3,6 @@
 Display diagnostic information for TCs for a given
 tpstream file.
 """
-
 import trgtools
 
 import numpy as np
@@ -16,6 +15,34 @@ import argparse
 
 
 TICK_TO_SEC_SCALE = 16e-9  # s per tick
+
+
+def find_save_name(run_id: int, file_index: int, overwrite: bool) -> str:
+    """
+    Find a new save name or overwrite an existing one.
+
+    Parameters:
+        run_id (int): The run number for the read file.
+        file_index (int): The file index for the run number of the read file.
+        overwrite (bool): Overwrite the 0th plot directory of the same naming.
+
+    Returns:
+        (str): Save name to write as.
+
+    This is missing the file extension. It's the job of the save/write command
+    to append the extension.
+    """
+    # Try to find a new name.
+    name_iter = 0
+    save_name = f"tc_{run_id}-{file_index:04}_figures_{name_iter:04}"
+
+    # Outputs will always create a PDF, so use that as the comparison.
+    while not overwrite and os.path.exists(save_name + ".pdf"):
+        name_iter += 1
+        save_name = f"tc_{run_id}-{file_index:04}_figures_{name_iter:04}"
+    print(f"Saving outputs to ./{save_name}.*")
+
+    return save_name
 
 
 def plot_pdf_histogram(
@@ -46,12 +73,7 @@ def plot_pdf_histogram(
     if 'xticks' in plot_details_dict:
         linear = True
         log = False
-        plt.xticks(
-                plot_details_dict['xticks']['ticks'],
-                plot_details_dict['xticks']['labels'],
-                rotation=plot_details_dict['xticks']['rotation'],
-                ha=plot_details_dict['xticks']['ha']
-        )
+        plt.xticks(**plot_details_dict['xticks'])
     if 'bins' in plot_details_dict:
         bins = plot_details_dict['bins']
 
@@ -168,7 +190,8 @@ def plot_pdf_time_delta_histograms(
         tc_data: np.ndarray,
         ta_data: list[np.ndarray],
         pdf: PdfPages,
-        time_label: str) -> None:
+        time_label: str,
+        logarithm: bool) -> None:
     """
     Plot the different time delta histograms to a PdfPages.
 
@@ -177,6 +200,7 @@ def plot_pdf_time_delta_histograms(
         ta_data (list[np.ndarray]): List of TAs per TC. ta_data[i] holds TA data for the i-th TC.
         pdf (PdfPages): PdfPages object to append plot to.
         time_label (str): Time label to plot with (ticks vs seconds).
+        logarithm (bool): Use logarithmic scaling if true.
 
     Returns:
         Nothing. Mutates :pdf: with the new plot.
@@ -223,13 +247,15 @@ def plot_pdf_time_delta_histograms(
             alpha=0.6
     )
 
+    if logarithm:
+        plt.yscale('log')
+
     plt.title("Time Difference Histograms")
     plt.xlabel(time_label)
     plt.legend(framealpha=0.4)
 
     plt.tight_layout()
     pdf.savefig()
-
     plt.close()
     return None
 
@@ -239,17 +265,17 @@ def write_summary_stats(data: np.ndarray, filename: str, title: str) -> None:
     Writes the given summary statistics to 'filename'.
 
     Parameters:
-        data (np.ndarray): Data set to calculate statistics on.
-        filename (str): File to write to.
-        title (str): Title of this data set.
-    Returns:
-        Nothing. Appends to the given filename.
+        data (np.ndarray): Array of a TC data member.
+        filename (str): File to append outputs to.
+        title (str): Title of the TC data member.
+
+    Appends statistics to the given file.
     """
     # Algorithm, Det ID, etc. are not expected to vary.
     # Check first that they don't vary, and move on if so.
     if np.all(data == data[0]):
         print(f"{title} data member is the same for all TCs. Skipping summary statistics.")
-        return
+        return None
 
     summary = stats.describe(data)
     std = np.sqrt(summary.variance)
@@ -267,6 +293,8 @@ def write_summary_stats(data: np.ndarray, filename: str, title: str) -> None:
                   f"\t# of >3 Sigma TCs = {std3_count},\n"
                   f"\t# of >2 Sigma TCs = {std2_count}.\n")
         out.write("\n\n")
+
+    return None
 
 
 def parse():
@@ -296,8 +324,7 @@ def parse():
     parser.add_argument(
         "--end-frag",
         type=int,
-        help="Fragment index to stop processing (i.e. not inclusive)."
-             + "Takes negative indexing. Default: 0.",
+        help="Fragment index to stop processing (i.e. not inclusive). Takes negative indexing. Default: N.",
         default=0
     )
     parser.add_argument(
@@ -320,6 +347,11 @@ def parse():
         action="store_true",
         help="Pass to use logarithmic histogram scaling. Default: plots both linear and log."
     )
+    parser.add_argument(
+        "--overwrite",
+        action="store_true",
+        help="Overwrite old outputs. Default: False."
+    )
 
     return parser.parse_args()
 
@@ -336,6 +368,8 @@ def main():
     end_frag = args.end_frag
     no_anomaly = args.no_anomaly
     seconds = args.seconds
+    overwrite = args.overwrite
+
     linear = args.linear
     log = args.log
 
@@ -358,13 +392,17 @@ def main():
         for path in frag_paths:
             data.read_fragment(path)
 
+    # Find a new save name or overwrite an old one.
+    save_name = find_save_name(data.run_id, data.file_index, overwrite)
+
     print(f"Number of TCs: {data.tc_data.shape[0]}")  # Enforcing output for useful metric
 
     # Plotting
 
     if not no_anomaly:
-        anomaly_filename = f"tc_anomalies_{data.run_id}-{data.file_index:04}.txt"
-        print(f"Writing descriptive statistics to {anomaly_filename}.")
+        anomaly_filename = f"{save_name}.txt"
+        if verbosity >= 2:
+            print(f"Writing descriptive statistics to {anomaly_filename}.")
         if os.path.isfile(anomaly_filename):
             # Prepare a new ta_anomaly_summary.txt
             os.remove(anomaly_filename)
@@ -447,7 +485,7 @@ def main():
                 'xlabel': "Versions"
             }
     }
-    with PdfPages(f"tc_data_member_histograms_{data.run_id}-{data.file_index:04}.pdf") as pdf:
+    with PdfPages(f"{save_name}.pdf") as pdf:
 
         # Generic plots
         for tc_key in data.tc_data.dtype.names:
@@ -467,17 +505,22 @@ def main():
                 write_summary_stats(data.tc_data[tc_key], anomaly_filename,
                                     plot_dict[tc_key]['title'])
 
-        # "Analysis" plots
+        # Analysis plots
         # ==== Time Delta Comparisons =====
-        plot_pdf_time_delta_histograms(data.tc_data, data.ta_data, pdf, time_label)
+        if linear:
+            plot_pdf_time_delta_histograms(data.tc_data, data.ta_data, pdf, time_label, False)
+        if log:
+            plot_pdf_time_delta_histograms(data.tc_data, data.ta_data, pdf, time_label, True)
+        # =================================
 
+        # ==== TC ADC Integrals ====
         tc_adc_integrals = np.array([np.sum(tas['adc_integral']) for tas in data.ta_data])
         adc_integrals_dict = {
                 'title': "TC ADC Integrals",
                 'xlabel': "ADC Integral"
         }
         plot_pdf_histogram(tc_adc_integrals, adc_integrals_dict, pdf, linear, log)
-        # =================================
+        # ==========================
 
         # ==== ADC Integral vs Number of TAs ====
         integral_vs_num_tas_dict = {
@@ -520,7 +563,8 @@ def main():
                     'capsize': 4,
                     'color': 'k',
                     'ecolor': 'r',
-                    'label': f"Avg {time_unit} / TC: {(time_candidate[-1] - time_candidate[0]) / len(time_candidate):.2f}",
+                    'label': f"Avg {time_unit} / TC: "
+                             f"{(time_candidate[-1] - time_candidate[0]) / len(time_candidate):.2f}",
                     'marker': '.',
                     'markersize': 0.01
                 }
