@@ -3,8 +3,8 @@
 Display diagnostic information for TCs for a given
 tpstream file.
 """
-
 import trgtools
+from trgtools.plot import PDFPlotter
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -18,76 +18,32 @@ import argparse
 TICK_TO_SEC_SCALE = 16e-9  # s per tick
 
 
-def plot_pdf_histogram(
-        data: np.ndarray,
-        plot_details_dict: dict,
-        pdf: PdfPages,
-        linear: bool = True,
-        log: bool = True) -> None:
+def find_save_name(run_id: int, file_index: int, overwrite: bool) -> str:
     """
-    Plot a histogram for the given data to a PdfPages object.
+    Find a new save name or overwrite an existing one.
 
     Parameters:
-        data (np.ndarray): Array to plot a histogram of.
-        plot_details_dict (dict): Dictionary with keys such as 'title', 'xlabel', etc.
-        pdf (PdfPages): The PdfPages object that this plot will be appended to.
-        linear (bool): Option to use linear y-scale.
-        log (bool): Option to use logarithmic y-scale.
+        run_id (int): The run number for the read file.
+        file_index (int): The file index for the run number of the read file.
+        overwrite (bool): Overwrite the 0th plot directory of the same naming.
 
     Returns:
-        Nothing. Mutates :pdf: with the new plot.
+        (str): Save name to write as.
+
+    This is missing the file extension. It's the job of the save/write command
+    to append the extension.
     """
-    plt.figure(figsize=(6, 4))
-    ax = plt.gca()
-    bins = 100
+    # Try to find a new name.
+    name_iter = 0
+    save_name = f"tc_{run_id}-{file_index:04}_figures_{name_iter:04}"
 
-    # Custom xticks are for specific typing. Expect to see much
-    # smaller plots, so only do linear and use less bins.
-    if 'xticks' in plot_details_dict:
-        linear = True
-        log = False
-        plt.xticks(
-                plot_details_dict['xticks']['ticks'],
-                plot_details_dict['xticks']['labels'],
-                rotation=plot_details_dict['xticks']['rotation'],
-                ha=plot_details_dict['xticks']['ha']
-        )
-    if 'bins' in plot_details_dict:
-        bins = plot_details_dict['bins']
+    # Outputs will always create a PDF, so use that as the comparison.
+    while not overwrite and os.path.exists(save_name + ".pdf"):
+        name_iter += 1
+        save_name = f"tc_{run_id}-{file_index:04}_figures_{name_iter:04}"
+    print(f"Saving outputs to ./{save_name}.*")
 
-    if linear and log:
-        ax.hist(data, bins=bins, color='#63ACBE', label='Linear', alpha=0.6)
-        ax.set_yscale('linear')
-
-        ax2 = ax.twinx()
-        ax2.hist(data, bins=bins, color='#EE442F', label='Log', alpha=0.6)
-        ax2.set_yscale('log')
-
-        # Setting the plot order
-        ax.set_zorder(2)
-        ax.patch.set_visible(False)
-        ax2.set_zorder(1)
-
-        handles, labels = ax.get_legend_handles_labels()
-        handles2, labels2 = ax2.get_legend_handles_labels()
-        handles = handles + handles2
-        labels = labels + labels2
-        plt.legend(handles=handles, labels=labels)
-    else:
-        plt.hist(data, bins=bins, color='k')
-        if log:  # Default to linear, so only change on log
-            plt.yscale('log')
-
-    plt.title(plot_details_dict['title'] + " Histogram")
-    ax.set_xlabel(plot_details_dict['xlabel'])
-    if 'xlim' in plot_details_dict:
-        plt.xlim(plot_details_dict['xlim'])
-
-    plt.tight_layout()
-    pdf.savefig()
-    plt.close()
-
-    return None
+    return save_name
 
 
 def plot_pdf_scatter(
@@ -126,49 +82,12 @@ def plot_pdf_scatter(
     return None
 
 
-def plot_pdf_errorbar(
-        x_data: np.ndarray,
-        y_data: np.ndarray,
-        plot_details_dict: dict,
-        pdf: PdfPages) -> None:
-    """
-    Plot a scatter plot for the given x and y data to a PdfPages object.
-    Error bars are handled by :plot_details_dict: since they are a style
-    choice.
-
-    Parameters:
-        x_data (np.ndarray): Array to use as x values.
-        y_data (np.ndarray): Array to use as y values.
-        plot_details_dict (dict): Dictionary with keys such as 'title', 'xlabel', etc.
-        pdf (PdfPages): The PdfPages object that this plot will be appended to.
-
-    Returns:
-        Nothing. Mutates :pdf: with the new plot.
-    """
-    plt.figure(figsize=plot_details_dict.get('figsize', (6, 4)))
-
-    errorbar_style = plot_details_dict.get('errorbar_style', {})
-    plt.errorbar(x_data, y_data, **errorbar_style)
-
-    # Asserts that the following need to be in the plotting details.
-    # Who wants unlabeled plots?
-    plt.title(plot_details_dict['title'])
-    plt.xlabel(plot_details_dict['xlabel'])
-    plt.ylabel(plot_details_dict['ylabel'])
-
-    plt.legend()
-
-    plt.tight_layout()
-    pdf.savefig()
-    plt.close()
-    return None
-
-
 def plot_pdf_time_delta_histograms(
         tc_data: np.ndarray,
         ta_data: list[np.ndarray],
         pdf: PdfPages,
-        time_label: str) -> None:
+        time_label: str,
+        logarithm: bool) -> None:
     """
     Plot the different time delta histograms to a PdfPages.
 
@@ -177,6 +96,7 @@ def plot_pdf_time_delta_histograms(
         ta_data (list[np.ndarray]): List of TAs per TC. ta_data[i] holds TA data for the i-th TC.
         pdf (PdfPages): PdfPages object to append plot to.
         time_label (str): Time label to plot with (ticks vs seconds).
+        logarithm (bool): Use logarithmic scaling if true.
 
     Returns:
         Nothing. Mutates :pdf: with the new plot.
@@ -223,13 +143,15 @@ def plot_pdf_time_delta_histograms(
             alpha=0.6
     )
 
+    if logarithm:
+        plt.yscale('log')
+
     plt.title("Time Difference Histograms")
     plt.xlabel(time_label)
     plt.legend(framealpha=0.4)
 
     plt.tight_layout()
     pdf.savefig()
-
     plt.close()
     return None
 
@@ -239,17 +161,17 @@ def write_summary_stats(data: np.ndarray, filename: str, title: str) -> None:
     Writes the given summary statistics to 'filename'.
 
     Parameters:
-        data (np.ndarray): Data set to calculate statistics on.
-        filename (str): File to write to.
-        title (str): Title of this data set.
-    Returns:
-        Nothing. Appends to the given filename.
+        data (np.ndarray): Array of a TC data member.
+        filename (str): File to append outputs to.
+        title (str): Title of the TC data member.
+
+    Appends statistics to the given file.
     """
     # Algorithm, Det ID, etc. are not expected to vary.
     # Check first that they don't vary, and move on if so.
     if np.all(data == data[0]):
         print(f"{title} data member is the same for all TCs. Skipping summary statistics.")
-        return
+        return None
 
     summary = stats.describe(data)
     std = np.sqrt(summary.variance)
@@ -268,6 +190,8 @@ def write_summary_stats(data: np.ndarray, filename: str, title: str) -> None:
                   f"\t# of >2 Sigma TCs = {std2_count}.\n")
         out.write("\n\n")
 
+    return None
+
 
 def parse():
     """
@@ -281,9 +205,11 @@ def parse():
         help="Absolute path to tpstream file to display."
     )
     parser.add_argument(
-        "--quiet",
-        action="store_true",
-        help="Stops the output of printed information. Default: False."
+        "--verbose", "-v",
+        action="count",
+        help="Increment the verbose level (errors, warnings, all)."
+        "Save names and skipped writes are always printed. Default: 0.",
+        default=0
     )
     parser.add_argument(
         "--start-frag",
@@ -294,8 +220,7 @@ def parse():
     parser.add_argument(
         "--end-frag",
         type=int,
-        help="Fragment index to stop processing (i.e. not inclusive)."
-             + "Takes negative indexing. Default: 0.",
+        help="Fragment index to stop processing (i.e. not inclusive). Takes negative indexing. Default: N.",
         default=0
     )
     parser.add_argument(
@@ -318,6 +243,11 @@ def parse():
         action="store_true",
         help="Pass to use logarithmic histogram scaling. Default: plots both linear and log."
     )
+    parser.add_argument(
+        "--overwrite",
+        action="store_true",
+        help="Overwrite old outputs. Default: False."
+    )
 
     return parser.parse_args()
 
@@ -329,11 +259,13 @@ def main():
     # Process Arguments & Data
     args = parse()
     filename = args.filename
-    quiet = args.quiet
+    verbosity = args.verbose
     start_frag = args.start_frag
     end_frag = args.end_frag
     no_anomaly = args.no_anomaly
     seconds = args.seconds
+    overwrite = args.overwrite
+
     linear = args.linear
     log = args.log
 
@@ -342,30 +274,30 @@ def main():
         linear = True
         log = True
 
-    data = trgtools.TCData(filename, quiet)
-    run_id = data.run_id
-    file_index = data.file_index
+    data = trgtools.TCReader(filename, verbosity)
 
     # Load all case.
     if start_frag == 0 and end_frag == -1:
-        data.load_all_frags()  # Has extra debug/warning info
+        data.read_all_fragments()  # Has extra debug/warning info
     else:  # Only load some.
         if end_frag != 0:  # Python doesn't like [n:0]
-            frag_paths = data.get_tc_frag_paths()[start_frag:end_frag]
+            frag_paths = data.get_fragment_paths()[start_frag:end_frag]
         elif end_frag == 0:
-            frag_paths = data.get_tc_frag_paths()[start_frag:]
+            frag_paths = data.get_fragment_paths()[start_frag:]
 
-        # Does not count empty frags.
         for path in frag_paths:
-            data.load_frag(path)
+            data.read_fragment(path)
+
+    # Find a new save name or overwrite an old one.
+    save_name = find_save_name(data.run_id, data.file_index, overwrite)
 
     print(f"Number of TCs: {data.tc_data.shape[0]}")  # Enforcing output for useful metric
 
     # Plotting
 
-    anomaly_filename = f"tc_anomalies_{run_id}-{file_index:04}.txt"
     if not no_anomaly:
-        if not quiet:
+        anomaly_filename = f"{save_name}.txt"
+        if verbosity >= 2:
             print(f"Writing descriptive statistics to {anomaly_filename}.")
         if os.path.isfile(anomaly_filename):
             # Prepare a new ta_anomaly_summary.txt
@@ -374,11 +306,15 @@ def main():
     time_label = "Time (s)" if seconds else "Time (Ticks)"
 
     # Dictionary containing unique title, xlabel, and xticks (only some)
-    plot_dict = {
+    plot_hist_dict = {
             'algorithm': {
                 'bins': np.arange(-0.5, 9.5, 1),
                 'title': "Algorithm",
                 'xlabel': 'Algorithm Type',
+                'ylabel': "Count",
+                'linear': True,  # TODO: Hard set for now.
+                'linear_style': dict(color='k'),
+                'log': False,
                 'xlim': (-1, 9),
                 'xticks': {
                     'ticks': range(0, 9),
@@ -399,35 +335,69 @@ def main():
             },
             'detid': {
                 'title': "Detector ID",
-                'xlabel': "Detector IDs"
+                'xlabel': "Detector IDs",
+                'ylabel': "Count",
+                'linear': linear,
+                'linear_style': dict(color='#63ACBE', alpha=0.6, label='Linear'),
+                'log': log,
+                'log_style': dict(color='#EE442F', alpha=0.6, label='Log')
             },
             'num_tas': {
                 'title': "Number of TAs per TC",
-                'xlabel': "Number of TAs"
+                'xlabel': "Number of TAs",
+                'ylabel': "Count",
+                'linear': linear,
+                'linear_style': dict(color='#63ACBE', alpha=0.6, label='Linear'),
+                'log': log,
+                'log_style': dict(color='#EE442F', alpha=0.6, label='Log')
             },
             'time_candidate': {
                 'title': "Relative Time Candidate",
-                'xlabel': time_label
+                'xlabel': time_label,
+                'ylabel': "Count",
+                'linear': linear,
+                'linear_style': dict(color='#63ACBE', alpha=0.6, label='Linear'),
+                'log': log,
+                'log_style': dict(color='#EE442F', alpha=0.6, label='Log')
             },
             'time_end': {
                 'title': "Relative Time End",
-                'xlabel': time_label
+                'xlabel': time_label,
+                'ylabel': "Count",
+                'linear': linear,
+                'linear_style': dict(color='#63ACBE', alpha=0.6, label='Linear'),
+                'log': log,
+                'log_style': dict(color='#EE442F', alpha=0.6, label='Log')
             },
             'time_peak': {
                 'title': "Relative Time Peak",
-                'xlabel': time_label
+                'xlabel': time_label,
+                'ylabel': "Count",
+                'linear': linear,
+                'linear_style': dict(color='#63ACBE', alpha=0.6, label='Linear'),
+                'log': log,
+                'log_style': dict(color='#EE442F', alpha=0.6, label='Log')
             },
             'time_start': {
                 'title': "Relative Time Start",
-                'xlabel': time_label
+                'xlabel': time_label,
+                'ylabel': "Count",
+                'linear': linear,
+                'linear_style': dict(color='#63ACBE', alpha=0.6, label='Linear'),
+                'log': log,
+                'log_style': dict(color='#EE442F', alpha=0.6, label='Log')
             },
             'type': {
                 'bins': np.arange(-0.5, 10.5, 1),
                 'title': "Type",
                 'xlabel': "Type",
+                'ylabel': "Count",
+                'linear': True,  # TODO: Hard set for now.
+                'linear_style': dict(color='k'),
+                'log': False,
                 'xlim': (-1, 10),
                 'xticks': {
-                    'ticks': range(0, 10),  # Ticks to change
+                    'ticks': range(0, 10),
                     'labels': (
                         'Unknown',
                         'Timing',
@@ -446,90 +416,102 @@ def main():
             },
             'version': {
                 'title': "Version",
-                'xlabel': "Versions"
+                'xlabel': "Versions",
+                'ylabel': "Count",
+                'linear': linear,
+                'linear_style': dict(color='#63ACBE', alpha=0.6, label='Linear'),
+                'log': log,
+                'log_style': dict(color='#EE442F', alpha=0.6, label='Log')
             }
     }
-    with PdfPages(f"tc_data_member_histograms_{run_id}-{file_index:04}.pdf") as pdf:
 
-        # Generic plots
-        for tc_key in data.tc_data.dtype.names:
-            if 'time' in tc_key:  # Special case.
-                time = data.tc_data[tc_key]
-                if seconds:
-                    time = time * TICK_TO_SEC_SCALE
-                min_time = np.min(time)  # Prefer making the relative time change.
-                plot_pdf_histogram(time - min_time, plot_dict[tc_key], pdf, linear, log)
-                if not no_anomaly:
-                    write_summary_stats(time - min_time, anomaly_filename,
-                                        plot_dict[tc_key]['title'])
-                continue
+    pdf_plotter = PDFPlotter(save_name)
 
-            plot_pdf_histogram(data.tc_data[tc_key], plot_dict[tc_key], pdf, linear, log)
+    # Generic plots
+    for tc_key in data.tc_data.dtype.names:
+        if 'time' in tc_key:  # Special case.
+            time = data.tc_data[tc_key]
+            if seconds:
+                time = time * TICK_TO_SEC_SCALE
+            min_time = np.min(time)  # Prefer making the relative time change.
+            pdf_plotter.plot_histogram(time - min_time, plot_hist_dict[tc_key])
             if not no_anomaly:
-                write_summary_stats(data.tc_data[tc_key], anomaly_filename,
-                                    plot_dict[tc_key]['title'])
+                write_summary_stats(time - min_time, anomaly_filename, tc_key)
+            continue
 
-        # "Analysis" plots
-        # ==== Time Delta Comparisons =====
-        plot_pdf_time_delta_histograms(data.tc_data, data.ta_data, pdf, time_label)
+        pdf_plotter.plot_histogram(data.tc_data[tc_key], plot_hist_dict[tc_key])
+        if not no_anomaly:
+            write_summary_stats(data.tc_data[tc_key], anomaly_filename, tc_key)
 
-        tc_adc_integrals = np.array([np.sum(tas['adc_integral']) for tas in data.ta_data])
-        adc_integrals_dict = {
-                'title': "TC ADC Integrals",
-                'xlabel': "ADC Integral"
-        }
-        plot_pdf_histogram(tc_adc_integrals, adc_integrals_dict, pdf, linear, log)
-        # =================================
+    pdf = pdf_plotter.get_pdf()
+    # Analysis plots
+    # ==== Time Delta Comparisons =====
+    if linear:
+        plot_pdf_time_delta_histograms(data.tc_data, data.ta_data, pdf, time_label, False)
+    if log:
+        plot_pdf_time_delta_histograms(data.tc_data, data.ta_data, pdf, time_label, True)
+    # =================================
 
-        # ==== ADC Integral vs Number of TAs ====
-        integral_vs_num_tas_dict = {
-                'title': "TC ADC Integral vs Number of TAs",
-                'xlabel': "Number of TAs",
-                'ylabel': "TC ADC Integral",
-                'scatter_style': {
-                    'alpha': 0.6,
-                    'c': 'k',
-                    's': 2
-                }
-        }
-        plot_pdf_scatter(data.tc_data['num_tas'], tc_adc_integrals, integral_vs_num_tas_dict, pdf)
-        # =======================================
+    # ==== TC ADC Integrals ====
+    tc_adc_integrals = np.array([np.sum(tas['adc_integral']) for tas in data.ta_data])
+    adc_integrals_dict = {
+            'title': "TC ADC Integrals",
+            'xlabel': "ADC Integral",
+            'ylabel': "Count"
+    }
+    pdf_plotter.plot_histogram(tc_adc_integrals, adc_integrals_dict)
+    # ==========================
 
-        # ==== Time Spans Per TC ====
-        time_candidate = data.tc_data['time_candidate']
-        time_end = data.tc_data['time_end']
-        time_start = data.tc_data['time_start']
-        tc_min_time = np.min((time_candidate, time_end, time_start))
+    # ==== ADC Integral vs Number of TAs ====
+    integral_vs_num_tas_dict = {
+            'title': "TC ADC Integral vs Number of TAs",
+            'xlabel': "Number of TAs",
+            'ylabel': "TC ADC Integral",
+            'scatter_style': {
+                'alpha': 0.6,
+                'c': 'k',
+                's': 2
+            }
+    }
+    plot_pdf_scatter(data.tc_data['num_tas'], tc_adc_integrals, integral_vs_num_tas_dict, pdf)
+    # =======================================
 
-        time_candidate -= tc_min_time
-        time_end -= tc_min_time
-        time_start -= tc_min_time
+    # ==== Time Spans Per TC ====
+    time_candidate = data.tc_data['time_candidate']
+    time_end = data.tc_data['time_end']
+    time_start = data.tc_data['time_start']
+    tc_min_time = np.min((time_candidate, time_end, time_start))
 
-        if seconds:
-            tc_min_time = tc_min_time * TICK_TO_SEC_SCALE
-            time_candidate = time_candidate * TICK_TO_SEC_SCALE
-            time_end = time_end * TICK_TO_SEC_SCALE
-            time_start = time_start * TICK_TO_SEC_SCALE
+    time_candidate -= tc_min_time
+    time_end -= tc_min_time
+    time_start -= tc_min_time
 
-        yerr = np.array([time_candidate - time_start, time_end - time_candidate]).astype(np.int64)
-        time_unit = "Seconds" if seconds else "Ticks"
-        time_spans_dict = {
-                'title': "TC Relative Time Spans",
-                'xlabel': "TC",
-                'ylabel': time_label,
-                'errorbar_style': {
-                    'yerr': yerr,
-                    'capsize': 4,
-                    'color': 'k',
-                    'ecolor': 'r',
-                    'label': f"Avg {time_unit} / TC: {(time_candidate[-1] - time_candidate[0]) / len(time_candidate):.2f}",
-                    'marker': '.',
-                    'markersize': 0.01
-                }
-        }
-        tc_count = np.arange(len(time_candidate))
-        plot_pdf_errorbar(tc_count, time_candidate, time_spans_dict, pdf)
-        # ===========================
+    if seconds:
+        tc_min_time = tc_min_time * TICK_TO_SEC_SCALE
+        time_candidate = time_candidate * TICK_TO_SEC_SCALE
+        time_end = time_end * TICK_TO_SEC_SCALE
+        time_start = time_start * TICK_TO_SEC_SCALE
+
+    yerr = np.array([time_candidate - time_start, time_end - time_candidate]).astype(np.int64)
+    time_unit = "Seconds" if seconds else "Ticks"
+    time_spans_dict = {
+            'title': "TC Relative Time Spans",
+            'xlabel': "TC",
+            'ylabel': time_label,
+            'errorbar_style': {
+                'yerr': yerr,
+                'capsize': 4,
+                'color': 'k',
+                'ecolor': 'r',
+                'label': f"Avg {time_unit} / TC: "
+                         f"{(time_candidate[-1] - time_candidate[0]) / len(time_candidate):.2f}",
+                'marker': '.',
+                'markersize': 0.01
+            }
+    }
+    tc_count = np.arange(len(time_candidate))
+    pdf_plotter.plot_errorbar(tc_count, time_candidate, time_spans_dict)
+    # ===========================
 
     return None
 

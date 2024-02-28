@@ -3,55 +3,97 @@
 Display diagnostic information for TAs for a given
 tpstream file.
 """
-
-import os
-import sys
-import argparse
+import trgtools
+from trgtools.plot import PDFPlotter
 
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from scipy import stats
 
-import trgtools
+import os
+import argparse
 
-TICK_TO_SEC_SCALE = 16e-9 # s per tick
 
-def time_start_plot(start_times, seconds=False):
+TICK_TO_SEC_SCALE = 16e-9  # s per tick
+
+
+def find_save_name(run_id: int, file_index: int, overwrite: bool) -> str:
     """
-    Plot TA start times vs TA index.
+    Find a new save name or overwrite an existing one.
 
-    Optionally, use ticks or seconds for scaling.
+    Parameters:
+        run_id (int): The run number for the read file.
+        file_index (int): The file index for the run number of the read file.
+        overwrite (bool): Overwrite the 0th plot directory of the same naming.
+
+    Returns:
+        (str): Save name to write as.
+
+    This is missing the file extension. It's the job of the save/write command
+    to append the extension.
     """
-    time_unit = 'Ticks'
-    if seconds:
-        start_times = start_times * TICK_TO_SEC_SCALE
-        time_unit = 's'
+    # Try to find a new name.
+    name_iter = 0
+    save_name = f"ta_{run_id}-{file_index:04}_figures_{name_iter:04}"
 
-    first_time = start_times[0]
-    total_time = start_times[-1] - start_times[0]
-    total_tas = start_times.shape[0]
-    avg_rate = total_tas / total_time
+    # Outputs will always create a PDF, so use that as the comparison.
+    while not overwrite and os.path.exists(save_name + ".pdf"):
+        name_iter += 1
+        save_name = f"ta_{run_id}-{file_index:04}_figures_{name_iter:04}"
+    print(f"Saving outputs to ./{save_name}.*")
 
-    plt.figure(figsize=(6,4))
-    plt.plot(start_times - first_time, 'k', label=f"Average Rate: {avg_rate:.3} TA/{time_unit}")
+    return save_name
 
-    plt.title(f"TA Start Times: Shifted by {first_time:.4e} {time_unit}")
-    plt.xlabel("TA Order")
-    plt.ylabel(f"Start Time ({time_unit})")
 
-    plt.legend()
+def plot_all_event_displays(tp_data: list[np.ndarray], run_id: int, file_index: int, seconds: bool = False) -> None:
+    """
+    Plot all event displays.
 
-    plt.tight_layout()
-    plt.savefig("ta_start_times.svg")
-    plt.close()
+    Parameters:
+        tp_data (list[np.ndarray]): List of TPs for each TA.
+        run_id (int): Run number.
+        file_index (int): File index of this run.
+        seconds (bool): If True, plot using seconds as units.
+
+    Saves event displays to a single PDF.
+    """
+    time_unit = 's' if seconds else 'Ticks'
+
+    with PdfPages(f"event_displays_{run_id}.{file_index:04}.pdf") as pdf:
+        for tadx, ta in enumerate(tp_data):
+            if seconds:
+                ta = ta * TICK_TO_SEC_SCALE
+            plt.figure(figsize=(6, 4))
+
+            plt.scatter(ta['time_peak'], ta['channel'], c='k', s=2)
+
+            # Auto limits were too wide; this narrows it.
+            max_time = np.max(ta['time_peak'])
+            min_time = np.min(ta['time_peak'])
+            time_diff = max_time - min_time
+
+            # Only change the xlim if there is more than one TP.
+            if time_diff != 0:
+                plt.xlim((min_time - 0.1*time_diff, max_time + 0.1*time_diff))
+
+            plt.title(f'Run {run_id}.{file_index:04} Event Display: {tadx:03}')
+            plt.xlabel(f"Peak Time ({time_unit})")
+            plt.ylabel("Channel")
+
+            plt.tight_layout()
+            pdf.savefig()
+            plt.close()
+
+    return None
 
 
 def plot_pdf_time_delta_histograms(
         ta_data: np.ndarray,
         tp_data: list[np.ndarray],
         pdf: PdfPages,
-        time_label: str) -> None:
+        time_label: str,
+        logarithm: bool) -> None:
     """
     Plot the different time delta histograms to a PdfPages.
 
@@ -60,6 +102,7 @@ def plot_pdf_time_delta_histograms(
         tp_data (list[np.ndarray]): List of TPs per TA. tp_data[i] holds TP data for the i-th TA.
         pdf (PdfPages): PdfPages object to append plot to.
         time_label (str): Time label to plot with (ticks vs seconds).
+        logarithm (bool): Use logarithmic scaling if true.
 
     Returns:
         Nothing. Mutates :pdf: with the new plot.
@@ -100,180 +143,128 @@ def plot_pdf_time_delta_histograms(
             alpha=0.6
     )
 
+    if logarithm:
+        plt.yscale('log')
+
     plt.title("Time Difference Histograms")
     plt.xlabel(time_label)
     plt.legend(framealpha=0.4)
 
     plt.tight_layout()
     pdf.savefig()
-
     plt.close()
     return None
 
 
-def write_summary_stats(data, filename, title):
+def write_summary_stats(data: np.ndarray, filename: str, title: str) -> None:
     """
-    Writes the given summary statistics to 'filename'.
+    Writes the given summary statistics to :filename:.
+
+    Parameters:
+        data (np.ndarray): Array of a TA data member.
+        filename (str): File to append outputs to.
+        title (str): Title of the TA data member.
+
+    Appends statistics to the given file.
     """
     # Algorithm, Det ID, etc. are not expected to vary.
     # Check first that they don't vary, and move on if so.
     if np.all(data == data[0]):
         print(f"{title} data member is the same for all TAs. Skipping summary statistics.")
-        return
+        return None
 
     summary = stats.describe(data)
     std = np.sqrt(summary.variance)
     with open(filename, 'a') as out:
         out.write(f"{title}\n")
-        out.write(f"Reference Statistics:\n"            \
-                  f"\tTotal # TPs = {summary.nobs},\n"  \
-                  f"\tMean = {summary.mean:.2f},\n"     \
-                  f"\tStd = {std:.2f},\n"               \
-                  f"\tMin = {summary.minmax[0]},\n"     \
+        out.write(f"Reference Statistics:\n"
+                  f"\tTotal # TAs = {summary.nobs},\n"
+                  f"\tMean = {summary.mean:.2f},\n"
+                  f"\tStd = {std:.2f},\n"
+                  f"\tMin = {summary.minmax[0]},\n"
                   f"\tMax = {summary.minmax[1]}.\n")
-        std3_count = np.sum(data > summary.mean + 3*std) \
-                   + np.sum(data < summary.mean - 3*std)
-        std2_count = np.sum(data > summary.mean + 2*std) \
-                   + np.sum(data < summary.mean - 2*std)
-        out.write(f"Anomalies:\n"                           \
-                  f"\t# of >3 Sigma TPs = {std3_count},\n"  \
-                  f"\t# of >2 Sigma TPs = {std2_count}.\n")
+        std3_count = np.sum(data > summary.mean + 3*std) + np.sum(data < summary.mean - 3*std)
+        std2_count = np.sum(data > summary.mean + 2*std) + np.sum(data < summary.mean - 2*std)
+        out.write(f"Anomalies:\n"
+                  f"\t# of >3 Sigma TAs = {std3_count},\n"
+                  f"\t# of >2 Sigma TAs = {std2_count}.\n")
         out.write("\n\n")
 
-def plot_pdf_histogram(data, plot_details_dict, pdf, linear=True, log=True):
-    """
-    Plot a histogram for the given data to a PdfPage object.
-    """
-    plt.figure(figsize=(6,4))
-    ax = plt.gca()
-    bins = 100
+    return None
 
-    # Custom xticks are for specific typing. Expect to see much
-    # smaller plots, so only do linear and use less bins.
-    if 'xticks' in plot_details_dict:
-        linear = True
-        log = False
-        plt.xticks(**plot_details_dict['xticks'])
-    if 'bins' in plot_details_dict:
-        bins = plot_details_dict['bins']
-
-    if linear and log:
-        ax.hist(data, bins=bins, color='#63ACBE', label='Linear', alpha=0.6)
-        ax.set_yscale('linear')
-
-        ax2 = ax.twinx()
-        ax2.hist(data, bins=bins, color='#EE442F', label='Log', alpha=0.6)
-        ax2.set_yscale('log')
-
-        # Setting the plot order
-        ax.set_zorder(2)
-        ax.patch.set_visible(False)
-        ax2.set_zorder(1)
-
-        handles, labels = ax.get_legend_handles_labels()
-        handles2, labels2 = ax2.get_legend_handles_labels()
-        handles = handles + handles2
-        labels = labels + labels2
-        plt.legend(handles=handles, labels=labels)
-    else:
-        plt.hist(data, bins=bins, color='k')
-        if log:  # Default to linear, so only change on log
-            plt.yscale('log')
-
-    plt.title(plot_details_dict['title'] + " Histogram")
-    ax.set_xlabel(plot_details_dict['xlabel'])
-    if 'xlim' in plot_details_dict:
-        plt.xlim(plot_details_dict['xlim'])
-
-    plt.tight_layout()
-    pdf.savefig()
-    plt.close()
-
-def all_event_displays(tp_data, run_id, file_index, seconds=False):
-    """
-    Plot all event_displays as pages in a PDF.
-
-    Optionally, use ticks or seconds for scaling.
-    """
-    time_unit = 's' if seconds else 'Ticks'
-
-    with PdfPages(f"event_displays_{run_id}.{file_index:04}.pdf") as pdf:
-        for tadx, ta in enumerate(tp_data):
-            if seconds:
-                ta = ta * TICK_TO_SEC_SCALE
-            plt.figure(figsize=(6,4))
-
-            plt.scatter(ta['time_peak'], ta['channel'], c='k', s=2)
-
-            # Auto limits were too wide; this narrows it.
-            max_time = np.max(ta['time_peak'])
-            min_time = np.min(ta['time_peak'])
-            time_diff = max_time - min_time
-            plt.xlim((min_time - 0.1*time_diff, max_time + 0.1*time_diff))
-
-            plt.title(f'Run {run_id}.{file_index:04} Event Display: {tadx:03}')
-            plt.xlabel(f"Peak Time ({time_unit})")
-            plt.ylabel("Channel")
-
-            plt.tight_layout()
-            pdf.savefig()
-            plt.close()
-
-
-def event_display(peak_times, channels, idx, seconds=False):
-    """
-    Plot an individual event display.
-
-    Optionally, use ticks or seconds for scaling.
-    """
-    time_unit = 'Ticks'
-    if seconds:
-        peak_times = peak_times * TICK_TO_SEC_SCALE
-        time_unit = 's'
-
-    plt.figure(figsize=(6,4))
-
-    plt.scatter(peak_times, channels, c='k', s=2)
-    max_time = np.max(peak_times)
-    min_time = np.min(peak_times)
-    time_diff = max_time - min_time
-
-    plt.xlim((min_time - 0.1*time_diff, max_time + 0.1*time_diff))
-
-    plt.title(f"Event Display: {idx:03}")
-    plt.xlabel(f"Peak Time ({time_unit})")
-    plt.ylabel("Channel")
-
-    plt.tight_layout()
-    plt.savefig(f"./event_display_{idx:03}.svg")
-    plt.close()
 
 def parse():
     """
     Parses CLI input arguments.
     """
-    parser = argparse.ArgumentParser(description="Display diagnostic information for TAs for a given tpstream file.")
-    parser.add_argument("filename", help="Absolute path to tpstream file to display.")
-    parser.add_argument("--quiet", action="store_true", help="Stops the output of printed information. Default: False.")
-    parser.add_argument("--no-displays", action="store_true", help="Stops the processing of event displays.")
-    parser.add_argument("--start-frag", type=int, help="Starting fragment index to process from. Takes negative indexing. Default: -10.", default=-10)
-    parser.add_argument("--end-frag", type=int, help="Fragment index to stop processing (i.e. not inclusive). Takes negative indexing. Default: 0.", default=0)
-    parser.add_argument("--no-anomaly", action="store_true", help="Pass to not write 'ta_anomaly_summary.txt'. Default: False.")
-    parser.add_argument("--seconds", action="store_true", help="Pass to use seconds instead of time ticks. Default: False.")
-    parser.add_argument("--linear", action="store_true", help="Pass to use linear histogram scaling. Default: plots both linear and log.")
-    parser.add_argument("--log", action="store_true", help="Pass to use logarithmic histogram scaling. Default: plots both linear and log.")
-    parser.add_argument("--overwrite", action="store_true", help="Overwrite old outputs. Default: False.")
+    parser = argparse.ArgumentParser(
+        description="Display diagnostic information for TAs for a given tpstream file."
+    )
+    parser.add_argument(
+        "filename",
+        help="Absolute path to tpstream file to display."
+    )
+    parser.add_argument(
+        "--verbose", '-v',
+        action="count",
+        help="Increment the verbose level (errors, warnings, all)."
+        "Save names and skipped writes are always printed. Default: 0.",
+        default=0
+    )
+    parser.add_argument(
+        "--no-displays",
+        action="store_true",
+        help="Stops the processing of event displays."
+    )
+    parser.add_argument(
+        "--start-frag",
+        type=int,
+        help="Starting fragment index to process from. Takes negative indexing. Default: -10.",
+        default=-10
+    )
+    parser.add_argument(
+        "--end-frag",
+        type=int,
+        help="Fragment index to stop processing (i.e. not inclusive). Takes negative indexing. Default: N.",
+        default=0
+    )
+    parser.add_argument(
+        "--no-anomaly",
+        action="store_true",
+        help="Pass to not write 'ta_anomaly_summary.txt'. Default: False."
+    )
+    parser.add_argument(
+        "--seconds",
+        action="store_true",
+        help="Pass to use seconds instead of time ticks. Default: False."
+    )
+    parser.add_argument(
+        "--linear",
+        action="store_true",
+        help="Pass to use linear histogram scaling. Default: plots both linear and log."
+    )
+    parser.add_argument(
+        "--log",
+        action="store_true",
+        help="Pass to use logarithmic histogram scaling. Default: plots both linear and log."
+    )
+    parser.add_argument(
+        "--overwrite",
+        action="store_true",
+        help="Overwrite old outputs. Default: False."
+    )
 
     return parser.parse_args()
+
 
 def main():
     """
     Drives the processing and plotting.
     """
-    ## Process Arguments & Data
+    # Process Arguments & Data
     args = parse()
     filename = args.filename
-    quiet = args.quiet
+    verbosity = args.verbose
     no_displays = args.no_displays
     start_frag = args.start_frag
     end_frag = args.end_frag
@@ -289,53 +280,63 @@ def main():
         linear = True
         log = True
 
-    data = trgtools.TAData(filename, quiet)
+    data = trgtools.TAReader(filename, verbosity)
 
     # Load all case.
     if start_frag == 0 and end_frag == -1:
-        data.load_all_frags() # Has extra debug/warning info
-    else: # Only load some.
-        if end_frag != 0: # Python doesn't like [n:0]
-            frag_paths = data.get_ta_frag_paths()[start_frag:end_frag]
+        data.read_all_fragments()  # Has extra debug/warning info
+    else:  # Only load some.
+        if end_frag != 0:  # Python doesn't like [n:0]
+            frag_paths = data.get_fragment_paths()[start_frag:end_frag]
         elif end_frag == 0:
-            frag_paths = data.get_ta_frag_paths()[start_frag:]
+            frag_paths = data.get_fragment_paths()[start_frag:]
 
-        # Does not count empty frags.
         for path in frag_paths:
-            data.load_frag(path)
+            data.read_fragment(path)
 
-    # Try to find an empty plotting directory
-    plot_iter = 0
-    plot_dir = f"{data.run_id}-{data.file_index}_figures_{plot_iter:04}"
-    while not overwrite and os.path.isdir(plot_dir):
-        plot_iter += 1
-        plot_dir = f"{data.run_id}-{data.file_index}_figures_{plot_iter:04}"
-    print(f"Saving outputs to ./{plot_dir}/")
-    # If overwriting and it does exist, don't need to make it.
-    # So take the inverse to mkdir.
-    if not (overwrite and os.path.isdir(plot_dir)):
-        os.mkdir(plot_dir)
-    os.chdir(plot_dir)
+    # Find a new save name or overwrite an old one.
+    save_name = find_save_name(data.run_id, data.file_index, overwrite)
 
-    print(f"Number of TAs: {data.ta_data.shape[0]}") # Enforcing output for useful metric
+    print(f"Number of TAs: {data.ta_data.shape[0]}")  # Enforcing output for useful metric
 
-    ## Plotting
-    # General Data Member Plots
+    # Plotting
+
+    if not no_anomaly:
+        anomaly_filename = f"{save_name}.txt"
+        print(f"Writing descriptive statistics to {anomaly_filename}.")
+        if os.path.isfile(anomaly_filename):
+            # Prepare a new ta_anomaly_summary.txt
+            os.remove(anomaly_filename)
+
     time_label = "Time (s)" if seconds else "Time (Ticks)"
 
     # Dictionary containing unique title, xlabel, and xticks (only some)
-    plot_dict = {
+    plot_hist_dict = {
             'adc_integral': {
-                'title': "ADC Integral",
-                'xlabel': "ADC Integral"
+                'title': "ADC Integral Histogram",
+                'xlabel': "ADC Integral",
+                'ylabel': "Count",
+                'linear': linear,
+                'linear_style': dict(color='#63ACBE', alpha=0.6, label='Linear'),
+                'log': log,
+                'log_style': dict(color='#EE442F', alpha=0.6, label='Log')
             },
             'adc_peak': {
-                'title': "ADC Peak",
-                'xlabel': "ADC Count"
+                'title': "ADC Peak Histogram",
+                'xlabel': "ADC Count",
+                'ylabel': "Count",
+                'linear': linear,
+                'linear_style': dict(color='#63ACBE', alpha=0.6, label='Linear'),
+                'log': log,
+                'log_style': dict(color='#EE442F', alpha=0.6, label='Log')
             },
             'algorithm': {
-                'title': "Algorithm",
+                'title': "Algorithm Histogram",
                 'xlabel': 'Algorithm Type',
+                'ylabel': "Count",
+                'linear': True,  # TODO: Hard set for now.
+                'linear_style': dict(color='k'),
+                'log': False,
                 'bins': 8,
                 'xlim': (-0.5, 7.5),
                 'xticks': {
@@ -359,44 +360,93 @@ def main():
             # inconsistent between detectors (APA/CRP).
             # Requires loading channel maps.
             'channel_end': {
-                'title': "Channel End",
-                'xlabel': "Channel Number"
+                'title': "Channel End Histogram",
+                'xlabel': "Channel Number",
+                'ylabel': "Count",
+                'linear': linear,
+                'linear_style': dict(color='#63ACBE', alpha=0.6, label='Linear'),
+                'log': log,
+                'log_style': dict(color='#EE442F', alpha=0.6, label='Log')
             },
             'channel_peak': {
-                'title': "Channel Peak",
-                'xlabel': "Channel Number"
+                'title': "Channel Peak Histogram",
+                'xlabel': "Channel Number",
+                'ylabel': "Count",
+                'linear': linear,
+                'linear_style': dict(color='#63ACBE', alpha=0.6, label='Linear'),
+                'log': log,
+                'log_style': dict(color='#EE442F', alpha=0.6, label='Log')
             },
             'channel_start': {
-                'title': "Channel Start",
-                'xlabel': "Channel Number"
+                'title': "Channel Start Histogram",
+                'xlabel': "Channel Number",
+                'ylabel': "Count",
+                'linear': linear,
+                'linear_style': dict(color='#63ACBE', alpha=0.6, label='Linear'),
+                'log': log,
+                'log_style': dict(color='#EE442F', alpha=0.6, label='Log')
             },
             'detid': {
-                'title': "Detector ID",
-                'xlabel': "Detector IDs"
+                'title': "Detector ID Histogram",
+                'xlabel': "Detector IDs",
+                'ylabel': "Count",
+                'linear': linear,
+                'linear_style': dict(color='#63ACBE', alpha=0.6, label='Linear'),
+                'log': log,
+                'log_style': dict(color='#EE442F', alpha=0.6, label='Log')
             },
             'num_tps': {
-                'title': "Number of TPs per TA",
-                'xlabel': "Number of TPs"
+                'title': "Number of TPs per TA Histogram",
+                'xlabel': "Number of TPs",
+                'ylabel': "Count",
+                'linear': linear,
+                'linear_style': dict(color='#63ACBE', alpha=0.6, label='Linear'),
+                'log': log,
+                'log_style': dict(color='#EE442F', alpha=0.6, label='Log')
             },
             'time_activity': {
-                'title': "Relative Time Activity",
-                'xlabel': time_label
+                'title': "Relative Time Activity Histogram",
+                'xlabel': time_label,
+                'ylabel': "Count",
+                'linear': linear,
+                'linear_style': dict(color='#63ACBE', alpha=0.6, label='Linear'),
+                'log': log,
+                'log_style': dict(color='#EE442F', alpha=0.6, label='Log')
             },
             'time_end': {
-                'title': "Relative Time End",
-                'xlabel': time_label
+                'title': "Relative Time End Histogram",
+                'xlabel': time_label,
+                'ylabel': "Count",
+                'linear': linear,
+                'linear_style': dict(color='#63ACBE', alpha=0.6, label='Linear'),
+                'log': log,
+                'log_style': dict(color='#EE442F', alpha=0.6, label='Log')
             },
             'time_peak': {
-                'title': "Relative Time Peak",
-                'xlabel': time_label
+                'title': "Relative Time Peak Histogram",
+                'xlabel': time_label,
+                'ylabel': "Count",
+                'linear': linear,
+                'linear_style': dict(color='#63ACBE', alpha=0.6, label='Linear'),
+                'log': log,
+                'log_style': dict(color='#EE442F', alpha=0.6, label='Log')
             },
             'time_start': {
-                'title': "Relative Time Start",
-                'xlabel': time_label
+                'title': "Relative Time Start Histogram",
+                'xlabel': time_label,
+                'ylabel': "Count",
+                'linear': linear,
+                'linear_style': dict(color='#63ACBE', alpha=0.6, label='Linear'),
+                'log': log,
+                'log_style': dict(color='#EE442F', alpha=0.6, label='Log')
             },
             'type': {
-                'title': "Type",
+                'title': "Type Histogram",
                 'xlabel': "Type",
+                'ylabel': "Count",
+                'linear': True,  # TODO: Hard set for now.
+                'linear_style': dict(color='k'),
+                'log': False,
                 'bins': 3,
                 'xlim': (-0.5, 2.5),
                 'xticks': {
@@ -407,36 +457,83 @@ def main():
                 }
             },
             'version': {
-                    'title': "Version",
-                    'xlabel': "Versions"
+                'title': "Version Histogram",
+                'xlabel': "Versions",
+                'ylabel': "Count",
+                'linear': linear,
+                'linear_style': dict(color='#63ACBE', alpha=0.6, label='Linear'),
+                'log': log,
+                'log_style': dict(color='#EE442F', alpha=0.6, label='Log')
             }
     }
-    if not no_anomaly:
-        anomaly_filename = "ta_anomalies.txt"
-        if not quiet:
-            print(f"Writing descriptive statistics to {anomaly_filename}.")
-        if os.path.isfile(anomaly_filename):
-            # Prepare a new ta_anomaly_summary.txt
-            os.remove(anomaly_filename)
 
-    with PdfPages("ta_data_member_histograms.pdf") as pdf:
-        for ta_key in data.ta_data.dtype.names:
+    pdf_plotter = PDFPlotter(f"{save_name}.pdf")
+    # Generic Plots
+    for ta_key in data.ta_data.dtype.names:
+        if 'time' in ta_key:  # Special case.
+            time = data.ta_data[ta_key]
+            if seconds:
+                time = time * TICK_TO_SEC_SCALE
+            min_time = np.min(time)  # Prefer making the relative time change.
+            pdf_plotter.plot_histogram(time - min_time, plot_hist_dict[ta_key])
             if not no_anomaly:
-                write_summary_stats(data.ta_data[ta_key], anomaly_filename, plot_dict[ta_key]['title'])
-            if 'time' in ta_key:
-                time = data.ta_data[ta_key]
-                if seconds:
-                    time = time * TICK_TO_SEC_SCALE
-                min_time = np.min(time)  # Prefer making the relative time change.
-                plot_pdf_histogram(time - min_time, plot_dict[ta_key], pdf, linear, log)
-                continue
-            plot_pdf_histogram(data.ta_data[ta_key], plot_dict[ta_key], pdf, linear, log)
+                write_summary_stats(time - min_time, anomaly_filename, ta_key)
+            continue
 
-        # Analysis Plots
-        plot_pdf_time_delta_histograms(data.ta_data, data.tp_data, pdf, time_label)
+        pdf_plotter.plot_histogram(data.ta_data[ta_key], plot_hist_dict[ta_key])
+        if not no_anomaly:
+            write_summary_stats(data.ta_data[ta_key], anomaly_filename, ta_key)
 
-    if (not no_displays):
-        all_event_displays(data.tp_data, data.run_id, data.file_index, seconds)
+    # Analysis Plots
+    pdf = pdf_plotter.get_pdf()  # Needed for extra plots that are not general.
+    # ==== Time Delta Comparisons =====
+    if linear:
+        plot_pdf_time_delta_histograms(data.ta_data, data.tp_data, pdf, time_label, False)
+    if log:
+        plot_pdf_time_delta_histograms(data.ta_data, data.tp_data, pdf, time_label, True)
+    # =================================
+
+    # ==== Time Spans Per TA ====
+    time_peak = data.ta_data['time_peak']
+    time_end = data.ta_data['time_end']
+    time_start = data.ta_data['time_start']
+    ta_min_time = np.min((time_peak, time_end, time_start))
+
+    time_peak -= ta_min_time
+    time_end -= ta_min_time
+    time_start -= ta_min_time
+
+    if seconds:
+        ta_min_time = ta_min_time * TICK_TO_SEC_SCALE
+        time_peak = time_peak * TICK_TO_SEC_SCALE
+        time_end = time_end * TICK_TO_SEC_SCALE
+        time_start = time_start * TICK_TO_SEC_SCALE
+
+    yerr = np.array([time_peak - time_start, time_end - time_peak]).astype(np.int64)
+    time_unit = "Seconds" if seconds else "Ticks"
+    time_spans_dict = {
+            'title': "TA Relative Time Spans",
+            'xlabel': "TA",
+            'ylabel': time_label,
+            'errorbar_style': {
+                'yerr': yerr,
+                'capsize': 4,
+                'color': 'k',
+                'ecolor': 'r',
+                'label': f"Avg {time_unit} / TA: {(time_peak[-1] - time_peak[0]) / len(time_peak):.2f}",
+                'marker': '.',
+                'markersize': 0.01
+            }
+    }
+    ta_count = np.arange(len(time_peak))
+    pdf_plotter.plot_errorbar(ta_count, time_peak, time_spans_dict)
+    # ===========================
+
+    if not no_displays:
+        plot_all_event_displays(data.tp_data, data.run_id, data.file_index, seconds)
+
+    return None
+
 
 if __name__ == "__main__":
     main()
