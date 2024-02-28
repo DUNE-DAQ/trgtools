@@ -4,7 +4,7 @@ Reader class for HSI data.
 from .HDF5Reader import HDF5Reader
 
 import daqdataformats  # noqa: F401 : Not used, but needed to recognize formats.
-import trgdataformats
+import detdataformats
 
 import numpy as np
 
@@ -14,10 +14,10 @@ class HSIReader(HDF5Reader):
     """
     # HSI data type
     hsi_dt = np.dtype([
-                        ('crate'), np.uint32),
-                        ('detector_id'), np.uint32),
-                        ('input_low', np.uint32),
-                        ('input_high', np.uint32),
+                        ('crate', np.uint32),
+                        ('detector_id', np.uint32),
+                        ('input_low', tuple),   # Original is uint32
+                        ('input_high', tuple),  # Saving as bit positions
                         ('link', np.uint32),
                         ('sequence', np.uint32),
                         ('timestamp', np.uint64),
@@ -51,6 +51,22 @@ class HSIReader(HDF5Reader):
         self._fragment_paths = fragment_paths
         return None
 
+    def _get_bit_positions(self, bitmap: int) -> tuple:
+        """ Get the bit positions for the given integer.
+
+        Assumes that :bitmap: is a uint32.
+        """
+        if bitmap == 0:  # Edge case
+            return tuple()
+
+        sniff = 1
+        bit_pos = []
+        for pos in range(32):
+            if bitmap & sniff:
+                bit_pos.append(pos)
+            sniff <<= 1
+        return tuple(bit_pos)
+
     def read_fragment(self, fragment_path: str) -> np.ndarray:
         """
         Read from the given data fragment path.
@@ -82,14 +98,14 @@ class HSIReader(HDF5Reader):
         hsi_datum = detdataformats.HSIFrame(fragment.get_data())
         np_hsi_datum = np.array([(
                              hsi_datum.crate,
-                             hsi.detector_id,
-                             hsi.input_low,
-                             hsi.input_high,
-                             hsi.link,
-                             hsi.sequence,
-                             hsi.get_timestamp(),
-                             hsi.trigger,
-                             hsi.version)],
+                             hsi_datum.detector_id,
+                             self._get_bit_positions(hsi_datum.input_low),
+                             self._get_bit_positions(hsi_datum.input_high),
+                             hsi_datum.link,
+                             hsi_datum.sequence,
+                             hsi_datum.get_timestamp(),
+                             hsi_datum.trigger,
+                             hsi_datum.version)],
                              dtype=self.hsi_dt)
         self.hsi_data = np.hstack((self.hsi_data, np_hsi_datum))
 
