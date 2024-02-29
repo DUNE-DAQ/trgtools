@@ -7,6 +7,7 @@
 
 #include <fmt/core.h>
 #include <fmt/format.h>
+#include <fmt/chrono.h>
 
 #include "hdf5libs/HDF5RawDataFile.hpp"
 #include "trgdataformats/TriggerPrimitive.hpp"
@@ -221,6 +222,13 @@ int main(int argc, char const *argv[])
   rp.set_processor([&]( daqdataformats::TimeSlice& tsl ) -> void {
     const std::vector<std::unique_ptr<daqdataformats::Fragment>>& frags = tsl.get_fragments_ref();
     fmt::print("The numbert of fragments: {}\n", frags.size());
+
+    uint64_t average_ta_time = 0;
+    uint64_t average_tc_time = 0;
+
+    size_t num_tas = 0;
+    size_t num_tcs = 0;
+
     for( const auto& frag : frags ) {
 
       // The fragment has to be for the trigger (not e.g. for retreival from readout)
@@ -273,9 +281,20 @@ int main(int argc, char const *argv[])
       // TA Processing
       //
 
+      const auto ta_start = std::chrono::steady_clock::now();
       std::unique_ptr<daqdataformats::Fragment> ta_frag = ta_emulator->emulate(tp_buffer);
+      const auto ta_end = std::chrono::steady_clock::now();
+
       if (ta_frag == nullptr) // Buffer was empty.
         continue;
+      num_tas += ta_emulator->get_last_output_buffer().size();
+
+      // TA time calculation.
+      const uint64_t ta_diff = std::chrono::nanoseconds(ta_end - ta_start).count();
+      average_ta_time += ta_diff;
+      if (!quiet) {
+        fmt::print("\tTA Time Process: {} ns.\n", ta_diff);
+      }
 
       daqdataformats::FragmentHeader frag_hdr = frag->get_header();
 
@@ -296,9 +315,20 @@ int main(int argc, char const *argv[])
       //
 
       std::vector<triggeralgs::TriggerActivity> ta_buffer = ta_emulator->get_last_output_buffer();
+      const auto tc_start = std::chrono::steady_clock::now();
       std::unique_ptr<daqdataformats::Fragment> tc_frag = tc_emulator->emulate(ta_buffer);
+      const auto tc_end = std::chrono::steady_clock::now();
+
       if (tc_frag == nullptr) // Buffer was empty.
         continue;
+      num_tcs += tc_emulator->get_last_output_buffer().size();
+
+      // TC time calculation.
+      const uint64_t tc_diff = std::chrono::nanoseconds(tc_end - tc_start).count();
+      average_tc_time += tc_diff;
+      if (!quiet) {
+        fmt::print("\tTC Time Process: {} ns.\n", tc_diff);
+      }
 
       // Shares the same frag_hdr.
       tc_frag->set_header_fields(frag_hdr);
@@ -307,6 +337,13 @@ int main(int argc, char const *argv[])
       tsl.add_fragment(std::move(tc_frag));
 
     } // Fragment for loop
+
+    average_ta_time /= num_tas;
+    average_tc_time /= num_tcs;
+    if (!quiet) {
+      fmt::print("\t\tAverage TA Time Process ({} TAs): {} ns.\n", num_tas, average_ta_time);
+      fmt::print("\t\tAverage TC Time Process ({} TCs): {} ns.\n", num_tcs, average_tc_time);
+    }
   });
 
   rp.loop(num_rec, skip_rec);
