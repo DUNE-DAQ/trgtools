@@ -95,19 +95,29 @@ class HSIReader(HDF5Reader):
 
         hsi_idx = 0  # Debugging output.
         byte_idx = 0  # Variable HSI sizing, must do while loop.
-        hsi_datum = detdataformats.HSIFrame(fragment.get_data())
-        np_hsi_datum = np.array([(
-                             hsi_datum.crate,
-                             hsi_datum.detector_id,
-                             self._get_bit_positions(hsi_datum.input_low),
-                             self._get_bit_positions(hsi_datum.input_high),
-                             hsi_datum.link,
-                             hsi_datum.sequence,
-                             hsi_datum.get_timestamp(),
-                             hsi_datum.trigger,
-                             hsi_datum.version)],
-                             dtype=self.hsi_dt)
-        self.hsi_data = np.hstack((self.hsi_data, np_hsi_datum))
+        while byte_idx < fragment_data_size:
+            if self._verbosity >= 2:
+                print(f"INFO: Fragment Index: {hsi_idx}.")
+                print(f"INFO: Byte Index / Frag Size: {byte_idx} / {fragment_data_size}")
+
+            # Read HSI data
+            hsi_datum = detdataformats.HSIFrame(fragment.get_data())
+            np_hsi_datum = np.array([(
+                                 hsi_datum.crate,
+                                 hsi_datum.detector_id,
+                                 self._get_bit_positions(hsi_datum.input_low),
+                                 self._get_bit_positions(hsi_datum.input_high),
+                                 hsi_datum.link,
+                                 hsi_datum.sequence,
+                                 hsi_datum.get_timestamp(),
+                                 hsi_datum.trigger,
+                                 hsi_datum.version)],
+                                 dtype=self.hsi_dt)
+            self.hsi_data = np.hstack((self.hsi_data, np_hsi_datum))
+
+            byte_idx += hsi_datum.sizeof()
+            if self._verbosity >= 2:
+                print(f"INFO: Upcoming byte index: {byte_idx}")
 
         if self._verbosity >= 2:
             print("INFO: Finished reading.")
