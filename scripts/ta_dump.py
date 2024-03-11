@@ -63,14 +63,15 @@ def plot_all_event_displays(tp_data: list[np.ndarray], run_id: int, file_index: 
     with PdfPages(f"event_displays_{run_id}.{file_index:04}.pdf") as pdf:
         for tadx, ta in enumerate(tp_data):
             if seconds:
-                ta = ta * TICK_TO_SEC_SCALE
+                ta['time_start'] = ta['time_start'] * TICK_TO_SEC_SCALE
             plt.figure(figsize=(6, 4))
 
-            plt.scatter(ta['time_peak'], ta['channel'], c='k', s=2)
+            times = ta['time_start'] - np.min(ta['time_start'])
+            plt.scatter(times, ta['channel'], c='k', s=2)
 
             # Auto limits were too wide; this narrows it.
-            max_time = np.max(ta['time_peak'])
-            min_time = np.min(ta['time_peak'])
+            max_time = np.max(times)
+            min_time = np.min(times)
             time_diff = max_time - min_time
 
             # Only change the xlim if there is more than one TP.
@@ -78,7 +79,7 @@ def plot_all_event_displays(tp_data: list[np.ndarray], run_id: int, file_index: 
                 plt.xlim((min_time - 0.1*time_diff, max_time + 0.1*time_diff))
 
             plt.title(f'Run {run_id}.{file_index:04} Event Display: {tadx:03}')
-            plt.xlabel(f"Peak Time ({time_unit})")
+            plt.xlabel(f"Relative Start Time ({time_unit})")
             plt.ylabel("Channel")
 
             plt.tight_layout()
