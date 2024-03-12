@@ -338,8 +338,10 @@ int main(int argc, char const *argv[])
 
     } // Fragment for loop
 
-    average_ta_time /= num_tas;
-    average_tc_time /= num_tcs;
+    if (num_tas == 0) average_ta_time = 0;
+    else average_ta_time /= num_tas;
+    if (num_tcs == 0) average_tc_time = 0;
+    else average_tc_time /= num_tcs;
     if (!quiet) {
       fmt::print("\t\tAverage TA Time Process ({} TAs): {} ns.\n", num_tas, average_ta_time);
       fmt::print("\t\tAverage TC Time Process ({} TCs): {} ns.\n", num_tcs, average_tc_time);
