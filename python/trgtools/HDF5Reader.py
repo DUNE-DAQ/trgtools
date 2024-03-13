@@ -20,8 +20,6 @@ class HDF5Reader(abc.ABC):
     _BOLD_TEXT = '\033[1m'
     _END_TEXT_COLOR = '\033[0m'
 
-    # Counts the number of empty fragments.
-    _num_empty = 0
 
     def __init__(self, filename: str, verbosity: int = 0) -> None:
         """
@@ -42,6 +40,8 @@ class HDF5Reader(abc.ABC):
         self._verbosity = verbosity
 
         self._filter_fragment_paths()  # Derived class must define this.
+
+        self._num_empty = 0  # Counts the number of empty fragments.
 
         return None
 
