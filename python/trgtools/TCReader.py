@@ -33,7 +33,6 @@ class TCReader(HDF5Reader):
         ('type', np.uint8),
         ('version', np.uint16),
     ])
-    tc_data = np.array([], dtype=tc_dt)  # Will concatenate new TCs
 
     # TA data type
     ta_dt = np.dtype([
@@ -51,7 +50,6 @@ class TCReader(HDF5Reader):
         ('type', np.uint8),
         ('version', np.uint16)
     ])
-    ta_data = []  # ta_data[i] will be a np.ndarray of TAs from the i-th TC
 
     def __init__(self, filename: str, verbosity: int = 0) -> None:
         """
@@ -64,6 +62,8 @@ class TCReader(HDF5Reader):
         Returns nothing.
         """
         super().__init__(filename, verbosity)
+        self.tc_data = np.array([], dtype=self.tc_dt)  # Will concatenate new TCs
+        self.ta_data = []  # ta_data[i] will be a np.ndarray of TAs from the i-th TC
         return None
 
     def _filter_fragment_paths(self) -> None:
@@ -157,4 +157,4 @@ class TCReader(HDF5Reader):
 
     def clear_data(self) -> None:
         self.tc_data = np.array([], dtype=self.tc_dt)
-        ta_data = []
+        self.ta_data = []

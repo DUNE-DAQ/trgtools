@@ -36,7 +36,6 @@ class TPReader(HDF5Reader):
                       ('type', np.uint8),
                       ('version', np.uint16)
                      ])
-    tp_data = np.array([], dtype=tp_dt)
 
     def __init__(self, filename: str, verbosity: int = 0) -> None:
         """
@@ -49,6 +48,7 @@ class TPReader(HDF5Reader):
         Returns nothing.
         """
         super().__init__(filename, verbosity)
+        self.tp_data = np.array([], dtype=self.tp_dt)
         return None
 
     def _filter_fragment_paths(self) -> None:
