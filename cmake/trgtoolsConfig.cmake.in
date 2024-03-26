@@ -7,6 +7,15 @@ include(CMakeFindDependencyMacro)
 # the place of this comment. Make sure they match up with the
 # find_package calls in your package's CMakeLists.txt file
 
+find_dependency(daq-cmake)
+find_dependency(CLI11)
+find_dependency(fmt)
+
+find_dependency(nlohmann_json)
+find_dependency(hdf5libs)
+find_dependency(trgdataformats)
+find_dependency(triggeralgs)
+find_dependency(detchannelmaps)
 
 
 # Figure out whether or not this dependency is an installed package or
