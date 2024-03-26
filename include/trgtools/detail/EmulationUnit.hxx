@@ -64,9 +64,16 @@ EmulationUnit<T, U, V>::emulate_vector(const std::vector<T>& inputs) {
 template <typename T, typename U, typename V>
 uint64_t
 EmulationUnit<T, U, V>::emulate(const T& input, std::vector<U>& outputs) {
+  int size_before = outputs.size();
   auto time_start = std::chrono::steady_clock::now();
   (*m_maker)(input, outputs); // Feed TX into the TXMaker
   auto time_end = std::chrono::steady_clock::now();
+
+  // Only care about the timing for a TP/TA that made a TA/TC.
+  // Return 0 for TPs/TAs that didn't close.
+  if (outputs.size() == size_before)
+    return 0;
+
   uint64_t time_diff = std::chrono::nanoseconds(time_end - time_start).count();
   return time_diff;
 }
