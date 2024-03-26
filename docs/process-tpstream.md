@@ -1,5 +1,5 @@
 # Processing TP Streams
-`process_tpstream.cxx` (and the application `trgtools_process_tpstream`) processes a timeslice HDF5 that contains TriggerPrimitives and creates a new HDF5 that also includes TriggerActivities and TriggerCandidates. The primary use of this is to test TA algorithms, TC algorithms, and their configurations, with output diagnostics available from `ta_dump.py` and `tc_dump.py`.
+`process_tpstream.cxx` (and the application `trgtools_process_tpstream`) processes a timeslice HDF5 that contains TriggerPrimitives and creates a new HDF5 that also includes TriggerActivities and TriggerCandidates. The primary use of this is to test TA algorithms, TC algorithms, and their configurations, with output diagnostics available from `ta_dump.py` and `tc_dump.py`. The application also outputs the time in nanoseconds to create a new TA/TC given a new TP/TA to a CSV file in the format: row as a fragment and new TP/TA as each entry in that row. Many of the entries will have a value 0 because they did not result in creating a new TA/TC and can be ignored.
 
 ## Example
 ```bash

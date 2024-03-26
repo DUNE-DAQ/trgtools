@@ -1,9 +1,13 @@
+#include "trgtools/EmulateTAUnit.hpp"
+#include "trgtools/EmulateTCUnit.hpp"
+
 #include "CLI/App.hpp"
 #include "CLI/Config.hpp"
 #include "CLI/Formatter.hpp"
 
 #include <fmt/core.h>
 #include <fmt/format.h>
+#include <fmt/chrono.h>
 
 #include "hdf5libs/HDF5RawDataFile.hpp"
 #include "trgdataformats/TriggerPrimitive.hpp"
@@ -192,14 +196,23 @@ int main(int argc, char const *argv[])
 
 
   // Finally create a TA maker
-  auto ta_maker = triggeralgs::TriggerActivityFactory::get_instance()->build_maker(ta_algo);
+  std::unique_ptr<triggeralgs::TriggerActivityMaker> ta_maker =
+    triggeralgs::TriggerActivityFactory::get_instance()->build_maker(ta_algo);
   ta_maker->configure(ta_config);
+  std::unique_ptr<trgtools::EmulateTAUnit> ta_emulator = std::make_unique<trgtools::EmulateTAUnit>();
+  ta_emulator->set_maker(ta_maker);
+  // TODO: Use a better file naming scheme for CSV.
+  ta_emulator->set_timing_file("ta_timings_" + output_file_path.substr(0, output_file_path.rfind(".")) + ".csv");
 
 
   // Finally create a TA maker
-  auto tc_maker = triggeralgs::TriggerCandidateFactory::get_instance()->build_maker(tc_algo);
+  std::unique_ptr<triggeralgs::TriggerCandidateMaker> tc_maker =
+    triggeralgs::TriggerCandidateFactory::get_instance()->build_maker(tc_algo);
   tc_maker->configure(tc_config);
-
+  std::unique_ptr<trgtools::EmulateTCUnit> tc_emulator = std::make_unique<trgtools::EmulateTCUnit>();
+  tc_emulator->set_maker(tc_maker);
+  // TODO: Use a better file naming scheme for CSV.
+  tc_emulator->set_timing_file("tc_timings_" + output_file_path.substr(0, output_file_path.rfind(".")) + ".csv");
 
   // Generic filter hook
   std::function<bool(const trgdataformats::TriggerPrimitive&)> tp_filter;
@@ -213,6 +226,13 @@ int main(int argc, char const *argv[])
   rp.set_processor([&]( daqdataformats::TimeSlice& tsl ) -> void {
     const std::vector<std::unique_ptr<daqdataformats::Fragment>>& frags = tsl.get_fragments_ref();
     fmt::print("The numbert of fragments: {}\n", frags.size());
+
+    uint64_t average_ta_time = 0;
+    uint64_t average_tc_time = 0;
+
+    size_t num_tas = 0;
+    size_t num_tcs = 0;
+
     for( const auto& frag : frags ) {
 
       // The fragment has to be for the trigger (not e.g. for retreival from readout)
@@ -264,69 +284,21 @@ int main(int argc, char const *argv[])
       //
       // TA Processing
       //
-      // Create the output buffer
-      std::vector<triggeralgs::TriggerActivity> ta_buffer;
 
-      // Loop over TPs
-      size_t n_tas = 0;
+      const auto ta_start = std::chrono::steady_clock::now();
+      std::unique_ptr<daqdataformats::Fragment> ta_frag = ta_emulator->emulate_vector(tp_buffer);
+      const auto ta_end = std::chrono::steady_clock::now();
 
-      for( const auto& tp : tp_buffer ) {
-
-        if ( tp_filter(tp) ){
-          // if(!quiet)
-              // fmt::print("  TP filtered out!");
-          continue;
-        }
-
-        (*ta_maker)(tp, ta_buffer);
-
-        if (n_tas != ta_buffer.size()) {
-          if (!quiet) {
-            for( size_t i=n_tas; i<ta_buffer.size(); ++i){
-              const auto& ta = ta_buffer[i];
-              fmt::print("  + {} : ca_s={} ca_e={} ta_s={}, ta_e={} d_ta = {} | tp_s={} tp_s-ta_s={}\n", i, ta.channel_start, ta.channel_end, ta.time_start, ta.time_end, ta.time_end-ta.time_start, tp.time_start, (tp.time_start-ta.time_start) );
-            }
-          }
-          n_tas = ta_buffer.size();
-        }
-      }
-
-      // Count how many TAs were generated
-      if (!quiet)
-        fmt::print("  ta_buffer.size() = {}\n", ta_buffer.size());
-
-      // Their size
-      size_t payload_size(0);
-      for ( const auto& ta : ta_buffer ) {
-        payload_size += triggeralgs::get_overlay_nbytes(ta);
-      }
-
-      // Print the total size
-      if (!quiet)
-        fmt::print("  ta_buffer in bytes = {}\n", payload_size);
-
-      // Could be that a TA is empty; skip as it will show up in the next fragment.
-      // TC also gets skipped, but what's the use of trying to propagate a TC with no TAs?
-      if (payload_size == 0) {
-        if (!quiet)
-          fmt::print("Skipped saving an empty TA frag.");
+      if (ta_frag == nullptr) // Buffer was empty.
         continue;
+      num_tas += ta_emulator->get_last_output_buffer().size();
+
+      // TA time calculation.
+      const uint64_t ta_diff = std::chrono::nanoseconds(ta_end - ta_start).count();
+      average_ta_time += ta_diff;
+      if (!quiet) {
+        fmt::print("\tTA Time Process: {} ns.\n", ta_diff);
       }
-      
-      // Create the fragment buffer
-      void* payload = malloc(payload_size);
-
-      size_t payload_offset(0);
-      for ( const auto& ta : ta_buffer ) {
-        triggeralgs::write_overlay(ta, payload + payload_offset);
-        payload_offset += triggeralgs::get_overlay_nbytes(ta);
-      }
-
-      // Hand it to the fragment
-      std::unique_ptr<daqdataformats::Fragment> ta_frag = std::make_unique<daqdataformats::Fragment>(payload, payload_size);
-
-      // And release it
-      free(payload);
 
       daqdataformats::FragmentHeader frag_hdr = frag->get_header();
 
@@ -345,92 +317,39 @@ int main(int argc, char const *argv[])
       //
       // TC Processing
       //
-      // Create the output buffer
-      std::vector<triggeralgs::TriggerCandidate> tc_buffer;
 
-      // Loop over TPs
-      size_t n_tcs = 0;
+      std::vector<triggeralgs::TriggerActivity> ta_buffer = ta_emulator->get_last_output_buffer();
+      const auto tc_start = std::chrono::steady_clock::now();
+      std::unique_ptr<daqdataformats::Fragment> tc_frag = tc_emulator->emulate_vector(ta_buffer);
+      const auto tc_end = std::chrono::steady_clock::now();
 
-      for( const auto& ta : ta_buffer ) {
-
-        // if ( tp_filter(tp) ){
-        //   if(!quiet)
-        //       fmt::print("  TP filtered out!");
-        //   continue;
-        // }
-
-        (*tc_maker)(ta, tc_buffer);
-
-        if (n_tcs != tc_buffer.size()) {
-          if (!quiet){
-            for( size_t i=n_tcs; i<tc_buffer.size(); ++i){
-              const auto& tc = tc_buffer[i];
-                fmt::print("  + {} tc_s={}, tc_e={} | ta_s={} ta_s-tc_s={}\n", i, tc.time_start, tc.time_end, ta.time_start, (ta.time_start-tc.time_start) );
-            }
-          }
-          n_tcs = tc_buffer.size();
-        }
-      }
-
-      // Count how many TCs were generated
-      if (!quiet)
-        fmt::print("  tc_buffer.size() = {}\n", tc_buffer.size());
-
-      // Their size
-      size_t tc_payload_size(0);
-      for ( const auto& tc : tc_buffer ) {
-        tc_payload_size += triggeralgs::get_overlay_nbytes(tc);
-      }
-
-      // Print the total size
-      if (!quiet)
-        fmt::print("tc_buffer in bytes = {}\n", tc_payload_size);
-
-      // Could be that a TC is empty. Skip, as it will show up in the next fragment.
-      if (tc_payload_size == 0) {
-        if (!quiet)
-          fmt::print("Skipped saving an empty TC frag.");
+      if (tc_frag == nullptr) // Buffer was empty.
         continue;
+      num_tcs += tc_emulator->get_last_output_buffer().size();
+
+      // TC time calculation.
+      const uint64_t tc_diff = std::chrono::nanoseconds(tc_end - tc_start).count();
+      average_tc_time += tc_diff;
+      if (!quiet) {
+        fmt::print("\tTC Time Process: {} ns.\n", tc_diff);
       }
 
-      // Create the fragment buffer
-      // Reuse the old payload since it's still defined.
-      payload = malloc(tc_payload_size);
-
-      if (!quiet)
-        fmt::print("Post payload memory allocation.");
-
-      // Reuse the old payload_offset.
-      // TODO: TA/TC scopes should be separated, so should probably use a new function for each.
-      payload_offset = 0;
-      for ( const auto& tc : tc_buffer ) {
-        triggeralgs::write_overlay(tc, payload + payload_offset);
-        payload_offset += triggeralgs::get_overlay_nbytes(tc);
-      }
-      if (!quiet)
-        fmt::print("Post write_overlay and offset calculation.");
-
-      // Hand it to the fragment
-      std::unique_ptr<daqdataformats::Fragment> tc_frag = std::make_unique<daqdataformats::Fragment>(payload, payload_size);
-      if (!quiet)
-        fmt::print("Post fragment creation.");
-
-      // And release it
-      free(payload);
-      if (!quiet)
-        fmt::print("Post payload freeing.");
-
+      // Shares the same frag_hdr.
       tc_frag->set_header_fields(frag_hdr);
       tc_frag->set_type(daqdataformats::FragmentType::kTriggerCandidate);
-      if (!quiet)
-        fmt::print("Post tc_frag header set.");
-
 
       tsl.add_fragment(std::move(tc_frag));
-      if (!quiet)
-        fmt::print("Post fragment movement.");
-    }
 
+    } // Fragment for loop
+
+    if (num_tas == 0) average_ta_time = 0;
+    else average_ta_time /= num_tas;
+    if (num_tcs == 0) average_tc_time = 0;
+    else average_tc_time /= num_tcs;
+    if (!quiet) {
+      fmt::print("\t\tAverage TA Time Process ({} TAs): {} ns.\n", num_tas, average_ta_time);
+      fmt::print("\t\tAverage TC Time Process ({} TCs): {} ns.\n", num_tcs, average_tc_time);
+    }
   });
 
   rp.loop(num_rec, skip_rec);
