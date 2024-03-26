@@ -13,13 +13,25 @@ namespace trgtools {
 
 template <typename T, typename U, typename V>
 std::unique_ptr<daqdataformats::Fragment>
-EmulationUnit<T, U, V>::emulate(const std::vector<T>& inputs) {
+EmulationUnit<T, U, V>::emulate_vector(const std::vector<T>& inputs) {
   // Create the output.
   std::vector<U> output_buffer;
+  std::vector<uint64_t> time_diffs;
+  time_diffs.reserve(inputs.size());
 
   for (const T& input : inputs) {
-    (*m_maker)(input, output_buffer); // Feed TX into the TXMaker
+    time_diffs.push_back(emulate(input, output_buffer));
   }
+
+  // Write the timings for each new TP in this fragment.
+  // Structure will be: rows -> fragment; [row, col] -> timing for adding that TP.
+  std::fstream timings;
+  timings.open(m_timing_file_name, std::ios::out | std::ios::app);
+  for (const uint64_t& time : time_diffs) {
+    timings << time << ",";
+  }
+  timings << "\n";
+  timings.close();
 
   // Get the size to save on.
   size_t payload_size(0);
@@ -47,6 +59,16 @@ EmulationUnit<T, U, V>::emulate(const std::vector<T>& inputs) {
 
   m_last_output_buffer = output_buffer;
   return frag;
+}
+
+template <typename T, typename U, typename V>
+uint64_t
+EmulationUnit<T, U, V>::emulate(const T& input, std::vector<U>& outputs) {
+  auto time_start = std::chrono::steady_clock::now();
+  (*m_maker)(input, outputs); // Feed TX into the TXMaker
+  auto time_end = std::chrono::steady_clock::now();
+  uint64_t time_diff = std::chrono::nanoseconds(time_end - time_start).count();
+  return time_diff;
 }
 
 template <typename T, typename U, typename V>

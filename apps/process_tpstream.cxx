@@ -201,6 +201,8 @@ int main(int argc, char const *argv[])
   ta_maker->configure(ta_config);
   std::unique_ptr<trgtools::EmulateTAUnit> ta_emulator = std::make_unique<trgtools::EmulateTAUnit>();
   ta_emulator->set_maker(ta_maker);
+  // TODO: Use a better file naming scheme for CSV.
+  ta_emulator->set_timing_file("ta_timings_" + output_file_path.substr(0, output_file_path.rfind(".")) + ".csv");
 
 
   // Finally create a TA maker
@@ -209,6 +211,8 @@ int main(int argc, char const *argv[])
   tc_maker->configure(tc_config);
   std::unique_ptr<trgtools::EmulateTCUnit> tc_emulator = std::make_unique<trgtools::EmulateTCUnit>();
   tc_emulator->set_maker(tc_maker);
+  // TODO: Use a better file naming scheme for CSV.
+  tc_emulator->set_timing_file("tc_timings_" + output_file_path.substr(0, output_file_path.rfind(".")) + ".csv");
 
   // Generic filter hook
   std::function<bool(const trgdataformats::TriggerPrimitive&)> tp_filter;
@@ -282,7 +286,7 @@ int main(int argc, char const *argv[])
       //
 
       const auto ta_start = std::chrono::steady_clock::now();
-      std::unique_ptr<daqdataformats::Fragment> ta_frag = ta_emulator->emulate(tp_buffer);
+      std::unique_ptr<daqdataformats::Fragment> ta_frag = ta_emulator->emulate_vector(tp_buffer);
       const auto ta_end = std::chrono::steady_clock::now();
 
       if (ta_frag == nullptr) // Buffer was empty.
@@ -316,7 +320,7 @@ int main(int argc, char const *argv[])
 
       std::vector<triggeralgs::TriggerActivity> ta_buffer = ta_emulator->get_last_output_buffer();
       const auto tc_start = std::chrono::steady_clock::now();
-      std::unique_ptr<daqdataformats::Fragment> tc_frag = tc_emulator->emulate(ta_buffer);
+      std::unique_ptr<daqdataformats::Fragment> tc_frag = tc_emulator->emulate_vector(ta_buffer);
       const auto tc_end = std::chrono::steady_clock::now();
 
       if (tc_frag == nullptr) // Buffer was empty.

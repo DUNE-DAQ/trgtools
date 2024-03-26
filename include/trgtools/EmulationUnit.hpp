@@ -14,6 +14,9 @@
 #include "daqdataformats/Fragment.hpp"
 #include "triggeralgs/TriggerObjectOverlay.hpp"
 
+#include <chrono>
+#include <fstream>
+#include <iostream>
 #include <memory>
 #include <vector>
 
@@ -30,11 +33,14 @@ class EmulationUnit
   private:
     std::unique_ptr<maker_t> m_maker; // TODO: unique may become shared later.
     std::vector<output_t> m_last_output_buffer;
+    std::string m_timing_file_name;
 
   public:
-    std::unique_ptr<daqdataformats::Fragment> emulate(const std::vector<input_t>& inputs);
+    uint64_t emulate(const input_t& input, std::vector<output_t>& outputs);
+    std::unique_ptr<daqdataformats::Fragment> emulate_vector(const std::vector<input_t>& inputs);
     std::vector<output_t> get_last_output_buffer();
     void set_maker(std::unique_ptr<maker_t>& maker) { m_maker = std::move(maker); }
+    void set_timing_file(const std::string& file_name) { m_timing_file_name = file_name; }
 };
 
 } // namespace trgtools
