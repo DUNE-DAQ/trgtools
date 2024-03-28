@@ -8,7 +8,7 @@
 # https://dune-daq-sw.readthedocs.io/en/latest/packages/daq-cmake/
 
 cmake_minimum_required(VERSION 3.12)
-project(trgtools VERSION 1.0.1)
+project(trgtools VERSION 1.1.0)
 
 find_package(daq-cmake REQUIRED)
 find_package(CLI11 REQUIRED)
