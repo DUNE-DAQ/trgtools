@@ -225,7 +225,8 @@ int main(int argc, char const *argv[])
 
   rp.set_processor([&]( daqdataformats::TimeSlice& tsl ) -> void {
     const std::vector<std::unique_ptr<daqdataformats::Fragment>>& frags = tsl.get_fragments_ref();
-    fmt::print("The numbert of fragments: {}\n", frags.size());
+    const size_t num_frags = frags.size();
+    fmt::print("The number of fragments: {}\n", num_frags);
 
     uint64_t average_ta_time = 0;
     uint64_t average_tc_time = 0;
@@ -233,7 +234,9 @@ int main(int argc, char const *argv[])
     size_t num_tas = 0;
     size_t num_tcs = 0;
 
-    for( const auto& frag : frags ) {
+    // Need a static for-loop: adding fragments to tsl will mutate frags even though it's const.
+    for (int i = 0; i < num_frags; i++) {
+      const auto& frag = frags[i];
 
       // The fragment has to be for the trigger (not e.g. for retreival from readout)
       if (frag->get_element_id().subsystem != tp_subsystem_requirement) {
