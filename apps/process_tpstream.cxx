@@ -8,6 +8,7 @@
 #include <fmt/core.h>
 #include <fmt/format.h>
 #include <fmt/chrono.h>
+#include <filesystem>
 
 #include "hdf5libs/HDF5RawDataFile.hpp"
 #include "trgdataformats/TriggerPrimitive.hpp"
@@ -206,9 +207,10 @@ int main(int argc, char const *argv[])
   std::unique_ptr<trgtools::EmulateTAUnit> ta_emulator = std::make_unique<trgtools::EmulateTAUnit>();
   ta_emulator->set_maker(ta_maker);
   // TODO: Use a better file naming scheme for CSV.
-  if (latencies)
-    ta_emulator->set_timing_file("ta_timings_" + output_file_path.substr(0, output_file_path.rfind(".")) + ".csv");
-
+  if (latencies) {
+    std::filesystem::path output_path(output_file_path);
+    ta_emulator->set_timing_file((output_path.parent_path() / ("ta_timings_" + output_path.stem().string() + ".csv")).string());
+  }
 
   // Finally create a TA maker
   std::unique_ptr<triggeralgs::TriggerCandidateMaker> tc_maker =
@@ -217,8 +219,10 @@ int main(int argc, char const *argv[])
   std::unique_ptr<trgtools::EmulateTCUnit> tc_emulator = std::make_unique<trgtools::EmulateTCUnit>();
   tc_emulator->set_maker(tc_maker);
   // TODO: Use a better file naming scheme for CSV.
-  if (latencies)
-    tc_emulator->set_timing_file("tc_timings_" + output_file_path.substr(0, output_file_path.rfind(".")) + ".csv");
+  if (latencies) {
+    std::filesystem::path output_path(output_file_path);
+    tc_emulator->set_timing_file((output_path.parent_path() / ("tc_timings_" + output_path.stem().string() + ".csv")).string());
+  }
 
   // Generic filter hook
   std::function<bool(const trgdataformats::TriggerPrimitive&)> tp_filter;
