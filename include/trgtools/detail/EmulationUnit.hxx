@@ -8,6 +8,8 @@
 #ifndef TRGTOOLS_EMULATIONUNIT_HXX_
 #define TRGTOOLS_EMULATIONUNIT_HXX_
 
+#include "trgdataformats/TriggerPrimitive.hpp"
+
 namespace dunedaq {
 namespace trgtools {
 
@@ -16,22 +18,56 @@ std::unique_ptr<daqdataformats::Fragment>
 EmulationUnit<T, U, V>::emulate_vector(const std::vector<T>& inputs) {
   // Create the output.
   std::vector<U> output_buffer;
+
+  // Create the output tp variables
   std::vector<uint64_t> time_diffs;
-  time_diffs.reserve(inputs.size());
+  // TODO: Figure out a way of saving channelid if TPs. TCs don't have it
+  std::vector<uint64_t> tp_adc_integral;
+  std::vector<uint64_t> tp_time_start;
+  std::vector<int> is_last_tp_in_ta;
+  // Only pre-allocate memory if we're actually saving the latencies
+  if (!m_timing_file_name.empty()) {
+    time_diffs.reserve(inputs.size());
+    tp_adc_integral.reserve(inputs.size());
+    tp_time_start.reserve(inputs.size());
+    is_last_tp_in_ta.reserve(inputs.size());
+  }
 
   for (const T& input : inputs) {
-    time_diffs.push_back(emulate(input, output_buffer));
+    size_t output_buffer_size = output_buffer.size();
+    uint64_t time_diff = emulate(input, output_buffer);
+    // 1 if it's the TP that creates a TA, 0 otherwise
+    int last_tp_in_ta = (output_buffer_size == output_buffer.size()) ? 0 : 1;
+
+    // Don't save any times if we're not saving latencies
+    if (m_timing_file_name.empty())
+      continue;
+    time_diffs.push_back(time_diff);
+
+    // Don't save time_start, number of TPs etc. unless it's TA latencies per TP
+    if (!std::is_same<T, dunedaq::trgdataformats::TriggerPrimitive>::value)
+      continue;
+
+    tp_time_start.push_back(input.time_start);
+    tp_adc_integral.push_back(input.adc_integral);
+    is_last_tp_in_ta.push_back(last_tp_in_ta);
   }
 
   // Write the timings for each new TP in this fragment.
-  // Structure will be: rows -> fragment; [row, col] -> timing for adding that TP.
-  std::fstream timings;
-  timings.open(m_timing_file_name, std::ios::out | std::ios::app);
-  for (const uint64_t& time : time_diffs) {
-    timings << time << ",";
+  if (!m_timing_file_name.empty()) {
+    std::fstream timings;
+    timings.open(m_timing_file_name, std::ios::out | std::ios::app);
+    for (size_t i = 0; i < time_diffs.size(); i++) {
+      if (std::is_same<T, dunedaq::trgdataformats::TriggerPrimitive>::value) {
+        timings << tp_time_start[i] << "," << tp_adc_integral[i] << "," 
+                << time_diffs[i] << "," << is_last_tp_in_ta[i] << "\n";
+      }
+      else {
+        timings << time_diffs[i] << "\n";
+      }
+    }
+    timings.close();
   }
-  timings << "\n";
-  timings.close();
 
   // Get the size to save on.
   size_t payload_size(0);
@@ -64,15 +100,9 @@ EmulationUnit<T, U, V>::emulate_vector(const std::vector<T>& inputs) {
 template <typename T, typename U, typename V>
 uint64_t
 EmulationUnit<T, U, V>::emulate(const T& input, std::vector<U>& outputs) {
-  int size_before = outputs.size();
   auto time_start = std::chrono::steady_clock::now();
   (*m_maker)(input, outputs); // Feed TX into the TXMaker
   auto time_end = std::chrono::steady_clock::now();
-
-  // Only care about the timing for a TP/TA that made a TA/TC.
-  // Return 0 for TPs/TAs that didn't close.
-  if (outputs.size() == size_before)
-    return 0;
 
   uint64_t time_diff = std::chrono::nanoseconds(time_end - time_start).count();
   return time_diff;
