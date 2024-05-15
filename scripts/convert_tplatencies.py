@@ -57,7 +57,6 @@ def main():
     tpidx_making_tas = np.where(tp_data_latencies.iloc[:, 3].values == 1)
 
     last_tpidx_making_tas = 0
-    changed_tpidx_making_tas = 0
 
     # Iterate over all the TAs 
     for taidx, ta in enumerate(ta_data.tp_data):
@@ -74,7 +73,7 @@ def main():
 
         # Add up latencies per tp that's inside of the TA.
         # TODO: I did not implement this because it's too slow
-        latencies_tasum = 0
+        #latencies_tasum = 0
         #for tp_ta in ta:
         #    for idx, (tp_window_time, tp_window_adc) in enumerate(zip(window_df.iloc[:,0], window_df.iloc[:,1])):
         #        if tp_ta[8] == tp_window_time and tp_ta[0] == tp_window_adc:
