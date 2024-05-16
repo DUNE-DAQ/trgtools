@@ -8,6 +8,7 @@
 #include <fmt/core.h>
 #include <fmt/format.h>
 #include <fmt/chrono.h>
+#include <filesystem>
 
 #include "hdf5libs/HDF5RawDataFile.hpp"
 #include "trgdataformats/TriggerPrimitive.hpp"
@@ -141,7 +142,8 @@ TimeSliceProcessor::loop(uint64_t num_records, uint64_t offset, bool quiet) {
       m_output_file->write(tsl);
 
     ++i_rec;
-    fmt::print("\n-- Finished TSL {}:{}\n\n", rid.first, rid.second);
+    if(!quiet)
+      fmt::print("\n-- Finished TSL {}:{}\n\n", rid.first, rid.second);
 
   }
 
@@ -170,6 +172,9 @@ int main(int argc, char const *argv[])
 
   bool quiet = false;
   app.add_flag("--quiet", quiet, "Quiet outputs.");
+
+  bool latencies = false;
+  app.add_flag("--latencies", latencies, "Saves latencies per TP into csv");
   CLI11_PARSE(app, argc, argv);
 
 
@@ -202,8 +207,10 @@ int main(int argc, char const *argv[])
   std::unique_ptr<trgtools::EmulateTAUnit> ta_emulator = std::make_unique<trgtools::EmulateTAUnit>();
   ta_emulator->set_maker(ta_maker);
   // TODO: Use a better file naming scheme for CSV.
-  ta_emulator->set_timing_file("ta_timings_" + output_file_path.substr(0, output_file_path.rfind(".")) + ".csv");
-
+  if (latencies) {
+    std::filesystem::path output_path(output_file_path);
+    ta_emulator->set_timing_file((output_path.parent_path() / ("ta_timings_" + output_path.stem().string() + ".csv")).string());
+  }
 
   // Finally create a TA maker
   std::unique_ptr<triggeralgs::TriggerCandidateMaker> tc_maker =
@@ -212,7 +219,10 @@ int main(int argc, char const *argv[])
   std::unique_ptr<trgtools::EmulateTCUnit> tc_emulator = std::make_unique<trgtools::EmulateTCUnit>();
   tc_emulator->set_maker(tc_maker);
   // TODO: Use a better file naming scheme for CSV.
-  tc_emulator->set_timing_file("tc_timings_" + output_file_path.substr(0, output_file_path.rfind(".")) + ".csv");
+  if (latencies) {
+    std::filesystem::path output_path(output_file_path);
+    tc_emulator->set_timing_file((output_path.parent_path() / ("tc_timings_" + output_path.stem().string() + ".csv")).string());
+  }
 
   // Generic filter hook
   std::function<bool(const trgdataformats::TriggerPrimitive&)> tp_filter;
@@ -226,7 +236,8 @@ int main(int argc, char const *argv[])
   rp.set_processor([&]( daqdataformats::TimeSlice& tsl ) -> void {
     const std::vector<std::unique_ptr<daqdataformats::Fragment>>& frags = tsl.get_fragments_ref();
     const size_t num_frags = frags.size();
-    fmt::print("The number of fragments: {}\n", num_frags);
+    if(!quiet)
+      fmt::print("The number of fragments: {}\n", num_frags);
 
     uint64_t average_ta_time = 0;
     uint64_t average_tc_time = 0;
