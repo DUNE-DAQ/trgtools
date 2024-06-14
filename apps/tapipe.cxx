@@ -17,7 +17,7 @@
 
 #include "hdf5libs/HDF5RawDataFile.hpp"
 #include "trgdataformats/TriggerPrimitive.hpp"
-#include "triggeralgs/HorizontalMuon/TriggerActivityMakerHorizontalMuon.hpp"
+#include "triggeralgs/HorizontalMuon/TAMakerHorizontalMuonAlgorithm.hpp"
 #include "triggeralgs/TriggerObjectOverlay.hpp"
 
 using namespace dunedaq;
@@ -219,7 +219,7 @@ main(int argc, char* argv[])
 
   // Finally create a TA maker
   // Waiting for A.Oranday's factory!
-  triggeralgs::TriggerActivityMakerHorizontalMuon hmta;
+  triggeralgs::TAMakerHorizontalMuonAlgorithm hmta;
 
   // Create output buffer
   std::vector<triggeralgs::TriggerActivity> ta_buffer;
