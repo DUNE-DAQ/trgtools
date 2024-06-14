@@ -8,7 +8,7 @@ trgtools_process_tpstream -i input_file.hdf5 -o output_file.hdf5 -j ta_config.js
 trgtools_process_tpstream -i input_file.hdf5 -o output_file.hdf5
 ```
 In the second case, the defaults will be
-* `-p`: `TriggerActivityMakerHorizontalMuonPlugin`
+* `-p`: `TAMakerHorizontalMuonAlgorithm`
 * `-m`: `VDColdboxChannelMap`
 * `-j`: `{
         "trigger_on_adc": false,
