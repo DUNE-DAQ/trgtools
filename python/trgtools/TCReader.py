@@ -112,7 +112,7 @@ class TCReader(HDF5Reader):
                 print(f"INFO: Byte Index / Frag Size: {byte_idx} / {fragment_data_size}")
 
             # Process TC data
-            tc_datum = trgdataformats.TriggerCandidate(fragment.get_data_bytes(byte_idx))
+            tc_datum = trgdataformats.TriggerCandidate(fragment.get_data(byte_idx))
             np_tc_datum = np.array([(
                                 tc_datum.data.algorithm,
                                 tc_datum.data.detid,
