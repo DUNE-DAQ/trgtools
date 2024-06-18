@@ -18,9 +18,9 @@ import argparse
 
 
 ALGORITHM_LABELS = list(trgdataformats.TriggerActivityData.Algorithm.__members__.keys())
-ALGORITHM_TICKS = [ta_alg.value for tp_alg in trgdataformats.TriggerActivityData.Algorithm.__members__.values()]
+ALGORITHM_TICKS = [ta_alg.value for ta_alg in trgdataformats.TriggerActivityData.Algorithm.__members__.values()]
 TYPE_LABELS = list(trgdataformats.TriggerActivityData.Type.__members__.keys())
-TYPE_TICKS = [ta_type.value for tp_type in trgdataformats.TriggerActivityData.Type.__members__.values()]
+TYPE_TICKS = [ta_type.value for ta_type in trgdataformats.TriggerActivityData.Type.__members__.values()]
 
 TICK_TO_SEC_SCALE = 16e-9  # s per tick
 
