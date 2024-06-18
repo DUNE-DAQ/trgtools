@@ -248,6 +248,11 @@ def main():
 
     data = trgtools.TPReader(filename, verbosity)
 
+    # Check that there are TP fragments.
+    if len(data.get_fragment_paths()) == 0:
+        print("File doesn't contain any TriggerPrimitive fragments.")
+        return 1
+
     # Load all case
     if start_frag == 0 and end_frag == -1:
         data.read_all_fragments()  # Has extra debug/warning info
