@@ -6,6 +6,8 @@ tpstream file.
 import trgtools
 from trgtools.plot import PDFPlotter
 
+import trgdataformats
+
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
@@ -14,6 +16,11 @@ from scipy import stats
 import os
 import argparse
 
+
+ALGORITHM_LABELS = list(trgdataformats.TriggerPrimitive.Algorithm.__members__.keys())
+ALGORITHM_TICKS = [tp_alg.value for tp_alg in trgdataformats.TriggerPrimitive.Algorithm.__members__.values()]
+TYPE_LABELS = list(trgdataformats.TriggerPrimitive.Type.__members__.keys())
+TYPE_TICKS = [tp_type.value for tp_type in trgdataformats.TriggerPrimitive.Type.__members__.values()]
 
 TICK_TO_SEC_SCALE = 16e-9  # s per tick
 
@@ -291,18 +298,19 @@ def main():
                 'log_style': dict(color='#EE442F', alpha=0.6, label='Log')
             },
             'algorithm': {
+                'bins': np.arange(-0.5, np.max(ALGORITHM_TICKS) + 1, 1),
                 'title': "Algorithm Histogram",
                 'xlabel': 'Algorithm Type',
                 'ylabel': "Count",
                 'linear': True,  # TODO: Hard set for now
                 'linear_style': dict(color='k'),
                 'log': False,
-                'xlim': (-1, 2),
                 'xticks': {
-                    'ticks': (0, 1),
-                    'labels': ("Unknown", "TPCDefault")
-                },
-                'bins': (-0.5, 0.5, 1.5)  # TODO: Dangerous. Hides values outside of this range.
+                        'labels': ALGORITHM_LABELS,
+                        'ticks': ALGORITHM_TICKS,
+                        'rotation': 60,
+                        'ha': 'right'  # Horizontal alignment
+                    }
             },
             # TODO: Channel should bin on the available
             # channels; however, this is inconsistent
@@ -363,18 +371,19 @@ def main():
                 'log_style': dict(color='#EE442F', alpha=0.6, label='Log')
             },
             'type': {
+                'bins': np.arange(-0.5, np.max(TYPE_TICKS) + 1, 1),
                 'title': "Type Histogram",
                 'xlabel': "Type",
                 'ylabel': "Count",
                 'linear': True,  # TODO: Hard set for now
                 'linear_style': dict(color='k'),
                 'log': False,
-                'xlim': (-1, 3),
                 'xticks': {
-                    'ticks': (0, 1, 2),
-                    'labels': ('Unknown', 'TPC', 'PDS')
-                },
-                'bins': (-0.5, 0.5, 1.5, 2.5)  # TODO: Dangerous. Hides values outside of this range.
+                        'labels': TYPE_LABELS,
+                        'ticks': TYPE_TICKS,
+                        'rotation': 60,
+                        'ha': 'right'  # Horizontal alignment
+                    }
             },
             'version': {
                 'title': "Version Histogram",
@@ -399,6 +408,14 @@ def main():
             pdf_plotter.plot_histogram(time - min_time, plot_hist_dict[tp_key])
             if not no_anomaly:
                 write_summary_stats(time - min_time, anomaly_filename, tp_key)
+            continue
+
+        if tp_key == 'algorithm' or tp_key == 'type':  # Special case.
+            plot_data = np.array([datum.value for datum in data.tp_data[tp_key]], dtype=int)
+            pdf_plotter.plot_histogram(plot_data, plot_hist_dict[tp_key])
+            if not no_anomaly:
+                write_summary_stats(plot_data, anomaly_filename, tp_key)
+            del plot_data
             continue
 
         pdf_plotter.plot_histogram(data.tp_data[tp_key], plot_hist_dict[tp_key])

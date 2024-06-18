@@ -6,6 +6,8 @@ tpstream file.
 import trgtools
 from trgtools.plot import PDFPlotter
 
+import trgdataformats
+
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
@@ -14,6 +16,11 @@ from scipy import stats
 import os
 import argparse
 
+
+ALGORITHM_LABELS = list(trgdataformats.TriggerActivityData.Algorithm.__members__.keys())
+ALGORITHM_TICKS = [ta_alg.value for ta_alg in trgdataformats.TriggerActivityData.Algorithm.__members__.values()]
+TYPE_LABELS = list(trgdataformats.TriggerActivityData.Type.__members__.keys())
+TYPE_TICKS = [ta_type.value for ta_type in trgdataformats.TriggerActivityData.Type.__members__.values()]
 
 TICK_TO_SEC_SCALE = 16e-9  # s per tick
 
@@ -332,29 +339,19 @@ def main():
                 'log_style': dict(color='#EE442F', alpha=0.6, label='Log')
             },
             'algorithm': {
+                'bins': np.arange(-0.5, np.max(ALGORITHM_TICKS) + 1, 1),
                 'title': "Algorithm Histogram",
                 'xlabel': 'Algorithm Type',
                 'ylabel': "Count",
                 'linear': True,  # TODO: Hard set for now.
                 'linear_style': dict(color='k'),
                 'log': False,
-                'bins': 8,
-                'xlim': (-0.5, 7.5),
                 'xticks': {
-                    'ticks': range(0, 8),  # xticks to change
-                    'labels': (
-                        "Unknown",
-                        "Supernova",
-                        "Prescale",
-                        "ADCSimpleWindow",
-                        "HorizontalMuon",
-                        "MichelElectron",
-                        "DBSCAN",
-                        "PlaneCoincidence"
-                    ),
-                    'rotation': 60,
-                    'ha': 'right'  # Horizontal alignment
-                }
+                        'labels': ALGORITHM_LABELS,
+                        'ticks': ALGORITHM_TICKS,
+                        'rotation': 60,
+                        'ha': 'right'  # Horizontal alignment
+                    }
             },
             # TODO: Channel data members should bin on
             # the available channels; however, this is
@@ -442,20 +439,19 @@ def main():
                 'log_style': dict(color='#EE442F', alpha=0.6, label='Log')
             },
             'type': {
+                'bins': np.arange(-0.5, np.max(TYPE_TICKS) + 1, 1),
                 'title': "Type Histogram",
                 'xlabel': "Type",
                 'ylabel': "Count",
                 'linear': True,  # TODO: Hard set for now.
                 'linear_style': dict(color='k'),
                 'log': False,
-                'bins': 3,
-                'xlim': (-0.5, 2.5),
                 'xticks': {
-                    'ticks': (0, 1, 2),  # Ticks to change
-                    'labels': ('Unknown', 'TPC', 'PDS'),
-                    'rotation': 60,
-                    'ha': 'right'  # Horizontal alignment
-                }
+                        'labels': TYPE_LABELS,
+                        'ticks': TYPE_TICKS,
+                        'rotation': 60,
+                        'ha': 'right'  # Horizontal alignment
+                    }
             },
             'version': {
                 'title': "Version Histogram",
@@ -479,6 +475,14 @@ def main():
             pdf_plotter.plot_histogram(time - min_time, plot_hist_dict[ta_key])
             if not no_anomaly:
                 write_summary_stats(time - min_time, anomaly_filename, ta_key)
+            continue
+
+        if ta_key == 'algorithm' or ta_key == 'type':  # Special case.
+            plot_data = np.array([datum.value for datum in data.ta_data[ta_key]], dtype=int)
+            pdf_plotter.plot_histogram(plot_data, plot_hist_dict[ta_key])
+            if not no_anomaly:
+                write_summary_stats(plot_data, anomaly_filename, ta_key)
+            del plot_data
             continue
 
         pdf_plotter.plot_histogram(data.ta_data[ta_key], plot_hist_dict[ta_key])

@@ -24,13 +24,13 @@ class TCReader(HDF5Reader):
     """
     # TC data type
     tc_dt = np.dtype([
-        ('algorithm', np.uint8),
+        ('algorithm', trgdataformats.TriggerCandidateData.Algorithm),
         ('detid', np.uint16),
         ('num_tas', np.uint64),  # Greedy
         ('time_candidate', np.uint64),
         ('time_end', np.uint64),
         ('time_start', np.uint64),
-        ('type', np.uint8),
+        ('type', trgdataformats.TriggerCandidateData.Type),
         ('version', np.uint16),
     ])
 
@@ -38,7 +38,7 @@ class TCReader(HDF5Reader):
     ta_dt = np.dtype([
         ('adc_integral', np.uint64),
         ('adc_peak', np.uint64),
-        ('algorithm', np.uint8),
+        ('algorithm', trgdataformats.TriggerActivityData.Algorithm),
         ('channel_end', np.int32),
         ('channel_peak', np.int32),
         ('channel_start', np.int32),
@@ -47,7 +47,7 @@ class TCReader(HDF5Reader):
         ('time_end', np.uint64),
         ('time_peak', np.uint64),
         ('time_start', np.uint64),
-        ('type', np.uint8),
+        ('type', trgdataformats.TriggerActivityData.Type),
         ('version', np.uint16)
     ])
 
