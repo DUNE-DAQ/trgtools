@@ -330,6 +330,7 @@ def main():
                 'xticks': {
                         'labels': ALGORITHM_LABELS,
                         'ticks': ALGORITHM_TICKS,
+                        'fontsize': 6,
                         'rotation': 60,
                         'ha': 'right'  # Horizontal alignment
                     }
@@ -399,6 +400,7 @@ def main():
                 'xticks': {
                         'labels': TYPE_LABELS,
                         'ticks': TYPE_TICKS,
+                        'fontsize': 6,
                         'rotation': 60,
                         'ha': 'right'  # Horizontal alignment
                     }
