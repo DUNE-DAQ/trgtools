@@ -344,7 +344,7 @@ def main():
                 'log_style': dict(color='#EE442F', alpha=0.6, label='Log')
             },
             'algorithm': {
-                'bins': np.arange(-0.5, np.max(ALGORITHM_TICKS) + 1, 1),
+                'bins': np.sort(np.array([(tick-0.45, tick+0.45) for tick in ALGORITHM_TICKS]).flatten()),
                 'title': "Algorithm Histogram",
                 'xlabel': 'Algorithm Type',
                 'ylabel': "Count",
@@ -445,7 +445,7 @@ def main():
                 'log_style': dict(color='#EE442F', alpha=0.6, label='Log')
             },
             'type': {
-                'bins': np.arange(-0.5, np.max(TYPE_TICKS) + 1, 1),
+                'bins': np.sort(np.array([(tick-0.45, tick+0.45) for tick in TYPE_TICKS]).flatten()),
                 'title': "Type Histogram",
                 'xlabel': "Type",
                 'ylabel': "Count",
