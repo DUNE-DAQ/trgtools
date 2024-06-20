@@ -6,6 +6,8 @@ tpstream file.
 import trgtools
 from trgtools.plot import PDFPlotter
 
+import trgdataformats
+
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
@@ -14,6 +16,11 @@ from scipy import stats
 import os
 import argparse
 
+
+ALGORITHM_LABELS = list(trgdataformats.TriggerCandidateData.Algorithm.__members__.keys())
+ALGORITHM_TICKS = [tp_alg.value for tp_alg in trgdataformats.TriggerCandidateData.Algorithm.__members__.values()]
+TYPE_LABELS = list(trgdataformats.TriggerCandidateData.Type.__members__.keys())
+TYPE_TICKS = [tp_type.value for tp_type in trgdataformats.TriggerCandidateData.Type.__members__.values()]
 
 TICK_TO_SEC_SCALE = 16e-9  # s per tick
 
@@ -308,30 +315,19 @@ def main():
     # Dictionary containing unique title, xlabel, and xticks (only some)
     plot_hist_dict = {
             'algorithm': {
-                'bins': np.arange(-0.5, 9.5, 1),
+                'bins': np.arange(-0.5, np.max(ALGORITHM_TICKS) + 1, 1),
                 'title': "Algorithm",
                 'xlabel': 'Algorithm Type',
                 'ylabel': "Count",
                 'linear': True,  # TODO: Hard set for now.
                 'linear_style': dict(color='k'),
                 'log': False,
-                'xlim': (-1, 9),
                 'xticks': {
-                    'ticks': range(0, 9),
-                    'labels': (
-                        "Unknown",
-                        "Supernova",
-                        "HSIEventToTriggerCandidate",
-                        "Prescale",
-                        "ADCSimpleWindow",
-                        "HorizontalMuon",
-                        "MichelElectron",
-                        "PlaneCoincidence",
-                        "Custom"
-                    ),
-                    'rotation': 60,
-                    'ha': 'right'  # Horizontal alignment
-                }
+                        'labels': ALGORITHM_LABELS,
+                        'ticks': ALGORITHM_TICKS,
+                        'rotation': 60,
+                        'ha': 'right'  # Horizontal alignment
+                    }
             },
             'detid': {
                 'title': "Detector ID",
@@ -388,30 +384,18 @@ def main():
                 'log_style': dict(color='#EE442F', alpha=0.6, label='Log')
             },
             'type': {
-                'bins': np.arange(-0.5, 10.5, 1),
+                'bins': np.arange(-0.5, np.max(TYPE_TICKS) + 1, 1),
                 'title': "Type",
                 'xlabel': "Type",
                 'ylabel': "Count",
                 'linear': True,  # TODO: Hard set for now.
                 'linear_style': dict(color='k'),
                 'log': False,
-                'xlim': (-1, 10),
                 'xticks': {
-                    'ticks': range(0, 10),
-                    'labels': (
-                        'Unknown',
-                        'Timing',
-                        'TPCLowE',
-                        'Supernova',
-                        'Random',
-                        'Prescale',
-                        'ADCSimpleWindow',
-                        'HorizontalMuon',
-                        'MichelElectron',
-                        'PlaneCoincidence'
-                        ),
-                    'rotation': 60,
-                    'ha': 'right'  # Horizontal alignment
+                        'labels': TYPE_LABELS,
+                        'ticks': TYPE_TICKS,
+                        'rotation': 60,
+                        'ha': 'right'  # Horizontal alignment
                     }
             },
             'version': {
@@ -439,6 +423,14 @@ def main():
                 write_summary_stats(time - min_time, anomaly_filename, tc_key)
             continue
 
+        if tc_key == 'algorithm' or tc_key == 'type':  # Special case.
+            plot_data = np.array([datum.value for datum in data.tc_data[tc_key]], dtype=int)
+            pdf_plotter.plot_histogram(plot_data, plot_hist_dict[tc_key])
+            if not no_anomaly:
+                write_summary_stats(plot_data, anomaly_filename, tc_key)
+            del plot_data
+            continue
+
         pdf_plotter.plot_histogram(data.tc_data[tc_key], plot_hist_dict[tc_key])
         if not no_anomaly:
             write_summary_stats(data.tc_data[tc_key], anomaly_filename, tc_key)
@@ -446,34 +438,37 @@ def main():
     pdf = pdf_plotter.get_pdf()
     # Analysis plots
     # ==== Time Delta Comparisons =====
-    if linear:
-        plot_pdf_time_delta_histograms(data.tc_data, data.ta_data, pdf, time_label, False)
-    if log:
-        plot_pdf_time_delta_histograms(data.tc_data, data.ta_data, pdf, time_label, True)
+    if np.sum(data.tc_data['num_tas']) > 0:
+        if linear:
+            plot_pdf_time_delta_histograms(data.tc_data, data.ta_data, pdf, time_label, False)
+        if log:
+            plot_pdf_time_delta_histograms(data.tc_data, data.ta_data, pdf, time_label, True)
     # =================================
 
     # ==== TC ADC Integrals ====
-    tc_adc_integrals = np.array([np.sum(tas['adc_integral']) for tas in data.ta_data])
-    adc_integrals_dict = {
-            'title': "TC ADC Integrals",
-            'xlabel': "ADC Integral",
-            'ylabel': "Count"
-    }
-    pdf_plotter.plot_histogram(tc_adc_integrals, adc_integrals_dict)
+    if np.sum(data.tc_data['num_tas']) > 0:
+        tc_adc_integrals = np.array([np.sum(tas['adc_integral']) for tas in data.ta_data])
+        adc_integrals_dict = {
+                'title': "TC ADC Integrals",
+                'xlabel': "ADC Integral",
+                'ylabel': "Count"
+        }
+        pdf_plotter.plot_histogram(tc_adc_integrals, adc_integrals_dict)
     # ==========================
 
     # ==== ADC Integral vs Number of TAs ====
-    integral_vs_num_tas_dict = {
-            'title': "TC ADC Integral vs Number of TAs",
-            'xlabel': "Number of TAs",
-            'ylabel': "TC ADC Integral",
-            'scatter_style': {
-                'alpha': 0.6,
-                'c': 'k',
-                's': 2
-            }
-    }
-    plot_pdf_scatter(data.tc_data['num_tas'], tc_adc_integrals, integral_vs_num_tas_dict, pdf)
+    if np.sum(data.tc_data['num_tas']) > 0:
+        integral_vs_num_tas_dict = {
+                'title': "TC ADC Integral vs Number of TAs",
+                'xlabel': "Number of TAs",
+                'ylabel': "TC ADC Integral",
+                'scatter_style': {
+                    'alpha': 0.6,
+                    'c': 'k',
+                    's': 2
+                }
+        }
+        plot_pdf_scatter(data.tc_data['num_tas'], tc_adc_integrals, integral_vs_num_tas_dict, pdf)
     # =======================================
 
     # ==== Time Spans Per TC ====

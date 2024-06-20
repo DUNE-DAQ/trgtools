@@ -26,14 +26,14 @@ class TPReader(HDF5Reader):
     tp_dt = np.dtype([
                       ('adc_integral', np.uint32),
                       ('adc_peak', np.uint32),
-                      ('algorithm', np.uint8),
+                      ('algorithm', trgdataformats.TriggerPrimitive.Algorithm),
                       ('channel', np.int32),
                       ('detid', np.uint16),
                       ('flag', np.uint16),
                       ('time_over_threshold', np.uint64),
                       ('time_peak', np.uint64),
                       ('time_start', np.uint64),
-                      ('type', np.uint8),
+                      ('type', trgdataformats.TriggerPrimitive.Type),
                       ('version', np.uint16)
                      ])
 
