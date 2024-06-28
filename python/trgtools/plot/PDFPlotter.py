@@ -130,6 +130,17 @@ class PDFPlotter:
             ax.patch.set_visible(False)
             ax2.set_zorder(1)
 
+            linear_color = plot_details_dict.get('linear_style', self._DEFAULT_HIST_STYLE).get('color', self._DEFAULT_HIST_STYLE['linear_style']['color'])
+            # Set axis and tick colors.
+            ax.spines['left'].set_color(linear_color)
+            ax.yaxis.label.set_color(linear_color)
+            ax.tick_params('y', colors=linear_color)
+
+            log_color = plot_details_dict.get('log_style', self._DEFAULT_HIST_STYLE).get('color', self._DEFAULT_HIST_STYLE['log_style']['color'])
+            ax.spines['right'].set_color(log_color)  # Actually belongs to ax and not ax2.
+            ax2.yaxis.label.set_color(log_color)
+            ax2.tick_params('y', colors=log_color)
+
             handles, labels = ax.get_legend_handles_labels()
             handles2, labels2 = ax2.get_legend_handles_labels()
             handles = handles + handles2
