@@ -100,15 +100,20 @@ def plot_pdf_adc_integral_vs_peak(tp_data: np.ndarray, pdf: PdfPages, verbosity:
         )
         print("Total number of TPs:", len(tp_data['adc_peak']))
     high_integral_locs = np.where(tp_data['adc_integral'] == np.power(2, 15)-1)
+    unity = (np.min(tp_data['adc_peak']), np.max(tp_data['adc_peak']))
 
     plt.figure(figsize=(6, 4), dpi=200)
 
-    plt.scatter(
+    plt.plot(
         tp_data['adc_peak'],
         tp_data['adc_integral'],
-        c='k',
-        s=2,
+        c="#00000055",
+        ms=2,
+        ls='none',
+        marker='o',
+        mew=0,
         label='TP',
+        zorder=2,
         rasterized=True
     )
     plt.scatter(
@@ -117,7 +122,16 @@ def plot_pdf_adc_integral_vs_peak(tp_data: np.ndarray, pdf: PdfPages, verbosity:
         c='#63ACBE',
         s=2, marker='+',
         label=r'$2^{15}-1$',
+        zorder=3,
         rasterized=True
+    )
+    plt.plot(
+        unity,
+        unity,
+        color='#EE442F',
+        label="Unity",
+        lw=2,
+        zorder=1
     )
 
     plt.title("ADC Integral vs ADC Peak")
