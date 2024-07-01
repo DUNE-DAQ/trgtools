@@ -205,7 +205,7 @@ def parse():
     Parses CLI input arguments.
     """
     parser = argparse.ArgumentParser(
-        description="Display diagnostic information for TCs for a given tpstream file."
+        description="Display diagnostic information for TCs for a given HDF5 file."
     )
     parser.add_argument(
         "filename",

@@ -184,7 +184,7 @@ def write_summary_stats(data: np.ndarray, filename: str, title: str) -> None:
 
 def parse():
     parser = argparse.ArgumentParser(
-        description="Display diagnostic information for TAs for a given tpstream file."
+        description="Display diagnostic information for TPs for a given HDF5 file."
     )
     parser.add_argument(
         "filename",
