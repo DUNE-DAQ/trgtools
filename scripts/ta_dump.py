@@ -206,7 +206,7 @@ def parse():
     Parses CLI input arguments.
     """
     parser = argparse.ArgumentParser(
-        description="Display diagnostic information for TAs for a given tpstream file."
+        description="Display diagnostic information for TAs for a given HDF5 file."
     )
     parser.add_argument(
         "filename",
@@ -290,6 +290,11 @@ def main():
 
     data = trgtools.TAReader(filename, verbosity)
 
+    # Check that there are TA fragments.
+    if len(data.get_fragment_paths()) == 0:
+        print("File doesn't contain any TriggerActivity fragments.")
+        return 1
+
     # Load all case.
     if start_frag == 0 and end_frag == -1:
         data.read_all_fragments()  # Has extra debug/warning info
@@ -339,7 +344,7 @@ def main():
                 'log_style': dict(color='#EE442F', alpha=0.6, label='Log')
             },
             'algorithm': {
-                'bins': np.arange(-0.5, np.max(ALGORITHM_TICKS) + 1, 1),
+                'bins': np.sort(np.array([(tick-0.45, tick+0.45) for tick in ALGORITHM_TICKS]).flatten()),
                 'title': "Algorithm Histogram",
                 'xlabel': 'Algorithm Type',
                 'ylabel': "Count",
@@ -349,6 +354,7 @@ def main():
                 'xticks': {
                         'labels': ALGORITHM_LABELS,
                         'ticks': ALGORITHM_TICKS,
+                        'fontsize': 6,
                         'rotation': 60,
                         'ha': 'right'  # Horizontal alignment
                     }
@@ -439,7 +445,7 @@ def main():
                 'log_style': dict(color='#EE442F', alpha=0.6, label='Log')
             },
             'type': {
-                'bins': np.arange(-0.5, np.max(TYPE_TICKS) + 1, 1),
+                'bins': np.sort(np.array([(tick-0.45, tick+0.45) for tick in TYPE_TICKS]).flatten()),
                 'title': "Type Histogram",
                 'xlabel': "Type",
                 'ylabel': "Count",
@@ -449,6 +455,7 @@ def main():
                 'xticks': {
                         'labels': TYPE_LABELS,
                         'ticks': TYPE_TICKS,
+                        'fontsize': 6,
                         'rotation': 60,
                         'ha': 'right'  # Horizontal alignment
                     }

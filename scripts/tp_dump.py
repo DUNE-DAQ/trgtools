@@ -100,15 +100,20 @@ def plot_pdf_adc_integral_vs_peak(tp_data: np.ndarray, pdf: PdfPages, verbosity:
         )
         print("Total number of TPs:", len(tp_data['adc_peak']))
     high_integral_locs = np.where(tp_data['adc_integral'] == np.power(2, 15)-1)
+    unity = (np.min(tp_data['adc_peak']), np.max(tp_data['adc_peak']))
 
     plt.figure(figsize=(6, 4), dpi=200)
 
-    plt.scatter(
+    plt.plot(
         tp_data['adc_peak'],
         tp_data['adc_integral'],
-        c='k',
-        s=2,
+        c="#00000055",
+        ms=2,
+        ls='none',
+        marker='o',
+        mew=0,
         label='TP',
+        zorder=2,
         rasterized=True
     )
     plt.scatter(
@@ -117,7 +122,16 @@ def plot_pdf_adc_integral_vs_peak(tp_data: np.ndarray, pdf: PdfPages, verbosity:
         c='#63ACBE',
         s=2, marker='+',
         label=r'$2^{15}-1$',
+        zorder=3,
         rasterized=True
+    )
+    plt.plot(
+        unity,
+        unity,
+        color='#EE442F',
+        label="Unity",
+        lw=2,
+        zorder=1
     )
 
     plt.title("ADC Integral vs ADC Peak")
@@ -170,7 +184,7 @@ def write_summary_stats(data: np.ndarray, filename: str, title: str) -> None:
 
 def parse():
     parser = argparse.ArgumentParser(
-        description="Display diagnostic information for TAs for a given tpstream file."
+        description="Display diagnostic information for TPs for a given HDF5 file."
     )
     parser.add_argument(
         "filename",
@@ -248,6 +262,11 @@ def main():
 
     data = trgtools.TPReader(filename, verbosity)
 
+    # Check that there are TP fragments.
+    if len(data.get_fragment_paths()) == 0:
+        print("File doesn't contain any TriggerPrimitive fragments.")
+        return 1
+
     # Load all case
     if start_frag == 0 and end_frag == -1:
         data.read_all_fragments()  # Has extra debug/warning info
@@ -298,7 +317,7 @@ def main():
                 'log_style': dict(color='#EE442F', alpha=0.6, label='Log')
             },
             'algorithm': {
-                'bins': np.arange(-0.5, np.max(ALGORITHM_TICKS) + 1, 1),
+                'bins': np.sort(np.array([(tick-0.45, tick+0.45) for tick in ALGORITHM_TICKS]).flatten()),
                 'title': "Algorithm Histogram",
                 'xlabel': 'Algorithm Type',
                 'ylabel': "Count",
@@ -308,6 +327,7 @@ def main():
                 'xticks': {
                         'labels': ALGORITHM_LABELS,
                         'ticks': ALGORITHM_TICKS,
+                        'fontsize': 6,
                         'rotation': 60,
                         'ha': 'right'  # Horizontal alignment
                     }
@@ -371,7 +391,7 @@ def main():
                 'log_style': dict(color='#EE442F', alpha=0.6, label='Log')
             },
             'type': {
-                'bins': np.arange(-0.5, np.max(TYPE_TICKS) + 1, 1),
+                'bins': np.sort(np.array([(tick-0.45, tick+0.45) for tick in TYPE_TICKS]).flatten()),
                 'title': "Type Histogram",
                 'xlabel': "Type",
                 'ylabel': "Count",
@@ -381,6 +401,7 @@ def main():
                 'xticks': {
                         'labels': TYPE_LABELS,
                         'ticks': TYPE_TICKS,
+                        'fontsize': 6,
                         'rotation': 60,
                         'ha': 'right'  # Horizontal alignment
                     }
