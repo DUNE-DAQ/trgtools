@@ -86,8 +86,7 @@ class TAReader(HDF5Reader):
         """
         Read from the given data fragment path.
 
-        Returns a np.ndarray of the TAs that were read and appends to
-        :self.ta_data:.
+        Returns a np.ndarray of the first TA that was read and appends all TAs in the fragment to :self.ta_data:.
         """
         if self._verbosity >= 2:
             print("="*60)
@@ -121,7 +120,7 @@ class TAReader(HDF5Reader):
             np_ta_datum = np.array([(
                                 ta_datum.data.adc_integral,
                                 ta_datum.data.adc_peak,
-                                np.uint8(ta_datum.data.algorithm),
+                                ta_datum.data.algorithm,
                                 ta_datum.data.channel_end,
                                 ta_datum.data.channel_peak,
                                 ta_datum.data.channel_start,
@@ -131,7 +130,7 @@ class TAReader(HDF5Reader):
                                 ta_datum.data.time_end,
                                 ta_datum.data.time_peak,
                                 ta_datum.data.time_start,
-                                np.uint8(ta_datum.data.type),
+                                ta_datum.data.type,
                                 np.uint16(ta_datum.data.version))],
                                 dtype=self.ta_dt)
 

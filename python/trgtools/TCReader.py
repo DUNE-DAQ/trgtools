@@ -82,7 +82,7 @@ class TCReader(HDF5Reader):
         """
         Read from the given data fragment path.
 
-        Returnss a np.ndarray of the TCs that were read and appends to :self.tc_data:.
+        Returns a np.ndarray of the first TC that was read and appends all TCs in the fragment to :self.tc_data:.
         """
         if self._verbosity >= 2:
             print("="*60)
@@ -136,7 +136,7 @@ class TCReader(HDF5Reader):
                 np_ta_data[ta_idx] = np.array([(
                                             ta.adc_integral,
                                             ta.adc_peak,
-                                            np.uint8(ta.algorithm),
+                                            ta.algorithm,
                                             ta.channel_end,
                                             ta.channel_peak,
                                             ta.channel_start,
@@ -145,7 +145,7 @@ class TCReader(HDF5Reader):
                                             ta.time_end,
                                             ta.time_peak,
                                             ta.time_start,
-                                            np.uint8(ta.type),
+                                            ta.type,
                                             ta.version)],
                                             dtype=self.ta_dt)
             self.ta_data.append(np_ta_data)  # Jagged array
