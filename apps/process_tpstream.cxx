@@ -248,7 +248,7 @@ int main(int argc, char const *argv[])
     size_t num_tcs = 0;
 
     // Need a static for-loop: adding fragments to tsl will mutate frags even though it's const.
-    for (int i = 0; i < num_frags; i++) {
+    for (size_t i = 0; i < num_frags; i++) {
       const auto& frag = frags[i];
 
       // The fragment has to be for the trigger (not e.g. for retreival from readout)

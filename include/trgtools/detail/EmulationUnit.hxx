@@ -80,18 +80,19 @@ EmulationUnit<T, U, V>::emulate_vector(const std::vector<T>& inputs) {
   if (payload_size == 0)
     return nullptr;
 
-  void* payload = malloc(payload_size);
+  // Awkward type conversion to avoid compiler complaints on void* arithmetic.
+  char* payload = static_cast<char*>(malloc(payload_size));
   size_t payload_offset(0);
   for (const U& output : output_buffer) {
-    triggeralgs::write_overlay(output, payload + payload_offset);
+    triggeralgs::write_overlay(output, static_cast<void*>(payload + payload_offset));
     payload_offset += triggeralgs::get_overlay_nbytes(output);
   }
 
   // Hand it to a fragment,
   std::unique_ptr<daqdataformats::Fragment> frag
-    = std::make_unique<daqdataformats::Fragment>(payload, payload_size);
+    = std::make_unique<daqdataformats::Fragment>(static_cast<void*>(payload), payload_size);
   // And release it.
-  free(payload);
+  free(static_cast<void*>(payload));
 
   m_last_output_buffer = output_buffer;
   return frag;

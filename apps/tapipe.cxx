@@ -245,18 +245,18 @@ main(int argc, char* argv[])
   // Count number of TAs generated
   fmt::print("ta_buffer in bytes = {}\n", payload_size);
 
-  void* payload = malloc(payload_size);
+  char* payload = static_cast<char*>(malloc(payload_size));
 
 
   size_t offset(0);
   for ( const auto& ta : ta_buffer ) {
-    triggeralgs::write_overlay(ta, payload+offset);
+    triggeralgs::write_overlay(ta, static_cast<void*>(payload+offset));
     offset += triggeralgs::get_overlay_nbytes(ta);
   }
 
-  daqdataformats::Fragment ta_frag(payload, payload_size);
+  daqdataformats::Fragment ta_frag(static_cast<void*>(payload), payload_size);
 
-  free(payload);
+  free(static_cast<void*>(payload));
 
 
   // How to save to file?
