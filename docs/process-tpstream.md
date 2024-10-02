@@ -3,11 +3,11 @@
 
 ## Example
 ```bash
-trgtools_process_tpstream -i input_file.hdf5 -o output_file.hdf5 -j algo_config.json -p TriggerActivityMakerExamplePlugin -m VDColdboxChannelMap --quiet
+trgtools_process_tpstream -i input_file.hdf5 -o output_file.hdf5 -j algo_config.json -m VDColdboxChannelMap --quiet
 
 trgtools_process_tpstream --latencies -i input_file.hdf5 -o output_file.hdf5 -j algo_config.json
 ```
-In the second case, the default map will be `VDColdboxChannelMap`.
+In the second case, the default map will be `VDColdboxChannelMap`. The `DUNE-DAQ/detchannelmaps` repository has a [table of available channel maps](https://github.com/DUNE-DAQ/detchannelmaps/blob/develop/docs/channel-maps-table.md).
 
 ### Configuration
 The `algo_config.json` configuration mirrors the format that is used in `daqconf`. An example is shown below.
@@ -24,11 +24,12 @@ The `algo_config.json` configuration mirrors the format that is used in `daqconf
 		"trigger_on_adc": false,
 		"trigger_on_adjacency": true,
 		"trigger_on_n_channels": false,
-		"window_length": 10000
+		"window_length": 10000,
+		"max_time_over_threshold": 10000
 	    }
 	],
 	"trigger_activity_plugin": [
-	    "TriggerActivityMakerPrescalePlugin"
+	    "TAMakerPrescaleAlgorithm"
 	],
 	"trigger_candidate_config": [
 	    {
@@ -45,7 +46,7 @@ The `algo_config.json` configuration mirrors the format that is used in `daqconf
 	    }
 	],
 	"trigger_candidate_plugin": [
-	    "TriggerCandidateMakerPrescalePlugin"
+	    "TCMakerPrescaleAlgorithm"
 	]
 }
 ```
