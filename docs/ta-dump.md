@@ -8,7 +8,7 @@ There are two plotting options `--linear` and `--log` that set the y-scale for t
 
 While running, this can print information about the file reading using `-v` (warnings) and `-vv` (all). Errors and useful output information (save names and location) are always outputted.
 
-One can specify which fragments to _attempt_ to load from with the `--start-frag` option. This is `-10` by default in order to get the last 10 fragments for the given file. One can also specify which fragment to end on (not inclusive) with `--end-frag` option. This is `N` by default (for the previously mentioned reason).
+One can specify which fragments to _attempt_ to load from with the `--start-frag` option. This is `-10` by default in order to get the last 10 fragments for the given file. One can also specify which fragment to end on (not inclusive) with `--end-frag` option. Otherwise, this will load from the specified start fragment until the end of the file.
 
 Event displays are processed by default. If there are many TAs that were loaded, then this may take a while to plot. The `--no-display` options skips event display plotting.
 
@@ -17,14 +17,14 @@ A text file is generated that gives reference statistics for each TA data member
 ## Example
 ```bash
 python ta_dump.py file.hdf5
-python ta_dump.py file.hdf5 --help
+python ta_dump.py file.hdf5 --overwrite
+python ta_dump.py file.hdf5 --linear
+python ta_dump.py file.hdf5 --log
+python ta_dump.py file.hdf5 --seconds
 python ta_dump.py file.hdf5 -v
 python ta_dump.py file.hdf5 -vv
 python ta_dump.py file.hdf5 --start-frag 50 --end-frag 100 # Attempts 50 fragments
 python ta_dump.py file.hdf5 --no-display
 python ta_dump.py file.hdf5 --no-anomaly
-python ta_dump.py file.hdf5 --log
-python ta_dump.py file.hdf5 --linear
-python ta_dump.py file.hdf5 --seconds
-python ta_dump.py file.hdf5 --overwrite
+python ta_dump.py file.hdf5 --help
 ```
