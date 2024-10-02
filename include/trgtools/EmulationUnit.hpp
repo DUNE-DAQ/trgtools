@@ -41,6 +41,12 @@ class EmulationUnit
     std::vector<output_t> get_last_output_buffer();
     void set_maker(std::unique_ptr<maker_t>& maker) { m_maker = std::move(maker); }
     void set_timing_file(const std::string& file_name) { m_timing_file_name = file_name; }
+    void write_csv_header(const std::string& header) {
+      std::fstream file_header;
+      file_header.open(m_timing_file_name, std::ios::out | std::ios::app);
+      file_header << header << "\n";
+      file_header.close();
+    }
 };
 
 } // namespace trgtools

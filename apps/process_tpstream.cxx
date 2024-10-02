@@ -212,6 +212,7 @@ int main(int argc, char const *argv[])
   if (latencies) {
     std::filesystem::path output_path(output_file_path);
     ta_emulator->set_timing_file((output_path.parent_path() / ("ta_timings_" + output_path.stem().string() + ".csv")).string());
+    ta_emulator->write_csv_header("TP Time Start,TP ADC Integral,Time Diffs,Is Last TP In TA");
   }
 
   // Finally create a TA maker
@@ -224,6 +225,7 @@ int main(int argc, char const *argv[])
   if (latencies) {
     std::filesystem::path output_path(output_file_path);
     tc_emulator->set_timing_file((output_path.parent_path() / ("tc_timings_" + output_path.stem().string() + ".csv")).string());
+    tc_emulator->write_csv_header("Time Diffs");
   }
 
   // Generic filter hook
