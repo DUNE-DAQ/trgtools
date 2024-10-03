@@ -162,8 +162,6 @@ int main(int argc, char const *argv[])
   app.add_option("-o", output_file_path, "Output TPStream file path");
   std::string channel_map_name = "VDColdboxChannelMap";
   app.add_option("-m", channel_map_name, "Detector Channel Map");
-  std::string plugin_name = "TAMakerHorizontalMuonAlgorithm";
-  app.add_option("-p", plugin_name, "Trigger Activity plugin name.");
   std::string config_name;
   app.add_option("-j", config_name, "Trigger Activity and Candidate config JSON to use.")->required();
   uint64_t skip_rec(0);
