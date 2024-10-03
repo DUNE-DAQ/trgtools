@@ -32,11 +32,10 @@ private:
   void process( daqdataformats::TimeSlice& tls );
 
   // Can modify?
-  std::function<void(daqdataformats::TimeSlice&)> m_processor; 
+  std::function<void(daqdataformats::TimeSlice&)> m_processor;
 
 public:
 
-  
   TimeSliceProcessor(std::string input_path, std::string output_path);
   ~TimeSliceProcessor();
 
@@ -46,7 +45,7 @@ public:
 };
 
 //-----------------------------------------------------------------------------
-TimeSliceProcessor::TimeSliceProcessor(std::string input_path, std::string output_path) 
+TimeSliceProcessor::TimeSliceProcessor(std::string input_path, std::string output_path)
 {
   this->open_files(input_path, output_path);
 }
@@ -262,7 +261,7 @@ int main(int argc, char const *argv[])
 
       // The fragment has to be TriggerPrimitive
       if(frag->get_fragment_type() != daqdataformats::FragmentType::kTriggerPrimitive){
-        if(!quiet) 
+        if(!quiet)
           fmt::print("  Error: FragmentType is: {}!\n", fragment_type_to_string(frag->get_fragment_type()));
         continue;
       }

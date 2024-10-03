@@ -49,7 +49,7 @@ def main():
     ta_data.read_all_fragments()
     print("Loading TPs from csv");
     tp_data_latencies = pd.read_csv(input_latencies, header=None)
-    
+
     # Pre-allocate the output latencies
     output_array = np.zeros((len(ta_data.tp_data), 5), dtype=np.uint64)
 
@@ -58,7 +58,7 @@ def main():
 
     last_tpidx_making_tas = 0
 
-    # Iterate over all the TAs 
+    # Iterate over all the TAs
     for taidx, ta in enumerate(ta_data.tp_data):
         # Find the first / last TP in a TA
         first_tp_time   = ta_data.ta_data[taidx]["time_start"]
@@ -86,7 +86,7 @@ def main():
                 tp_making_ta_idx = tpidx
                 # Update the last tp index that made a TA for faster enumeration above
                 if (idx + last_tpidx_making_tas) > last_tpidx_making_tas:
-                    last_tpidx_making_tas = idx + last_tpidx_making_tas 
+                    last_tpidx_making_tas = idx + last_tpidx_making_tas
                 break
 
         latencies_whole = tp_data_latencies.iloc[first_tp_idx + 1:tp_making_ta_idx + 1,2].sum()
@@ -96,7 +96,7 @@ def main():
         output_array[taidx][1] = latencies_whole
         output_array[taidx][2] = latencies_tawindow_sum
         output_array[taidx][3] = latencies_tawindow_mean
-        output_array[taidx][4] = len(ta) 
+        output_array[taidx][4] = len(ta)
 
     df = pd.DataFrame(output_array)
     output_dir, output_filename = os.path.split(input_latencies)
