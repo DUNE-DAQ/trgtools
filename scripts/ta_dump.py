@@ -533,10 +533,12 @@ def main():
                 'yerr': yerr,
                 'capsize': 4,
                 'color': 'k',
-                'ecolor': 'r',
+                'ecolor': "#EE442F",
                 'label': f"Avg {time_unit} / TA: {(time_peak[-1] - time_peak[0]) / len(time_peak):.2f}",
-                'marker': '.',
-                'markersize': 0.01
+                'mec': "#EE442F",
+                'mfc': "#EE442F",
+                'marker': 'h',
+                'markersize': 4.00
             }
     }
     ta_count = np.arange(len(time_peak))

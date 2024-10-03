@@ -507,11 +507,13 @@ def main():
                 'yerr': yerr,
                 'capsize': 4,
                 'color': 'k',
-                'ecolor': 'r',
+                'ecolor': "#EE442F",
                 'label': f"Avg {time_unit} / TC: "
                          f"{(time_candidate[-1] - time_candidate[0]) / len(time_candidate):.2f}",
-                'marker': '.',
-                'markersize': 0.01
+                'mec': "#EE442F",
+                'mfc': "#EE442F",
+                'marker': 'h',
+                'markersize': 4.00
             }
     }
     tc_count = np.arange(len(time_candidate))
