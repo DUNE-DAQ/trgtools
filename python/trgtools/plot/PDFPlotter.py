@@ -3,6 +3,7 @@ Plotter with common plots to put on a single PDF.
 """
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
+from matplotlib.ticker import MultipleLocator
 import numpy as np
 
 
@@ -158,6 +159,9 @@ class PDFPlotter:
         ax.set_xlabel(plot_details_dict['xlabel'])
         if 'xlim' in plot_details_dict:
             plt.xlim(plot_details_dict['xlim'])
+
+        if plot_details_dict.get('use_integer_xticks', False):
+            ax.xaxis.set_major_locator(MultipleLocator(base=1))
 
         plt.tight_layout()
         self._pdf.savefig()

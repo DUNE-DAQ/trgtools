@@ -397,7 +397,8 @@ def main():
                 'linear': linear,
                 'linear_style': dict(color='#63ACBE', alpha=0.6, label='Linear'),
                 'log': log,
-                'log_style': dict(color='#EE442F', alpha=0.6, label='Log')
+                'log_style': dict(color='#EE442F', alpha=0.6, label='Log'),
+                'use_integer_xticks': True
             },
             'num_tps': {
                 'title': "Number of TPs per TA Histogram",
@@ -467,7 +468,8 @@ def main():
                 'linear': linear,
                 'linear_style': dict(color='#63ACBE', alpha=0.6, label='Linear'),
                 'log': log,
-                'log_style': dict(color='#EE442F', alpha=0.6, label='Log')
+                'log_style': dict(color='#EE442F', alpha=0.6, label='Log'),
+                'use_integer_xticks': True
             }
     }
 
