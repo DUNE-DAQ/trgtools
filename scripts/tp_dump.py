@@ -68,7 +68,7 @@ def plot_pdf_tot_vs_channel(tp_data: np.ndarray, pdf: PdfPages) -> None:
     """
     plt.figure(figsize=(6, 4), dpi=200)
 
-    plt.scatter(tp_data['channel'], tp_data['time_over_threshold'], c='k', s=2, label='TP', rasterized=True)
+    plt.plot(tp_data['channel'], tp_data['time_over_threshold'], 'hk', mew=0, alpha=0.4, ms=2, label='TP', rasterized=True)
 
     plt.title("TP Time Over Threshold vs Channel")
     plt.xlabel("Channel")
