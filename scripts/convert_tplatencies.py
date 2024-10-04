@@ -48,7 +48,7 @@ def main():
     ta_data = trgtools.TAReader(input_raw, verbosity)
     ta_data.read_all_fragments()
     print("Loading TPs from csv");
-    tp_data_latencies = pd.read_csv(input_latencies, header=None)
+    tp_data_latencies = pd.read_csv(input_latencies)
 
     # Pre-allocate the output latencies
     output_array = np.zeros((len(ta_data.tp_data), 5), dtype=np.uint64)
@@ -82,13 +82,15 @@ def main():
         # Find the next TP that made a TA
         tp_making_ta_idx = None
         for idx, tpidx in enumerate(tpidx_making_tas[0][last_tpidx_making_tas:]):
-            if tp_data_latencies.iloc[tpidx][0] > first_tp_time:
+            if tp_data_latencies.iloc[tpidx, 0] > first_tp_time:
                 tp_making_ta_idx = tpidx
                 # Update the last tp index that made a TA for faster enumeration above
                 if (idx + last_tpidx_making_tas) > last_tpidx_making_tas:
                     last_tpidx_making_tas = idx + last_tpidx_making_tas
                 break
 
+        # Special case when the last TP is not found. Skip this TA.
+        if tp_making_ta_idx == None: continue
         latencies_whole = tp_data_latencies.iloc[first_tp_idx + 1:tp_making_ta_idx + 1,2].sum()
         latencies_lasttp = tp_data_latencies.iloc[tp_making_ta_idx,2]
 
