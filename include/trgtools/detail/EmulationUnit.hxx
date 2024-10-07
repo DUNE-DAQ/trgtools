@@ -18,6 +18,7 @@ std::unique_ptr<daqdataformats::Fragment>
 EmulationUnit<T, U, V>::emulate_vector(const std::vector<T>& inputs) {
   // Create the output.
   std::vector<U> output_buffer;
+  std::vector<U> temp_buffer;
 
   // Create the output tp variables
   std::vector<uint64_t> time_diffs;
@@ -35,7 +36,11 @@ EmulationUnit<T, U, V>::emulate_vector(const std::vector<T>& inputs) {
 
   for (const T& input : inputs) {
     size_t output_buffer_size = output_buffer.size();
-    uint64_t time_diff = emulate(input, output_buffer);
+    uint64_t time_diff = emulate(input, temp_buffer);
+    if (temp_buffer.size() != 0) {
+      output_buffer.insert(output_buffer.end(), temp_buffer.begin(), temp_buffer.end());
+      temp_buffer.clear();
+    }
     // 1 if it's the TP that creates a TA, 0 otherwise
     int last_tp_in_ta = (output_buffer_size == output_buffer.size()) ? 0 : 1;
 
