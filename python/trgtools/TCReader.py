@@ -67,6 +67,16 @@ class TCReader(HDF5Reader):
         self.ta_data = []  # ta_data[i] will be a np.ndarray of TAs from the i-th TC
         return None
 
+    def __getitem__(self, key: int | str) -> NDArray[tc_dt]:
+        return self.tc_data[key]
+
+    def __setitem__(self, key: int | str, value: NDArray[tc_dt]) -> None:
+        self.tc_data[key] = value
+        return
+
+    def __len__(self) -> int:
+        return len(self.tc_data)
+
     def _filter_fragment_paths(self) -> None:
         """ Filter the fragment paths for TCs. """
         fragment_paths = []

@@ -52,6 +52,16 @@ class TPReader(HDF5Reader):
         self.tp_data = np.array([], dtype=self.tp_dt)
         return None
 
+    def __getitem__(self, key: int | str) -> NDArray[tp_dt]:
+        return self.tp_data[key]
+
+    def __setitem__(self, key: int | str, value: NDArray[tp_dt]) -> None:
+        self.tp_data[key] = value
+        return
+
+    def __len__(self) -> int:
+        return len(self.tp_data)
+
     def _filter_fragment_paths(self) -> None:
         """ Filter the fragment paths for TAs. """
         fragment_paths = []
