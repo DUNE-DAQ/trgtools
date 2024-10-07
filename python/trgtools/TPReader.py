@@ -7,6 +7,7 @@ import daqdataformats  # noqa: F401 : Not used, but needed to recognize formats.
 import trgdataformats
 
 import numpy as np
+from numpy.typing import NDArray
 
 
 class TPReader(HDF5Reader):
@@ -63,7 +64,7 @@ class TPReader(HDF5Reader):
         self._fragment_paths = fragment_paths
         return None
 
-    def read_fragment(self, fragment_path: str) -> np.ndarray:
+    def read_fragment(self, fragment_path: str) -> NDArray:
         """
         Read from the given data fragment path.
 
