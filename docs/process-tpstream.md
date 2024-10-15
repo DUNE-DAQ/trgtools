@@ -1,38 +1,53 @@
 # Processing TP Streams
-`process_tpstream.cxx` (and the application `trgtools_process_tpstream`) processes a timeslice HDF5 that contains Trigger Primitives and creates a new HDF5 that also includes Trigger Activities. A primary use of this is to test TA algorithms and their configurations, with output diagnostics available from `ta_dump.py`.
+`process_tpstream.cxx` (and the application `trgtools_process_tpstream`) processes a timeslice HDF5 that contains TriggerPrimitives and creates a new HDF5 that also includes TriggerActivities and TriggerCandidates. The primary use of this is to test TA algorithms, TC algorithms, and their configurations, with output diagnostics available from `ta_dump.py` and `tc_dump.py`. The application also outputs the latencies per-tp for TA emulation, and per-TA for TC emulation, into a CSV file, if `--latencies` option is added. The CSV is the format: row as a TP (TA) for TA(TC) emulation, with `time_start`, `adc_integral`, `processing time`, and whether it was TP that closed TA (1) or not (0).
 
 ## Example
-```
-trgtools_process_tpstream -i input_file.hdf5 -o output_file.hdf5 -j ta_config.json -p TriggerActivityMakerExamplePlugin -m VDColdboxChannelMap --quiet
+```bash
+trgtools_process_tpstream -i input_file.hdf5 -o output_file.hdf5 -j algo_config.json -m VDColdboxChannelMap --quiet
 
-trgtools_process_tpstream -i input_file.hdf5 -o output_file.hdf5
+trgtools_process_tpstream --latencies -i input_file.hdf5 -o output_file.hdf5 -j algo_config.json
 ```
-In the second case, the defaults will be
-* `-p`: `TAMakerHorizontalMuonAlgorithm`
-* `-m`: `VDColdboxChannelMap`
-* `-j`: `{
-        "trigger_on_adc": false,
-        "trigger_on_n_channels": false,
-        "trigger_on_tot": false,
-        "trigger_on_adjacency": true,
-        "adjacency_threshold": 100,
-        "adj_tolerance": 3,
-        "prescale": 1
-      }`
+In the second case, the default map will be `VDColdboxChannelMap`. The `DUNE-DAQ/detchannelmaps` repository has a [table of available channel maps](https://github.com/DUNE-DAQ/detchannelmaps/blob/develop/docs/channel-maps-table.md).
 
 ### Configuration
-The `ta_config.json` current looks like an individual TA configuration as in daqconf.
+The `algo_config.json` configuration mirrors the format that is used in `daqconf`. An example is shown below.
 ```
 {
-	"trigger_on_adc": false,
-	"trigger_on_n_channels": false,
-	"trigger_on_tot": false,
-	"trigger_on_adjacency": true,
-	"window_length": 50000,
-	"adjacency_threshold": 10,
-	"adj_tolerance": 20,
-	"adc_threshold": 5000,
-	"prescale": 100
+	"trigger_activity_config": [
+	    {
+		"adc_threshold": 10000,
+		"adj_tolerance": 4,
+		"adjacency_threshold": 6,
+		"n_channels_threshold": 8,
+		"prescale": 100,
+		"print_tp_info": false,
+		"trigger_on_adc": false,
+		"trigger_on_adjacency": true,
+		"trigger_on_n_channels": false,
+		"window_length": 10000,
+		"max_time_over_threshold": 10000
+	    }
+	],
+	"trigger_activity_plugin": [
+	    "TAMakerPrescaleAlgorithm"
+	],
+	"trigger_candidate_config": [
+	    {
+		"adc_threshold": 10000,
+		"adj_tolerance": 4,
+		"adjacency_threshold": 6,
+		"n_channels_threshold": 8,
+		"prescale": 100,
+		"print_tp_info": false,
+		"trigger_on_adc": false,
+		"trigger_on_adjacency": true,
+		"trigger_on_n_channels": false,
+		"window_length": 10000
+	    }
+	],
+	"trigger_candidate_plugin": [
+	    "TCMakerPrescaleAlgorithm"
+	]
 }
 ```
-This will be changed so that it appears exactly as in daqconf, and the option `-p ta_plugin_name` will be dropped.
+When developing new algorithms, it is sufficient to change the plugin name and insert the new configurable parameters.
