@@ -31,7 +31,7 @@ find_package(Boost COMPONENTS unit_test_framework REQUIRED)
 
 # See https://dune-daq-sw.readthedocs.io/en/latest/packages/daq-cmake/#daq_add_library
 
-daq_add_library( LINK_LIBRARIES hdf5libs::hdf5libs trgdataformats::trgdataformats triggeralgs::triggeralgs detchannelmaps::detchannelmaps) # Any source files and/or dependent libraries to link in not yet determined
+daq_add_library(*.cpp LINK_LIBRARIES hdf5libs::hdf5libs trgdataformats::trgdataformats triggeralgs::triggeralgs detchannelmaps::detchannelmaps CLI11::CLI11 fmt::fmt nlohmann_json::nlohmann_json)
 
 ##############################################################################
 
@@ -47,9 +47,9 @@ daq_add_python_bindings(*.cpp LINK_LIBRARIES ${PROJECT_NAME} ) # Any additional 
 
 # See https://dune-daq-sw.readthedocs.io/en/latest/packages/daq-cmake/#daq_add_application
 
-daq_add_application(trgtools_tapipe tapipe.cxx LINK_LIBRARIES ${PROJECT_NAME} CLI11::CLI11 fmt::fmt) # Any libraries to link in not yet determined
-daq_add_application(trgtools_copy_tpstream copy_tpstream.cxx LINK_LIBRARIES ${PROJECT_NAME} CLI11::CLI11 fmt::fmt) # Any libraries to link in not yet determined
-daq_add_application(trgtools_process_tpstream process_tpstream.cxx LINK_LIBRARIES ${PROJECT_NAME} CLI11::CLI11 fmt::fmt triggeralgs::triggeralgs trgdataformats::trgdataformats hdf5libs::hdf5libs detchannelmaps::detchannelmaps)
+daq_add_application(trgtools_tapipe tapipe.cxx LINK_LIBRARIES ${PROJECT_NAME})
+daq_add_application(trgtools_copy_tpstream copy_tpstream.cxx LINK_LIBRARIES ${PROJECT_NAME})
+daq_add_application(trgtools_process_tpstream process_tpstream.cxx LINK_LIBRARIES ${PROJECT_NAME})
 
 ##############################################################################
 
