@@ -33,6 +33,8 @@ class TAFileHandler
     TAFileHandler(std::string input_path, nlohmann::json config, std::pair<uint64_t, uint64_t> sliceid_range);
 
     ~TAFileHandler() = default;
+
+    std::vector<daqdataformats::SourceID> get_valid_sourceids(daqdataformats::TimeSlice& _timeslice);
   
     /**
      * @brief User interaction for task processing
@@ -49,8 +51,11 @@ class TAFileHandler
     /// @brief Retreives all the unique pointers to the TA fragments
     std::map<uint64_t, std::vector<std::unique_ptr<daqdataformats::Fragment>>> get_frags();
 
-    hdf5libs::HDF5SourceIDHandler::source_id_geo_id_map_t
-    get_sourceid_geoid_map();
+    hdf5libs::HDF5SourceIDHandler::source_id_geo_id_map_t get_sourceid_geoid_map();
+
+
+
+
 
   private:
     /**
@@ -65,12 +70,12 @@ class TAFileHandler
     /**
      * @brief Function that processes one slice for one plane
      *
-     * @param _thread_id
+     * @param _source_id
      * @param _tps
      * @param _time
      * @param _quiet
      */
-    void process_task(int _thread_id,
+    void process_task(daqdataformats::SourceID _source_id,
                       uint64_t _rec,
                       daqdataformats::FragmentHeader _header,
                       std::vector<trgdataformats::TriggerPrimitive> _tps,
@@ -96,7 +101,9 @@ class TAFileHandler
     nlohmann::json m_configuration;
 
     /// @brief Vector of TA emulators
-    std::vector<std::unique_ptr<trgtools::EmulateTAUnit>> m_ta_emulators;
+    //std::vector<std::unique_ptr<trgtools::EmulateTAUnit>> m_ta_emulators;
+    std::map<daqdataformats::SourceID, std::unique_ptr<trgtools::EmulateTAUnit>> m_ta_emulators;
+
 
     /// @brief input vector of tpstream input paths
     std::vector<std::string> m_input_paths;

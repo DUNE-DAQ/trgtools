@@ -30,23 +30,43 @@ TAFileHandler::TAFileHandler(std::string input_path, nlohmann::json config, std:
 
   // Extract the number of TAMakers to create
   daqdataformats::TimeSlice first_timeslice = m_input_file->get_timeslice(*records.begin());
-  size_t makers_to_make = first_timeslice.get_fragments_ref().size();
+  std::vector<daqdataformats::SourceID> valid_sources = get_valid_sourceids(first_timeslice);
+  fmt::print("Number of makers to make: {}\n", valid_sources.size());
 
-  fmt::print("Number of makers to make: {}\n", makers_to_make);
-
-  for (size_t i = 0; i < makers_to_make; ++i) {
+  for (const daqdataformats::SourceID& sid : valid_sources) {
     // Create TAMaker
     std::unique_ptr<triggeralgs::TriggerActivityMaker> ta_maker =
       triggeralgs::TriggerActivityFactory::get_instance()->build_maker(algo_name);
     ta_maker->configure(algo_config);
 
     // Add it to the enulators
-    m_ta_emulators.push_back(std::make_unique<trgtools::EmulateTAUnit>());
-    m_ta_emulators.back()->set_maker(ta_maker);
+    m_ta_emulators[sid] = std::make_unique<trgtools::EmulateTAUnit>();
+    m_ta_emulators[sid]->set_maker(ta_maker);
+    //m_ta_emulators.push_back(std::make_unique<trgtools::EmulateTAUnit>());
+    //m_ta_emulators.back()->set_maker(ta_maker);
 
     // Create a worker thread per emulator
     //m_thread_pool.emplace_back(&TAFileHandler::worker_thread, this);
   }
+}
+
+std::vector<daqdataformats::SourceID> 
+TAFileHandler::get_valid_sourceids(daqdataformats::TimeSlice& _timeslice)
+{
+  const auto& fragments = _timeslice.get_fragments_ref();
+
+  std::vector<daqdataformats::SourceID> ret;
+  for (const auto& fragment : fragments) {
+    if (fragment->get_fragment_type() != daqdataformats::FragmentType::kTriggerPrimitive) {
+      continue;
+    }
+
+    daqdataformats::SourceID sourceid = fragment->get_element_id();
+
+    ret.push_back(sourceid);
+  }
+
+  return ret;
 }
 
 hdf5libs::HDF5SourceIDHandler::source_id_geo_id_map_t
@@ -106,20 +126,13 @@ void TAFileHandler::process_tasks(uint64_t time, bool quiet)
 
     const auto& fragments = timeslice.get_fragments_ref();
 
-    size_t frags_size = fragments.size();
-    for (size_t i = 0; i < frags_size; ++i) {
-      const auto& fragment = fragments[i];
+    //size_t frags_size = fragments.size();
+    //for (size_t i = 0; i < frags_size; ++i) {
+    //  const auto& fragment = fragments[i];
+    for (const auto& fragment : fragments) {
+      daqdataformats::SourceID sid = fragment->get_element_id();
 
-      if (fragment->get_element_id().subsystem != daqdataformats::SourceID::Subsystem::kTrigger) {
-        if (!quiet)
-          fmt::print("  Warning, got non kTrigger SourceID {}\n", fragment->get_element_id().to_string());
-        continue;
-      }
-
-      if (fragment->get_fragment_type() !=
-          daqdataformats::FragmentType::kTriggerPrimitive) {
-        if (!quiet)
-          fmt::print("  Error: FragmentType is: {}!\n", dunedaq::daqdataformats::fragment_type_to_string(fragment->get_fragment_type()));
+      if (!m_ta_emulators.contains(sid)) {
         continue;
       }
 
@@ -151,7 +164,7 @@ void TAFileHandler::process_tasks(uint64_t time, bool quiet)
       // Customise the source id (add 1000 to id)
       frag_hdr.element_id = daqdataformats::SourceID{daqdataformats::SourceID::Subsystem::kTrigger, fragment->get_element_id().id+1000};
 
-      this->process_task(i, record.first, frag_hdr, tp_buffer, time, quiet);
+      this->process_task(sid, record.first, frag_hdr, tp_buffer, time, quiet);
       //enqueue_task([this, i, record, frag_hdr, tp_buffer = std::move(tp_buffer), time, quiet]() {
        //   this->process_task(i, record.first, frag_hdr, tp_buffer, time, quiet);
        //   });
@@ -206,19 +219,19 @@ void TAFileHandler::wait_to_complete_work()
   //}
 }
 
-void TAFileHandler::process_task(int _thread_id,
+void TAFileHandler::process_task(daqdataformats::SourceID _source_id,
                                  uint64_t _rec,
                                  daqdataformats::FragmentHeader _header,
                                  std::vector<trgdataformats::TriggerPrimitive> _tps,
                                  uint64_t _time,
                                  bool _quiet)
 {
-  std::unique_ptr<daqdataformats::Fragment> frag = m_ta_emulators[_thread_id]->emulate_vector(_tps);
+  std::unique_ptr<daqdataformats::Fragment> frag = m_ta_emulators[_source_id]->emulate_vector(_tps);
   if (!frag) {
     return;
   }
 
-  std::vector<triggeralgs::TriggerActivity> ta_buffer = m_ta_emulators[_thread_id]->get_last_output_buffer();
+  std::vector<triggeralgs::TriggerActivity> ta_buffer = m_ta_emulators[_source_id]->get_last_output_buffer();
 
   size_t n_tas = ta_buffer.size();
   if (!n_tas) {
@@ -227,10 +240,6 @@ void TAFileHandler::process_task(int _thread_id,
 
   if (!_quiet && n_tas) {
     fmt::print(" Found {} TAs!\n", n_tas);
-  }
-
-  if (!_quiet) {
-    fmt::print(" FILE: {} plane: {} completed!\n", m_input_paths[0], _thread_id);
   }
 
   {
