@@ -2,6 +2,7 @@
 Generic HDF5Reader class to read and store data.
 """
 from hdf5libs import HDF5RawDataFile
+from tqdm import tqdm 
 
 import abc
 
@@ -71,7 +72,7 @@ class HDF5Reader(abc.ABC):
 
     def read_all_fragments(self) -> None:
         """ Read all fragments. """
-        for fragment_path in self._fragment_paths:
+        for fragment_path in tqdm(self._fragment_paths, desc='Reading all the fragments'):
             _ = self.read_fragment(fragment_path)
 
         # self.read_fragment should increment self._num_empty.
