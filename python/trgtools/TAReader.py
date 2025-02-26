@@ -45,14 +45,12 @@ class TAReader(HDF5Reader):
     tp_dt = np.dtype([
                       ('adc_integral', np.uint32),
                       ('adc_peak', np.uint32),
-                      ('algorithm', trgdataformats.TriggerPrimitive.Algorithm),
                       ('channel', np.int32),
                       ('detid', np.uint16),
                       ('flag', np.uint16),
                       ('time_over_threshold', np.uint64),
                       ('time_peak', np.uint64),
                       ('time_start', np.uint64),
-                      ('type', trgdataformats.TriggerPrimitive.Type),
                       ('version', np.uint16)
                      ])
 
@@ -157,14 +155,12 @@ class TAReader(HDF5Reader):
                 np_tp_data[tp_idx] = np.array([(
                                             tp.adc_integral,
                                             tp.adc_peak,
-                                            tp.algorithm,
                                             tp.channel,
                                             tp.detid,
                                             tp.flag,
                                             tp.time_over_threshold,
                                             tp.time_peak,
                                             tp.time_start,
-                                            tp.type,
                                             tp.version)],
                                             dtype=self.tp_dt)
             self.tp_data.append(np_tp_data)  # Jagged array

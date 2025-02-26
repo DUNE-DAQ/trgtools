@@ -27,14 +27,12 @@ class TPReader(HDF5Reader):
     tp_dt = np.dtype([
                       ('adc_integral', np.uint32),
                       ('adc_peak', np.uint32),
-                      ('algorithm', trgdataformats.TriggerPrimitive.Algorithm),
                       ('channel', np.int32),
                       ('detid', np.uint16),
                       ('flag', np.uint16),
                       ('time_over_threshold', np.uint64),
                       ('time_peak', np.uint64),
                       ('time_start', np.uint64),
-                      ('type', trgdataformats.TriggerPrimitive.Type),
                       ('version', np.uint16)
                      ])
 
@@ -112,14 +110,12 @@ class TPReader(HDF5Reader):
             np_tp_data[idx] = np.array([(
                                     tp_datum.adc_integral,
                                     tp_datum.adc_peak,
-                                    tp_datum.algorithm,
                                     tp_datum.channel,
                                     tp_datum.detid,
                                     tp_datum.flag,
                                     tp_datum.time_over_threshold,
                                     tp_datum.time_peak,
                                     tp_datum.time_start,
-                                    tp_datum.type,
                                     tp_datum.version)],
                                     dtype=self.tp_dt)
         self.tp_data = np.hstack((self.tp_data, np_tp_data))
