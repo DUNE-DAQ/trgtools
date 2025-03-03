@@ -1,0 +1,17 @@
+# Plot Emulated Triggers
+
+`plot_emulated_triggers.py` is a plotting script that generates one plot for each TriggerCandidate in one PDF. For each TriggerCandidate page, TriggerActivities contained within the TC object are shown in a red box, and TPs contained in each of these TAs are shown as black marker points.
+
+By default, a new PDF is generated (with naming based on the existing PDFs). One can pass `--overwrite` to overwrite the 0th PDF for a given HDF5 file.
+
+While running, this can print information about the file reading using `-v` (warnings) and `-vv` (all). Errors and useful output information (save names and location) are always outputted.
+
+## Example
+
+```bash
+python tc_dump.py file.hdf5
+python tc_dump.py file.hdf5 --overwrite
+python tc_dump.py file.hdf5 -v
+python tc_dump.py file.hdf5 -vv
+python tc_dump.py file.hdf5 --help
+```
