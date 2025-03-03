@@ -141,7 +141,6 @@ SortFilesPerWriter(const std::vector<std::string>& _files)
  * returns that overlap as an available range -- or crashes if there is a file
  * with a range that does not overlap.
  *
- * @todo: Allow a case where we have multiple writer apps, multiple files per writer app, but one file outside of the overlap.
  * @todo: Rather than returning the sliceID range, should try to return a time range -- and have processors go off that.
  *
  * @param _files: a map of writer app names & vectors of HDF5 files from that application.

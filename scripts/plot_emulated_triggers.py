@@ -1,10 +1,14 @@
 #!/usr/bin/env python
 
 """
+Plot the trigger candidates, with their trigger activities & trigger primitives
+for a given tpstream file
 """
 
 import trgtools
 from trgtools.plot import PDFPlotter
+
+from types import Dict, List
 
 import trgdataformats
 
@@ -31,6 +35,9 @@ TICK_TO_SEC_SCALE = 16e-9  # s per tick
 def parse():
     """
     Parses CLI input arguments.
+
+    Returns:
+        (Dict(str, Any)): A dictionary of argument names vs argument values
     """
     parser = argparse.ArgumentParser(
         description="Display diagnostic information for TCs for a given HDF5 file."
@@ -49,19 +56,19 @@ def parse():
     parser.add_argument(
         "--start-frag",
         type=int,
-        help="Starting fragment index to process from. Takes negative indexing. Default: -10.",
+        help="Starting fragment index to process from. Takes negative indexing (Default: -10), NOT SUPPORTED YET).",
         default=-10
     )
     parser.add_argument(
         "--end-frag",
         type=int,
-        help="Fragment index to stop processing (i.e. not inclusive). Takes negative indexing. Default: N.",
+        help="Fragment index to stop processing (i.e. not inclusive). Takes negative indexing (Default: N(0), NOT SUPPORTED YET).",
         default=0
     )
     parser.add_argument(
         "--overwrite",
         type=bool,
-        help="Do you want to overwrite the output plot file, if already exists? Default: False.",
+        help="Do you want to overwrite the output plot file, if already exists? (Default: False)",
         default=False
     )
 
@@ -94,16 +101,30 @@ def find_save_name(run_id: int, file_index: int, overwrite: bool) -> str:
 
     return save_name
 
-def plot_all_event_displays(tc_data: list[np.ndarray],
-                            tc_data_tas: list[np.ndarray],
-                            ta_data: list[np.ndarray],
-                            ta_data_tps: list[np.ndarray],
+def plot_all_event_displays(tc_data: List[np.ndarray],
+                            tc_data_tas: List[np.ndarray],
+                            ta_data: List[np.ndarray],
+                            ta_data_tps: List[np.ndarray],
                             run_id: int,
                             file_index: int) -> None:
+    """
+
+    Plots all the event displays, one per TC.
+
+    Each event display will contain TriggerActivities (red boxes), and
+    TriggerPrimitives (black points) for each TriggerActivity.
+
+    Args:
+        tc_data (List[np.ndarray]): A list of TriggerCandidates
+        tc_data_tas (List[np.ndarray]): A list of TriggerActivityData per TriggerCandidate
+        ta_data (List[np.ndarray]): A full list of TriggerActivities
+        ta_data_tps (List[np.ndarray]): A list of TriggerPrimitives per TriggerActivity
+        run_id (int): Run ID number
+        file_index (int): File index
+    """
 
     time_unit = "Ticks"
 
-    print("tick 0")
     with PdfPages(f"event_displays_{run_id}.{file_index:04}.pdf") as pdf:
         for tcdx, (tc, tas) in tqdm(enumerate(zip(tc_data, tc_data_tas)), total=len(tc_data), desc="Saving event displays"):
             plt.figure(figsize=(6, 4))
