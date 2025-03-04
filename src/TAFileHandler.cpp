@@ -6,8 +6,18 @@
 namespace dunedaq::trgtools 
 {
 
-TAFileHandler::TAFileHandler(std::string input_path, nlohmann::json config, std::pair<uint64_t, uint64_t> sliceid_range)
-  : m_input_paths({input_path}), m_sliceid_range(sliceid_range), m_id(m_id_next++)
+uint16_t TAFileHandler::m_id_next = 0;
+
+TAFileHandler::TAFileHandler(std::string input_path,
+                             nlohmann::json config,
+                             std::pair<uint64_t, uint64_t> sliceid_range,
+                             bool run_parallel,
+                             bool quiet)
+  : m_input_paths({input_path}),
+    m_sliceid_range(sliceid_range),
+    m_run_parallel(run_parallel),
+    m_quiet(quiet),
+    m_id(m_id_next++)
 {
   std::string algo_name = config["trigger_activity_plugin"][0];
   nlohmann::json algo_config = config["trigger_activity_config"][0];
@@ -23,7 +33,9 @@ TAFileHandler::TAFileHandler(std::string input_path, nlohmann::json config, std:
   size_t file_index = m_input_file->get_attribute<size_t>("file_index");
   std::string application_name = m_input_file->get_attribute<std::string>("application_name");
 
-  fmt::print("Run Number: {}\nFile Index: {}\nApp name: '{}'\n", run_number, file_index, application_name);
+  if (!m_quiet) {
+    fmt::print("Run Number: {}\nFile Index: {}\nApp name: '{}'\n", run_number, file_index, application_name);
+  }
 
   // std::set of record IDs (pair of record number & sequence number)
   auto records = m_input_file->get_all_record_ids();
@@ -42,11 +54,11 @@ TAFileHandler::TAFileHandler(std::string input_path, nlohmann::json config, std:
     // Add it to the enulators
     m_ta_emulators[sid] = std::make_unique<trgtools::EmulateTAUnit>();
     m_ta_emulators[sid]->set_maker(ta_maker);
-    //m_ta_emulators.push_back(std::make_unique<trgtools::EmulateTAUnit>());
-    //m_ta_emulators.back()->set_maker(ta_maker);
 
     // Create a worker thread per emulator
-    //m_thread_pool.emplace_back(&TAFileHandler::worker_thread, this);
+    if (m_run_parallel) {
+      m_thread_pool.emplace_back(&TAFileHandler::worker_thread, this);
+    }
   }
 }
 
@@ -80,44 +92,44 @@ TAFileHandler::get_sourceid_geoid_map()
 
 }
 
-//void TAFileHandler::worker_thread()
-//{
-//  while (true) {
-//    std::function<void()> task;
-//    {
-//      std::unique_lock<std::mutex> lock(m_queue_mutex);
-//      m_condition.wait(lock, [this]() {return m_stop || !m_task_queue.empty(); });
-//
-//      if (m_stop && m_task_queue.empty()) {
-//        return;
-//      }
-//
-//      task = std::move(m_task_queue.front());
-//      m_task_queue.pop();
-//    }
-//
-//    // Run & complete a task
-//    task();
-//
-//    // Notify that task was completed
-//    {
-//      std::lock_guard<std::mutex> lock(m_queue_mutex);
-//      --m_active_tasks;
-//      if (m_active_tasks == 0) {
-//        m_task_complete_condition.notify_all();
-//      }
-//    }
-//  }
-//}
+void TAFileHandler::worker_thread()
+{
+  while (true) {
+    std::function<void()> task;
+    {
+      std::unique_lock<std::mutex> lock(m_queue_mutex);
+      m_condition.wait(lock, [this]() {return m_stop || !m_task_queue.empty(); });
 
-void TAFileHandler::process_tasks(uint64_t time, bool quiet)
+      if (m_stop && m_task_queue.empty()) {
+        return;
+      }
+
+      task = std::move(m_task_queue.front());
+      m_task_queue.pop();
+    }
+
+    // Run & complete a task
+    task();
+
+    // Notify that task was completed
+    {
+      std::lock_guard<std::mutex> lock(m_queue_mutex);
+      --m_active_tasks;
+      if (m_active_tasks == 0) {
+        m_task_complete_condition.notify_all();
+      }
+    }
+  }
+}
+
+void TAFileHandler::process_tasks()
 {
   // std::set of record IDs (pair of record number & sequence number)
   auto records = m_input_file->get_all_record_ids();
 
   for (const auto& record : records) {
     if (record.first < m_sliceid_range.first || record.first > m_sliceid_range.second) {
-      if (!quiet)
+      if (!m_quiet)
         fmt::print("  Will not process RecordID {} because it's outside of our range!", record.first);
       continue;
     }
@@ -137,8 +149,8 @@ void TAFileHandler::process_tasks(uint64_t time, bool quiet)
       }
 
       // Pull tps out
-      size_t n_tps = fragment->get_data_size()/sizeof(trgdataformats::TriggerPrimitive);
-      if (!quiet) {
+      size_t n_tps = fragment->get_data_size()/SIZE_TP;
+      if (!m_quiet) {
         fmt::print("  TP fragment size: {}\n", fragment->get_data_size());
         fmt::print("  Num TPs: {}\n", n_tps);
       }
@@ -153,7 +165,7 @@ void TAFileHandler::process_tasks(uint64_t time, bool quiet)
       uint64_t last_ts = 0;
       for(size_t tpid(0); tpid<n_tps; ++tpid) {
         auto& tp = tp_array[tpid];
-        if (tp.time_start <= last_ts && !quiet) {
+        if (tp.time_start <= last_ts && !m_quiet) {
           fmt::print("  ERROR: {} {} ", tp.time_start, last_ts );
         }
         tp_buffer.push_back(tp);
@@ -164,13 +176,20 @@ void TAFileHandler::process_tasks(uint64_t time, bool quiet)
       // Customise the source id (add 1000 to id)
       frag_hdr.element_id = daqdataformats::SourceID{daqdataformats::SourceID::Subsystem::kTrigger, fragment->get_element_id().id+1000};
 
-      this->process_task(sid, record.first, frag_hdr, tp_buffer, time, quiet);
-      //enqueue_task([this, i, record, frag_hdr, tp_buffer = std::move(tp_buffer), time, quiet]() {
-       //   this->process_task(i, record.first, frag_hdr, tp_buffer, time, quiet);
-       //   });
+      if (m_run_parallel) {
+        enqueue_task([this, sid, record, frag_hdr, tp_buffer = std::move(tp_buffer)]() mutable {
+          this->process_task(sid, record.first, frag_hdr, std::move(tp_buffer));
+        });
+      }
+      else {
+        this->process_task(sid, record.first, frag_hdr, std::move(tp_buffer));
+      }
     }
-    //wait_to_complete_tasks();
+    if (m_run_parallel) {
+      wait_to_complete_tasks();
+    }
   }
+
   size_t total = 0;
   for (auto& [key, vec_tas]: m_tas) {
     total += vec_tas.size();
@@ -178,53 +197,53 @@ void TAFileHandler::process_tasks(uint64_t time, bool quiet)
   std::cout << "We have a total of " << total << " TAs!" << std::endl;
 }
 
-void TAFileHandler::start_processing(uint64_t time, bool quiet)
+void TAFileHandler::start_processing()
 {
-  m_main_thread = std::thread(&TAFileHandler::process_tasks, this, time, quiet);
+  m_main_thread = std::thread(&TAFileHandler::process_tasks, this);
 }
 
 
-//void TAFileHandler::enqueue_task(std::function<void()> task)
-//{
-//  {
-//    std::lock_guard<std::mutex> lock(m_queue_mutex);
-//    m_task_queue.push(std::move(task));
-//    ++m_active_tasks;
-//  }
-//  m_condition.notify_one();
-//}
+void TAFileHandler::enqueue_task(std::function<void()> task)
+{
+  {
+    std::lock_guard<std::mutex> lock(m_queue_mutex);
+    m_task_queue.push(std::move(task));
+    ++m_active_tasks;
+  }
+  m_condition.notify_one();
+}
 
-//void TAFileHandler::wait_to_complete_tasks()
-//{
-//  std::unique_lock<std::mutex> lock(m_queue_mutex);
-//  m_task_complete_condition.wait(lock, [this]() { return m_active_tasks == 0; });
-//}
+void TAFileHandler::wait_to_complete_tasks()
+{
+  std::unique_lock<std::mutex> lock(m_queue_mutex);
+  m_task_complete_condition.wait(lock, [this]() { return m_active_tasks == 0; });
+}
 
 void TAFileHandler::wait_to_complete_work()
 {
   m_main_thread.join();
   fmt::print("TAFileHandler_{} work completed\n", m_id);
 
-  //wait_to_complete_tasks();
+  if (m_run_parallel) {
+    wait_to_complete_tasks();
 
-  //{
-  //  std::lock_guard<std::mutex> lock(m_queue_mutex);
-  //  m_stop = true;
-  //}
-  m_condition.notify_all();
+    {
+      std::lock_guard<std::mutex> lock(m_queue_mutex);
+      m_stop = true;
+    }
+    m_condition.notify_all();
 
-  //fmt::print("m_stop issued\n");
-  //for (std::thread& thread : m_thread_pool) {
-  //  thread.join();
-  //}
+    fmt::print("m_stop issued\n");
+    for (std::thread& thread : m_thread_pool) {
+      thread.join();
+    }
+  }
 }
 
 void TAFileHandler::process_task(daqdataformats::SourceID _source_id,
                                  uint64_t _rec,
                                  daqdataformats::FragmentHeader _header,
-                                 std::vector<trgdataformats::TriggerPrimitive> _tps,
-                                 uint64_t _time,
-                                 bool _quiet)
+                                 std::vector<trgdataformats::TriggerPrimitive>&& _tps)
 {
   std::unique_ptr<daqdataformats::Fragment> frag = m_ta_emulators[_source_id]->emulate_vector(_tps);
   if (!frag) {
@@ -238,12 +257,14 @@ void TAFileHandler::process_task(daqdataformats::SourceID _source_id,
     return;
   }
 
-  if (!_quiet && n_tas) {
+  if (!m_quiet && n_tas) {
     fmt::print(" Found {} TAs!\n", n_tas);
   }
 
   {
-    std::lock_guard<std::mutex> lock(m_savetps_mutex);
+    if (m_run_parallel) {
+      std::lock_guard<std::mutex> lock(m_savetps_mutex);
+    }
     m_tas[_rec].reserve(m_tas[_rec].size() + ta_buffer.size());
     m_tas[_rec].insert(m_tas[_rec].end(), std::make_move_iterator(ta_buffer.begin()), std::make_move_iterator(ta_buffer.end()));
 
@@ -264,7 +285,6 @@ std::map<uint64_t, std::vector<std::unique_ptr<daqdataformats::Fragment>>> TAFil
   return std::move(m_ta_fragments);
 }
 
-uint16_t TAFileHandler::m_id_next = 0;
 
 }; // namespace dunedaq::trgtools
 

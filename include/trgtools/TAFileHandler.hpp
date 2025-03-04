@@ -29,8 +29,13 @@ class TAFileHandler
   public:
     /**
      * @brief Constructor, takes file input path & configuration
+     * @param _quiet Do we want to print logs?
      */
-    TAFileHandler(std::string input_path, nlohmann::json config, std::pair<uint64_t, uint64_t> sliceid_range);
+    TAFileHandler(std::string input_path, 
+                  nlohmann::json config,
+                  std::pair<uint64_t, uint64_t> sliceid_range,
+                  bool run_parallel,
+                  bool quiet);
 
     ~TAFileHandler() = default;
 
@@ -39,8 +44,8 @@ class TAFileHandler
     /**
      * @brief User interaction for task processing
      */
-    void start_processing(uint64_t time = 0,
-                          bool quiet=false);
+    void start_processing();
+                          
 
     /// @brief Waits for all the tasks to complete
     void wait_to_complete_work();
@@ -54,33 +59,22 @@ class TAFileHandler
     hdf5libs::HDF5SourceIDHandler::source_id_geo_id_map_t get_sourceid_geoid_map();
 
 
-
-
-
   private:
     /**
      * @brief Function that processes the whole file
-     *
-     * @param _time The amount of time we want to process
-     * @param _quiet Do we want to print logs?
      */
-    void process_tasks(uint64_t _time,
-                       bool _quiet);
+    void process_tasks();
 
     /**
      * @brief Function that processes one slice for one plane
      *
      * @param _source_id
      * @param _tps
-     * @param _time
-     * @param _quiet
      */
     void process_task(daqdataformats::SourceID _source_id,
                       uint64_t _rec,
                       daqdataformats::FragmentHeader _header,
-                      std::vector<trgdataformats::TriggerPrimitive> _tps,
-                      uint64_t _time,
-                      bool _quiet);
+                      std::vector<trgdataformats::TriggerPrimitive>&& _tps);
 
     /// @brief
     void worker_thread();
@@ -88,10 +82,10 @@ class TAFileHandler
     /**
      * @brief
      */
-    //void enqueue_task(std::function<void()> task);
+    void enqueue_task(std::function<void()> task);
 
     /// @brief
-    //void wait_to_complete_tasks();
+    void wait_to_complete_tasks();
 
   private:
     /// @brief A pointer to the input file
@@ -100,26 +94,42 @@ class TAFileHandler
     /// @brief configuration for the TA-makers
     nlohmann::json m_configuration;
 
+    /// @brief input vector of tpstream input paths
+    std::vector<std::string> m_input_paths;
+
     /// @brief Vector of TA emulators
     //std::vector<std::unique_ptr<trgtools::EmulateTAUnit>> m_ta_emulators;
     std::map<daqdataformats::SourceID, std::unique_ptr<trgtools::EmulateTAUnit>> m_ta_emulators;
 
-
-    /// @brief input vector of tpstream input paths
-    std::vector<std::string> m_input_paths;
-
     /// @brief Range of TimeSlice IDs to process
     std::pair<uint64_t, uint64_t> m_sliceid_range;
 
+    /// @brief Run the TA makers in parllel
+    const bool m_run_parallel;
+
+    /// @brief Quiet down the cout output
+    const bool m_quiet;
+
+    /*
+     * Threading objects for the main file handler
+     */
+    /// @brief The file handler thread
     std::thread m_main_thread;
-    //std::vector<std::thread> m_thread_pool;
-    //std::queue<std::function<void()>> m_task_queue;
-    //std::mutex m_queue_mutex;
+    std::atomic<bool> m_stop{false};
+
+    /*
+     * Optional threading objects for the tasks
+     * i.e. one thread per TAMaker
+     */
+
+    /// @brief Mutex for saving the TPs
     std::mutex m_savetps_mutex;
+    std::vector<std::thread> m_thread_pool;
     std::condition_variable m_condition;
     std::condition_variable m_task_complete_condition;
-    std::atomic<bool> m_stop{false};
-    //std::atomic<size_t> m_active_tasks;
+    std::queue<std::function<void()>> m_task_queue;
+    std::mutex m_queue_mutex;
+    std::atomic<size_t> m_active_tasks;
 
     /// @brief Output vector of TAs
     std::map<uint64_t, std::vector<triggeralgs::TriggerActivity>> m_tas;
@@ -129,6 +139,7 @@ class TAFileHandler
 
     uint16_t m_id;
     static uint16_t m_id_next;
+    static const size_t SIZE_TP  = sizeof(trgdataformats::TriggerPrimitive);
 };
 
 };
