@@ -224,6 +224,8 @@ struct Options
   /// @brief do we want to measure latencies? Default: no
   /// @todo: Latencies currently not supported!
   bool latencies = false;
+  /// @brief runs each TAMaker on a separate thread
+  bool run_parallel = false;
 };
 
 /**
@@ -238,19 +240,17 @@ void ParseApp(CLI::App& _app, Options& _opts)
     ->required()
     ->check(CLI::ExistingFile); // Validate that each file exists
 
-  std::string output_filename;
   _app.add_option("-o,--output-file", _opts.output_filename, "Output file (required)")
     ->required(); // make the argument required
 
-  std::string config_name;
   _app.add_option("-j,--json-config", _opts.config_name, "Trigger Activity and Candidate config JSON to use (required)")
     ->required()
     ->check(CLI::ExistingFile);
+  
+  _app.add_option("-p,--run-parallel", _opts.run_parallel, "Do you want to run in parallel (default: false)");
 
-  bool quiet = false;
   _app.add_flag("--quiet", _opts.quiet, "Quiet outputs.");
 
-  bool latencies = false;
   _app.add_flag("--latencies", _opts.latencies, "Saves latencies per TP into csv");
 }
 
@@ -290,12 +290,12 @@ int main(int argc, char const *argv[])
   // Create the file handlers
   std::vector<std::unique_ptr<TAFileHandler>> file_handlers;
   for (const std::string& file : opts.input_files) {
-    file_handlers.push_back(std::make_unique<TAFileHandler>(file, config, recordid_range));
+    file_handlers.push_back(std::make_unique<TAFileHandler>(file, config, recordid_range, opts.run_parallel, opts.quiet));
   }
 
   // Start each file handler
   for (const auto& handler : file_handlers) {
-    handler->start_processing(0, opts.quiet);
+    handler->start_processing();
   }
 
   // Output map of TA vectors & function that appends TAs to that vector
