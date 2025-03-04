@@ -8,7 +8,7 @@ for a given tpstream file
 import trgtools
 from trgtools.plot import PDFPlotter
 
-from types import Dict, List
+from typing import Dict, List
 
 import trgdataformats
 
@@ -23,7 +23,6 @@ from tqdm import tqdm
 
 import argparse
 import os
-
 
 ALGORITHM_LABELS = list(trgdataformats.TriggerCandidateData.Algorithm.__members__.keys())
 ALGORITHM_TICKS = [tp_alg.value for tp_alg in trgdataformats.TriggerCandidateData.Algorithm.__members__.values()]
