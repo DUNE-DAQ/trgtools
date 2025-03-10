@@ -21,6 +21,7 @@ appropriate.
 **WARNING:** This script is different from `process_tpstream`, and does not
 contain all the functionality yet. Look at TODOs below for more info.
 
+
 ## Example
 
 ```bash
@@ -28,6 +29,10 @@ trgtools_emulate_from_tpstream -i input_file.hdf5 -o output_file.hdf5 -j algo_co
 
 trgtools_emulate_from_tpstream -i input_file_APA*.hdf5 -o output_file.hdf5 -j algo_config.json
 ```
+
+### Parallelisation
+
+You can run the emulator with `--parallel`, which will not only process each TPWriter separately, but each TAMaker too. **This is currently only worth trying if using slow algo, like DBSCAN**, otherwise it can be marginally slower.
 
 ## TODOs
 
