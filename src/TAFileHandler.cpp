@@ -103,6 +103,7 @@ TAFileHandler::get_sourceid_geoid_map()
 void TAFileHandler::worker_thread()
 {
   while (true) {
+    /// Get a task from the queue (with locking)
     std::function<void()> task;
     {
       std::unique_lock<std::mutex> lock(m_queue_mutex);
@@ -132,8 +133,9 @@ void TAFileHandler::worker_thread()
 
 void TAFileHandler::process_tasks()
 {
-  // std::set of record IDs (pair of record number & sequence number)
+  // Iterate over the input files
   for (auto& input_file: m_input_files) {
+    // std::set of record IDs (pair of record number & sequence number)
     auto records = input_file->get_all_record_ids();
 
     for (const auto& record : records) {
@@ -143,10 +145,11 @@ void TAFileHandler::process_tasks()
         continue;
       }
 
+      // Get all the fragments
       daqdataformats::TimeSlice timeslice = input_file->get_timeslice(record);
-
       const auto& fragments = timeslice.get_fragments_ref();
 
+      // Iterate over the fragments & process each fragment
       for (const auto& fragment : fragments) {
         daqdataformats::SourceID sid = fragment->get_element_id();
 
@@ -182,6 +185,7 @@ void TAFileHandler::process_tasks()
         // Customise the source id (add 1000 to id)
         frag_hdr.element_id = daqdataformats::SourceID{daqdataformats::SourceID::Subsystem::kTrigger, fragment->get_element_id().id+1000};
 
+        // Either enqueue the task if using parallel processing, or execute the task now
         if (m_run_parallel) {
           enqueue_task([this, sid, record, frag_hdr, tp_buffer = std::move(tp_buffer)]() mutable {
             this->process_task(sid, record.first, frag_hdr, std::move(tp_buffer));
@@ -191,6 +195,8 @@ void TAFileHandler::process_tasks()
           this->process_task(sid, record.first, frag_hdr, std::move(tp_buffer));
         }
       }
+      // If running in parallel, wait to process entire slice before we move to
+      // the next one
       if (m_run_parallel) {
         wait_to_complete_tasks();
       }
@@ -228,9 +234,11 @@ void TAFileHandler::wait_to_complete_tasks()
 
 void TAFileHandler::wait_to_complete_work()
 {
+  // Wait for the main threads to join
   m_main_thread.join();
   fmt::print("TAFileHandler_{} work completed\n", m_id);
 
+  // Wait for the tasks to complete
   if (m_run_parallel) {
     wait_to_complete_tasks();
 
@@ -252,13 +260,18 @@ void TAFileHandler::process_task(daqdataformats::SourceID _source_id,
                                  daqdataformats::FragmentHeader _header,
                                  std::vector<trgdataformats::TriggerPrimitive>&& _tps)
 {
+  // Get te last fragment
   std::unique_ptr<daqdataformats::Fragment> frag = m_ta_emulators[_source_id]->emulate_vector(_tps);
+  j
+  // Don't do anything if no fragments found
   if (!frag) {
     return;
   }
 
+  // Get all the TriggerActivities from the TA Emulator buffer
   std::vector<triggeralgs::TriggerActivity> ta_buffer = m_ta_emulators[_source_id]->get_last_output_buffer();
 
+  // Don't continue if no TAs found
   size_t n_tas = ta_buffer.size();
   if (!n_tas) {
     return;
@@ -268,6 +281,7 @@ void TAFileHandler::process_task(daqdataformats::SourceID _source_id,
     fmt::print(" Found {} TAs!\n", n_tas);
   }
 
+  // Set the fragment header & push into our output (with locking!)
   {
     if (m_run_parallel) {
       std::lock_guard<std::mutex> lock(m_savetps_mutex);
@@ -295,4 +309,4 @@ std::map<uint64_t, std::vector<std::unique_ptr<daqdataformats::Fragment>>> TAFil
 
 }; // namespace dunedaq::trgtools
 
-#endif //TRGTOOLS_TAFILEHANDLER_HXX_
+#endif //TRGTOOLS_TAFILEHANDLER_CXX_
