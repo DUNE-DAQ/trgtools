@@ -247,7 +247,7 @@ void ParseApp(CLI::App& _app, Options& _opts)
     ->required()
     ->check(CLI::ExistingFile);
   
-  _app.add_option("-p,--run-parallel", _opts.run_parallel, "Do you want to run in parallel (default: false)");
+  _app.add_flag("--parallel", _opts.run_parallel, "Run the TAMakers in parallel");
 
   _app.add_flag("--quiet", _opts.quiet, "Quiet outputs.");
 
@@ -289,8 +289,8 @@ int main(int argc, char const *argv[])
 
   // Create the file handlers
   std::vector<std::unique_ptr<TAFileHandler>> file_handlers;
-  for (const std::string& file : opts.input_files) {
-    file_handlers.push_back(std::make_unique<TAFileHandler>(file, config, recordid_range, opts.run_parallel, opts.quiet));
+  for (auto [name, files] : sorted_files) {
+    file_handlers.push_back(std::make_unique<TAFileHandler>(files, config, recordid_range, opts.run_parallel, opts.quiet));
   }
 
   // Start each file handler
