@@ -262,7 +262,7 @@ void TAFileHandler::process_task(daqdataformats::SourceID _source_id,
 {
   // Get te last fragment
   std::unique_ptr<daqdataformats::Fragment> frag = m_ta_emulators[_source_id]->emulate_vector(_tps);
-  j
+
   // Don't do anything if no fragments found
   if (!frag) {
     return;
