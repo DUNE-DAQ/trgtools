@@ -8,12 +8,12 @@ namespace dunedaq::trgtools
 
 uint16_t TAFileHandler::m_id_next = 0;
 
-TAFileHandler::TAFileHandler(std::string input_path,
+TAFileHandler::TAFileHandler(std::vector<std::shared_ptr<hdf5libs::HDF5RawDataFile>> input_files,
                              nlohmann::json config,
                              std::pair<uint64_t, uint64_t> sliceid_range,
                              bool run_parallel,
                              bool quiet)
-  : m_input_paths({input_path}),
+  : m_input_files(input_files),
     m_sliceid_range(sliceid_range),
     m_run_parallel(run_parallel),
     m_quiet(quiet),
@@ -23,25 +23,34 @@ TAFileHandler::TAFileHandler(std::string input_path,
   nlohmann::json algo_config = config["trigger_activity_config"][0];
 
   // Get the input file
-  m_input_file = std::make_unique<hdf5libs::HDF5RawDataFile>(m_input_paths[0]);
-  if (!m_input_file->is_timeslice_type()) {
-    throw std::runtime_error(fmt::format("ERROR: input file '{}' not of type 'TimeSlice'", m_input_paths[0]));
+  // Extract the run number etc
+  std::vector<daqdataformats::run_number_t> run_numbers;
+  std::vector<size_t> file_indices;
+  for (const auto& input_file : input_files) {
+    if (std::find(run_numbers.begin(), run_numbers.end(),
+        input_file->get_attribute<daqdataformats::run_number_t>("run_number")) ==
+        run_numbers.end()) {
+          run_numbers.push_back(input_file->get_attribute<daqdataformats::run_number_t>("run_number"));
+    }
+
+    if (std::find(file_indices.begin(), file_indices.end(),
+        input_file->get_attribute<daqdataformats::run_number_t>("run_number")) ==
+        file_indices.end()) {
+          file_indices.push_back(input_file->get_attribute<size_t>("file_index"));
+    }
   }
 
-  // Extract the run number etc
-  daqdataformats::run_number_t run_number = m_input_file->get_attribute<daqdataformats::run_number_t>("run_number");
-  size_t file_index = m_input_file->get_attribute<size_t>("file_index");
-  std::string application_name = m_input_file->get_attribute<std::string>("application_name");
+  std::string application_name = m_input_files.front()->get_attribute<std::string>("application_name");
 
   if (!m_quiet) {
-    fmt::print("Run Number: {}\nFile Index: {}\nApp name: '{}'\n", run_number, file_index, application_name);
+    fmt::print("Run Numbers: {}\nFile Indices: {}\nApp name: '{}'\n", fmt::join(run_numbers, ","), fmt::join(file_indices, ","), application_name);
   }
 
   // std::set of record IDs (pair of record number & sequence number)
-  auto records = m_input_file->get_all_record_ids();
+  auto records = m_input_files.front()->get_all_record_ids();
 
   // Extract the number of TAMakers to create
-  daqdataformats::TimeSlice first_timeslice = m_input_file->get_timeslice(*records.begin());
+  daqdataformats::TimeSlice first_timeslice = m_input_files.front()->get_timeslice(*records.begin());
   std::vector<daqdataformats::SourceID> valid_sources = get_valid_sourceids(first_timeslice);
   fmt::print("Number of makers to make: {}\n", valid_sources.size());
 
@@ -84,12 +93,11 @@ TAFileHandler::get_valid_sourceids(daqdataformats::TimeSlice& _timeslice)
 hdf5libs::HDF5SourceIDHandler::source_id_geo_id_map_t
 TAFileHandler::get_sourceid_geoid_map()
 {
-  if (!m_input_file) {
-    throw "File not set yet!";
+  if (!m_input_files.size()) {
+    throw "Files not set yet!";
   }
 
-  return m_input_file->get_srcid_geoid_map();
-
+  return m_input_files.front()->get_srcid_geoid_map();
 }
 
 void TAFileHandler::worker_thread()
@@ -125,76 +133,75 @@ void TAFileHandler::worker_thread()
 void TAFileHandler::process_tasks()
 {
   // std::set of record IDs (pair of record number & sequence number)
-  auto records = m_input_file->get_all_record_ids();
+  for (auto& input_file: m_input_files) {
+    auto records = input_file->get_all_record_ids();
 
-  for (const auto& record : records) {
-    if (record.first < m_sliceid_range.first || record.first > m_sliceid_range.second) {
-      if (!m_quiet)
-        fmt::print("  Will not process RecordID {} because it's outside of our range!", record.first);
-      continue;
-    }
-
-    daqdataformats::TimeSlice timeslice = m_input_file->get_timeslice(record);
-
-    const auto& fragments = timeslice.get_fragments_ref();
-
-    //size_t frags_size = fragments.size();
-    //for (size_t i = 0; i < frags_size; ++i) {
-    //  const auto& fragment = fragments[i];
-    for (const auto& fragment : fragments) {
-      daqdataformats::SourceID sid = fragment->get_element_id();
-
-      if (!m_ta_emulators.contains(sid)) {
+    for (const auto& record : records) {
+      if (record.first < m_sliceid_range.first || record.first > m_sliceid_range.second) {
+        if (!m_quiet)
+          fmt::print("  Will not process RecordID {} because it's outside of our range!", record.first);
         continue;
       }
 
-      // Pull tps out
-      size_t n_tps = fragment->get_data_size()/SIZE_TP;
-      if (!m_quiet) {
-        fmt::print("  TP fragment size: {}\n", fragment->get_data_size());
-        fmt::print("  Num TPs: {}\n", n_tps);
-      }
+      daqdataformats::TimeSlice timeslice = input_file->get_timeslice(record);
 
-      // Create a TP buffer
-      std::vector<trgdataformats::TriggerPrimitive> tp_buffer;
-      // Prepare the TP buffer, checking for time ordering
-      tp_buffer.reserve(n_tps);
+      const auto& fragments = timeslice.get_fragments_ref();
 
-      // Populate the TP buffer
-      trgdataformats::TriggerPrimitive* tp_array = static_cast<trgdataformats::TriggerPrimitive*>(fragment->get_data());
-      uint64_t last_ts = 0;
-      for(size_t tpid(0); tpid<n_tps; ++tpid) {
-        auto& tp = tp_array[tpid];
-        if (tp.time_start <= last_ts && !m_quiet) {
-          fmt::print("  ERROR: {} {} ", tp.time_start, last_ts );
+      for (const auto& fragment : fragments) {
+        daqdataformats::SourceID sid = fragment->get_element_id();
+
+        if (!m_ta_emulators.contains(sid)) {
+          continue;
         }
-        tp_buffer.push_back(tp);
-      }
 
-      daqdataformats::FragmentHeader frag_hdr = fragment->get_header();
+        // Pull tps out
+        size_t n_tps = fragment->get_data_size()/SIZE_TP;
+        if (!m_quiet) {
+          fmt::print("  TP fragment size: {}\n", fragment->get_data_size());
+          fmt::print("  Num TPs: {}\n", n_tps);
+        }
 
-      // Customise the source id (add 1000 to id)
-      frag_hdr.element_id = daqdataformats::SourceID{daqdataformats::SourceID::Subsystem::kTrigger, fragment->get_element_id().id+1000};
+        // Create a TP buffer
+        std::vector<trgdataformats::TriggerPrimitive> tp_buffer;
+        // Prepare the TP buffer, checking for time ordering
+        tp_buffer.reserve(n_tps);
 
-      if (m_run_parallel) {
-        enqueue_task([this, sid, record, frag_hdr, tp_buffer = std::move(tp_buffer)]() mutable {
+        // Populate the TP buffer
+        trgdataformats::TriggerPrimitive* tp_array = static_cast<trgdataformats::TriggerPrimitive*>(fragment->get_data());
+        uint64_t last_ts = 0;
+        for(size_t tpid(0); tpid<n_tps; ++tpid) {
+          auto& tp = tp_array[tpid];
+          if (tp.time_start <= last_ts && !m_quiet) {
+            fmt::print("  ERROR: {} {} ", tp.time_start, last_ts );
+          }
+          tp_buffer.push_back(tp);
+        }
+
+        daqdataformats::FragmentHeader frag_hdr = fragment->get_header();
+
+        // Customise the source id (add 1000 to id)
+        frag_hdr.element_id = daqdataformats::SourceID{daqdataformats::SourceID::Subsystem::kTrigger, fragment->get_element_id().id+1000};
+
+        if (m_run_parallel) {
+          enqueue_task([this, sid, record, frag_hdr, tp_buffer = std::move(tp_buffer)]() mutable {
+            this->process_task(sid, record.first, frag_hdr, std::move(tp_buffer));
+          });
+        }
+        else {
           this->process_task(sid, record.first, frag_hdr, std::move(tp_buffer));
-        });
+        }
       }
-      else {
-        this->process_task(sid, record.first, frag_hdr, std::move(tp_buffer));
+      if (m_run_parallel) {
+        wait_to_complete_tasks();
       }
     }
-    if (m_run_parallel) {
-      wait_to_complete_tasks();
-    }
-  }
 
-  size_t total = 0;
-  for (auto& [key, vec_tas]: m_tas) {
-    total += vec_tas.size();
+    size_t total = 0;
+    for (auto& [key, vec_tas]: m_tas) {
+      total += vec_tas.size();
+    }
+    std::cout << "We have a total of " << total << " TAs!" << std::endl;
   }
-  std::cout << "We have a total of " << total << " TAs!" << std::endl;
 }
 
 void TAFileHandler::start_processing()

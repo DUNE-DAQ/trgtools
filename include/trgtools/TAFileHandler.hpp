@@ -31,7 +31,7 @@ class TAFileHandler
      * @brief Constructor, takes file input path & configuration
      * @param _quiet Do we want to print logs?
      */
-    TAFileHandler(std::string input_path, 
+    TAFileHandler(std::vector<std::shared_ptr<hdf5libs::HDF5RawDataFile>> input_files,
                   nlohmann::json config,
                   std::pair<uint64_t, uint64_t> sliceid_range,
                   bool run_parallel,
@@ -45,7 +45,6 @@ class TAFileHandler
      * @brief User interaction for task processing
      */
     void start_processing();
-                          
 
     /// @brief Waits for all the tasks to complete
     void wait_to_complete_work();
@@ -89,7 +88,7 @@ class TAFileHandler
 
   private:
     /// @brief A pointer to the input file
-    std::unique_ptr<hdf5libs::HDF5RawDataFile> m_input_file;
+    std::vector<std::shared_ptr<hdf5libs::HDF5RawDataFile>> m_input_files;
 
     /// @brief configuration for the TA-makers
     nlohmann::json m_configuration;
