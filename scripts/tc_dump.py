@@ -519,6 +519,7 @@ def main():
     tc_count = np.arange(len(time_candidate))
     pdf_plotter.plot_errorbar(tc_count, time_candidate, time_spans_dict)
     # ===========================
+    pdf_plotter.close()
 
     return None
 

@@ -455,6 +455,7 @@ def main():
     # ==== ADC Integral vs ADC Peak ====
     plot_pdf_adc_integral_vs_peak(data.tp_data, pdf, verbosity)
     # ===================================
+    pdf_plotter.close()
 
     return None
 
