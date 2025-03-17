@@ -21,14 +21,17 @@ appropriate.
 **WARNING:** This script is different from `process_tpstream`, and does not
 contain all the functionality yet. Look at TODOs below for more info.
 
-
 ## Example
 
 ```bash
-trgtools_emulate_from_tpstream -i input_file.hdf5 -o output_file.hdf5 -j algo_config.json -m VDColdboxChannelMap --quiet
+trgtools_emulate_from_tpstream -i input_file.hdf5 -o output_file.hdf5 -j algo_config.json --quiet 
 
 trgtools_emulate_from_tpstream -i input_file_APA*.hdf5 -o output_file.hdf5 -j algo_config.json
 ```
+
+### Algorithm Configuration
+
+An example `algo_config.json` file with an explenanation are provided [HERE](README.md#configuration).
 
 ### Parallelisation
 
