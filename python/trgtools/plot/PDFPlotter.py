@@ -200,3 +200,10 @@ class PDFPlotter:
         self._pdf.savefig()
         plt.close()
         return None
+
+    def close(self) -> None:
+        """
+        Close the PdfPages object.
+        """
+        self._pdf.close()
+        return
