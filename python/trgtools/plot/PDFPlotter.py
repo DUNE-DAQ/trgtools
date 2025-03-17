@@ -86,11 +86,6 @@ class PDFPlotter:
         """
         return self._pdf
 
-    def __del__(self):
-        """ Must close the PdfPages object before del. """
-        self._pdf.close()
-        return None
-
     def plot_histogram(
             self,
             data: np.ndarray,
