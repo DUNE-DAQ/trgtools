@@ -63,7 +63,7 @@ class TAFileHandler
     void wait_to_complete_work();
 
     /**
-     * @brief Retreives all the TAs with std::move operator
+     * @brief Retrieves all the TAs with std::move operator
      * 
      * @return a map of sourceID : TA
      */
