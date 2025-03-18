@@ -99,9 +99,6 @@ def plot_all_event_displays(tc_data: list[NDArray],
             yexpansion = yend * 0.05
             xexpansion = (channel_end - channel_start) * 0.05
 
-            plt.ylim(0 - xexpansion, yend + xexpansion)
-            plt.xlim(channel_start - yexpansion, channel_end + yexpansion)
-
             currentAxis = plt.gca()
             for tadx, ta in enumerate(tas):
                 rectangle = mtp.patches.Rectangle((ta['channel_start'], ta_times_starts[tadx]), ta['channel_end'] - ta['channel_start'],  ta_times_ends[tadx] - ta_times_starts[tadx], linewidth=1, edgecolor='r', facecolor='none')
@@ -115,8 +112,8 @@ def plot_all_event_displays(tc_data: list[NDArray],
             plt.title(f'Run {run_id}.{file_index:04} Event Display: {tcdx:03}')
             plt.ylabel(f"Relative Start Time ({time_unit})")
             plt.xlabel("Channel")
-            plt.ylim(0 - xexpansion, yend + xexpansion)
-            plt.xlim(channel_start - yexpansion, channel_end + yexpansion)
+            plt.ylim(0 - yexpansion, yend + yexpansion)
+            plt.xlim(channel_start - xexpansion, channel_end + xexpansion)
 
             plt.tight_layout()
             pdf.savefig()
