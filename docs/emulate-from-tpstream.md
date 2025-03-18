@@ -6,7 +6,8 @@ new HDF5 that includes TriggerActivities and TriggerCandidates.
 
 The primary use of this is to test TA algorithms, TC algorithms, and their
 configurations, with output diagnostics available from `ta_dump.py` and
-`tc_dump.py`.
+`tc_dump.py`. The full TC displays that include all TAs & TPs within those TAs
+can be made with the `plot_emulated_triggers.pd` script.
 
 The application understands that there might be multiple sources of trigger
 primitives, that different files might contain TPs from different sources
