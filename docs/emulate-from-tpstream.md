@@ -31,7 +31,7 @@ trgtools_emulate_from_tpstream -i input_file_APA*.hdf5 -o output_file.hdf5 -j al
 
 ### Algorithm Configuration
 
-An example `algo_config.json` file with an explenanation are provided [HERE](README.md#configuration).
+An example `algo_config.json` file with an explanation are provided [HERE](README.md#configuration).
 
 ### Parallelisation
 
