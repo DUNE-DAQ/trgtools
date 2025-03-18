@@ -135,7 +135,7 @@ SortFilesPerWriter(const std::vector<std::string>& _files)
 };
 
 /**
- * @brief Retreives the available slice ID range
+ * @brief Retrieves the available slice ID range
  *
  * Finds the overlap in the slice ID range between the provided files, and
  * returns that overlap as an available range -- or crashes if there is a file
