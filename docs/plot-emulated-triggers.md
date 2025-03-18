@@ -9,9 +9,9 @@ While running, this can print information about the file reading using `-v` (war
 ## Example
 
 ```bash
-python tc_dump.py file.hdf5
-python tc_dump.py file.hdf5 --overwrite
-python tc_dump.py file.hdf5 -v
-python tc_dump.py file.hdf5 -vv
-python tc_dump.py file.hdf5 --help
+python plot_emilated_triggers.py file.hdf5
+python plot_emilated_triggers.py file.hdf5 --overwrite
+python plot_emilated_triggers.py file.hdf5 -v
+python plot_emilated_triggers.py file.hdf5 -vv
+python plot_emilated_triggers.py file.hdf5 --help
 ```
