@@ -68,33 +68,6 @@ def parse():
 
     return parser.parse_args()
 
-def find_save_name(run_id: int, file_index: int, overwrite: bool) -> str:
-    """
-    Find a new save name or overwrite an existing one.
-
-    Parameters:
-        run_id (int): The run number for the read file.
-        file_index (int): The file index for the run number of the read file.
-        overwrite (bool): Overwrite the 0th plot directory of the same naming.
-
-    Returns:
-        (str): Save name to write as.
-
-    This is missing the file extension. It's the job of the save/write command
-    to append the extension.
-    """
-    # Try to find a new name.
-    name_iter = 0
-    save_name = f"tc_{run_id}-{file_index:04}_figures_{name_iter:04}"
-
-    # Outputs will always create a PDF, so use that as the comparison.
-    while not overwrite and os.path.exists(save_name + ".pdf"):
-        name_iter += 1
-        save_name = f"tc_{run_id}-{file_index:04}_figures_{name_iter:04}"
-    print(f"Saving outputs to ./{save_name}.*")
-
-    return save_name
-
 def plot_all_event_displays(tc_data: List[np.ndarray],
                             tc_data_tas: List[np.ndarray],
                             ta_data: List[np.ndarray],
@@ -174,11 +147,6 @@ def main():
     # Getting the tc data
     tc_reader = trgtools.TCReader(filename, verbosity, batch)
     tc_reader.read_all_fragments()
-
-    # Create the output file
-    save_name = find_save_name(tc_reader.run_id, tc_reader.file_index, overwrite)
-    pdf_plotter = PDFPlotter(f"{save_name}.pdf")
-    pdf = pdf_plotter.get_pdf()  # Needed for extra plots that are not general.
 
     # Make the displays
     plot_all_event_displays(tc_reader.tc_data, tc_reader.ta_data, ta_reader.ta_data, ta_reader.tp_data, tc_reader.run_id, tc_reader.file_index, batch)
