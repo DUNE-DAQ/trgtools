@@ -9,7 +9,7 @@ configurations, with output diagnostics available from `ta_dump.py` and
 `tc_dump.py`.
 
 The application understands that there might be multiple sources of trigger
-primitives, that differnet files will might contain TPs from different sources
+primitives, that different files might contain TPs from different sources
 (e.g. two APAs), or that different files might contain TPs from the same sources
 but across different time-periods (e.g. two consecutive files from the same
 APAs).
