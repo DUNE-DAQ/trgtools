@@ -30,7 +30,7 @@ class TAFileHandler
     /**
      * @brief Constructor, takes file input path & configuration
      * 
-     * Each TAFileHandler will crete its own thread, so all TAFileHandlers are
+     * Each TAFileHandler will create its own thread, so all TAFileHandlers are
      * run on separate threads
      * 
      * @param _input_files a vector of input HDF5 shared pointers to process
