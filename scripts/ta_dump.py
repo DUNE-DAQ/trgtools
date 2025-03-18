@@ -261,6 +261,11 @@ def parse():
         action="store_true",
         help="Overwrite old outputs. Default: False."
     )
+    parser.add_argument(
+        "--batch-mode", "-b",
+        action="store_true",
+        help="Do you want to run in the batch mode (without loading bars/tqdm)?"
+    )
 
     return parser.parse_args()
 
@@ -279,6 +284,7 @@ def main():
     no_anomaly = args.no_anomaly
     seconds = args.seconds
     overwrite = args.overwrite
+    batch_mode = args.batch_mode
 
     linear = args.linear
     log = args.log
@@ -288,7 +294,7 @@ def main():
         linear = True
         log = True
 
-    data = trgtools.TAReader(filename, verbosity)
+    data = trgtools.TAReader(filename, verbosity, batch_mode)
 
     # Check that there are TA fragments.
     if len(data.get_fragment_paths()) == 0:

@@ -15,21 +15,12 @@ import trgdataformats
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mtp
-import pandas as pd
-from matplotlib.collections import PatchCollection
 from matplotlib.backends.backend_pdf import PdfPages
 from scipy import stats
 from tqdm import tqdm
 
 import argparse
 import os
-
-ALGORITHM_LABELS = list(trgdataformats.TriggerCandidateData.Algorithm.__members__.keys())
-ALGORITHM_TICKS = [tp_alg.value for tp_alg in trgdataformats.TriggerCandidateData.Algorithm.__members__.values()]
-TYPE_LABELS = list(trgdataformats.TriggerCandidateData.Type.__members__.keys())
-TYPE_TICKS = [tp_type.value for tp_type in trgdataformats.TriggerCandidateData.Type.__members__.values()]
-
-TICK_TO_SEC_SCALE = 16e-9  # s per tick
 
 def parse():
     """
@@ -66,9 +57,13 @@ def parse():
     )
     parser.add_argument(
         "--overwrite",
-        type=bool,
+        action="store_true",
         help="Do you want to overwrite the output plot file, if already exists? (Default: False)",
-        default=False
+    )
+    parser.add_argument(
+        "--batch", "-b",
+        action="store_true",
+        help="Do you want to run in batch mode (e.g. without loading bars/tqdm)?"
     )
 
     return parser.parse_args()
@@ -105,7 +100,8 @@ def plot_all_event_displays(tc_data: List[np.ndarray],
                             ta_data: List[np.ndarray],
                             ta_data_tps: List[np.ndarray],
                             run_id: int,
-                            file_index: int) -> None:
+                            file_index: int,
+                            batch: bool) -> None:
     """
 
     Plots all the event displays, one per TC.
@@ -125,7 +121,7 @@ def plot_all_event_displays(tc_data: List[np.ndarray],
     time_unit = "Ticks"
 
     with PdfPages(f"event_displays_{run_id}.{file_index:04}.pdf") as pdf:
-        for tcdx, (tc, tas) in tqdm(enumerate(zip(tc_data, tc_data_tas)), total=len(tc_data), desc="Saving event displays"):
+        for tcdx, (tc, tas) in tqdm(enumerate(zip(tc_data, tc_data_tas)), total=len(tc_data), desc="Saving event displays", disable=batch):
             plt.figure(figsize=(6, 4))
 
             yend = tc["time_end"] - tc["time_start"]
@@ -169,13 +165,14 @@ def main():
     #start_frag = args.start_frag
     #end_frag = args.end_frag
     overwrite = args.overwrite
+    batch = args.batch
 
     # Getting the ta data
-    ta_reader = trgtools.TAReader(filename, verbosity)
+    ta_reader = trgtools.TAReader(filename, verbosity, batch)
     ta_reader.read_all_fragments()
 
     # Getting the tc data
-    tc_reader = trgtools.TCReader(filename, verbosity)
+    tc_reader = trgtools.TCReader(filename, verbosity, batch)
     tc_reader.read_all_fragments()
 
     # Create the output file
@@ -184,10 +181,10 @@ def main():
     pdf = pdf_plotter.get_pdf()  # Needed for extra plots that are not general.
 
     # Make the displays
-    plot_all_event_displays(tc_reader.tc_data, tc_reader.ta_data, ta_reader.ta_data, ta_reader.tp_data, tc_reader.run_id, tc_reader.file_index)
+    plot_all_event_displays(tc_reader.tc_data, tc_reader.ta_data, ta_reader.ta_data, ta_reader.tp_data, tc_reader.run_id, tc_reader.file_index, batch)
 
-    print(f"tc data: {tc_reader}: number of tcs: {len(tc_reader.tc_data)}, all the TAs in TCs: {len(tc_reader.ta_data)}")
-    print(f"ta data: {ta_reader} number of TAs using tp data: {len(ta_reader.tp_data)}")# and ta data: {ta_reader.ta_data}")
+    print(f"tc data: {tc_reader}: number of tcs: {len(tc_reader.tc_data)}, all the TAs in TCs: {len(np.concatenate(tc_reader.ta_data))}")
+    print(f"ta data: {ta_reader} number of TAs using tp data: {len(ta_reader.tp_data)}")
 
 if __name__ == "__main__":
     main()
