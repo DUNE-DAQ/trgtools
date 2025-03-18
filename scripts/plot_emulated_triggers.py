@@ -6,28 +6,24 @@ for a given tpstream file
 """
 
 import trgtools
-from trgtools.plot import PDFPlotter
 
-from typing import Dict, List
-
-import trgdataformats
+from typing import Any
+from numpy.typing import NDArray
 
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mtp
 from matplotlib.backends.backend_pdf import PdfPages
-from scipy import stats
 from tqdm import tqdm
 
 import argparse
-import os
 
-def parse():
+def parse() -> dict[str, Any]:
     """
     Parses CLI input arguments.
 
     Returns:
-        (Dict(str, Any)): A dictionary of argument names vs argument values
+        (dict[str, Any]): A dictionary of argument names vs argument values
     """
     parser = argparse.ArgumentParser(
         description="Display diagnostic information for TCs for a given HDF5 file."
@@ -56,11 +52,6 @@ def parse():
         default=0
     )
     parser.add_argument(
-        "--overwrite",
-        action="store_true",
-        help="Do you want to overwrite the output plot file, if already exists? (Default: False)",
-    )
-    parser.add_argument(
         "--batch", "-b",
         action="store_true",
         help="Do you want to run in batch mode (e.g. without loading bars/tqdm)?"
@@ -68,10 +59,10 @@ def parse():
 
     return parser.parse_args()
 
-def plot_all_event_displays(tc_data: List[np.ndarray],
-                            tc_data_tas: List[np.ndarray],
-                            ta_data: List[np.ndarray],
-                            ta_data_tps: List[np.ndarray],
+def plot_all_event_displays(tc_data: list[NDArray],
+                            tc_data_tas: list[NDArray],
+                            ta_data: list[NDArray],
+                            ta_data_tps: list[NDArray],
                             run_id: int,
                             file_index: int,
                             batch: bool) -> None:
@@ -83,10 +74,10 @@ def plot_all_event_displays(tc_data: List[np.ndarray],
     TriggerPrimitives (black points) for each TriggerActivity.
 
     Args:
-        tc_data (List[np.ndarray]): A list of TriggerCandidates
-        tc_data_tas (List[np.ndarray]): A list of TriggerActivityData per TriggerCandidate
-        ta_data (List[np.ndarray]): A full list of TriggerActivities
-        ta_data_tps (List[np.ndarray]): A list of TriggerPrimitives per TriggerActivity
+        tc_data (list[NDArray]): A list of TriggerCandidates
+        tc_data_tas (list[NDArray]): A list of TriggerActivityData per TriggerCandidate
+        ta_data (list[NDArray]): A full list of TriggerActivities
+        ta_data_tps (list[NDArray]): A list of TriggerPrimitives per TriggerActivity
         run_id (int): Run ID number
         file_index (int): File index
     """
@@ -121,7 +112,7 @@ def plot_all_event_displays(tc_data: List[np.ndarray],
                         time_starts = ta_data_tps[tatmpdx]['time_start'] - tc["time_start"]
                         plt.scatter(ta_data_tps[tatmpdx]['channel'], time_starts, lw=0, color='black', marker=',', s=1)
 
-            plt.title(f'Run {run_id}.{file_index:04} Event Display: {tadx:03}')
+            plt.title(f'Run {run_id}.{file_index:04} Event Display: {tcdx:03}')
             plt.ylabel(f"Relative Start Time ({time_unit})")
             plt.xlabel("Channel")
             plt.ylim(0 - xexpansion, yend + xexpansion)
@@ -137,7 +128,6 @@ def main():
     verbosity = args.verbose
     #start_frag = args.start_frag
     #end_frag = args.end_frag
-    overwrite = args.overwrite
     batch = args.batch
 
     # Getting the ta data
