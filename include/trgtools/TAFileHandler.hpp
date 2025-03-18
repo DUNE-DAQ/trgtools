@@ -2,7 +2,6 @@
 #define TRGTOOLS_TAFILEHANDLER_HPP_
 
 #include "trgtools/EmulateTAUnit.hpp"
-#include "trgtools/EmulateTCUnit.hpp"
 
 #include "CLI/App.hpp"
 #include "CLI/Config.hpp"
@@ -16,10 +15,7 @@
 #include "hdf5libs/HDF5RawDataFile.hpp"
 #include "trgdataformats/TriggerPrimitive.hpp"
 #include "triggeralgs/TriggerActivityFactory.hpp"
-#include "triggeralgs/TriggerCandidateFactory.hpp"
 #include "triggeralgs/TriggerObjectOverlay.hpp"
-#include "detchannelmaps/TPCChannelMap.hpp"
-
 
 namespace dunedaq::trgtools 
 {

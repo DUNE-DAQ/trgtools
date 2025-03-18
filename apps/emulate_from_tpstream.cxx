@@ -1,4 +1,3 @@
-#include "trgtools/EmulateTAUnit.hpp"
 #include "trgtools/EmulateTCUnit.hpp"
 #include "trgtools/TAFileHandler.hpp"
 
@@ -14,11 +13,7 @@
 #include "hdf5libs/HDF5RawDataFile.hpp"
 #include "hdf5libs/HDF5SourceIDHandler.hpp"
 
-#include "trgdataformats/TriggerPrimitive.hpp"
-#include "triggeralgs/TriggerActivityFactory.hpp"
 #include "triggeralgs/TriggerCandidateFactory.hpp"
-#include "triggeralgs/TriggerObjectOverlay.hpp"
-#include "detchannelmaps/TPCChannelMap.hpp"
 
 //-----------------------------------------------------------------------------
 
