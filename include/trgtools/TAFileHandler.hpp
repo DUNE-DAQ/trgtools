@@ -71,7 +71,7 @@ class TAFileHandler
     get_tas();
 
     /**
-     * @brief Retreives all the unique pointers to the TA fragments
+     * @brief Retrieves all the unique pointers to the TA fragments
      * 
      * @return A map of sourceID : TA fragment
      */
