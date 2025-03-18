@@ -183,8 +183,8 @@ def main():
     # Make the displays
     plot_all_event_displays(tc_reader.tc_data, tc_reader.ta_data, ta_reader.ta_data, ta_reader.tp_data, tc_reader.run_id, tc_reader.file_index, batch)
 
-    print(f"tc data: {tc_reader}: number of tcs: {len(tc_reader.tc_data)}, all the TAs in TCs: {len(np.concatenate(tc_reader.ta_data))}")
-    print(f"ta data: {ta_reader} number of TAs using tp data: {len(ta_reader.tp_data)}")
+    print(f"From TCReader: number of TCs: {len(tc_reader.tc_data)}, all the TAs in TCs: {len(np.concatenate(tc_reader.ta_data))}")
+    print(f"From TAReader: number of TAs: {len(ta_reader.tp_data)}")
 
 if __name__ == "__main__":
     main()
