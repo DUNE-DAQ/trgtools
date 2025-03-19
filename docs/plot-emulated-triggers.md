@@ -9,8 +9,8 @@ While running, this can print information about the file reading using `-v` (war
 ## Example
 
 ```bash
-python plot_emilated_triggers.py file.hdf5
-python plot_emilated_triggers.py file.hdf5 -v
-python plot_emilated_triggers.py file.hdf5 -vv
-python plot_emilated_triggers.py file.hdf5 --help
+python plot_emulated_triggers.py file.hdf5
+python plot_emulated_triggers.py file.hdf5 -v
+python plot_emulated_triggers.py file.hdf5 -vv
+python plot_emulated_triggers.py file.hdf5 --help
 ```
