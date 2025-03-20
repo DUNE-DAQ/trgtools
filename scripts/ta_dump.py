@@ -544,6 +544,7 @@ def main():
     ta_count = np.arange(len(time_peak))
     pdf_plotter.plot_errorbar(ta_count, time_peak, time_spans_dict)
     # ===========================
+    pdf_plotter.close()
 
     if not no_displays:
         plot_all_event_displays(data.tp_data, data.run_id, data.file_index, seconds)
