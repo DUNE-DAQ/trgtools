@@ -30,8 +30,8 @@ class TPReader(HDF5Reader):
                       ('channel', np.uint32),
                       ('detid', np.uint8),
                       ('flag', np.uint8),
-                      ('time_peak', np.uint16),
                       ('samples_over_threshold', np.uint16),
+                      ('samples_to_peak', np.uint16),
                       ('time_start', np.uint64),
                       ('version', np.uint8)
                      ])
@@ -113,8 +113,8 @@ class TPReader(HDF5Reader):
                                     tp_datum.channel,
                                     tp_datum.detid,
                                     tp_datum.flag,
-                                    tp_datum.time_peak,
                                     tp_datum.samples_over_threshold,
+                                    tp_datum.samples_to_peak,
                                     tp_datum.time_start,
                                     tp_datum.version)],
                                     dtype=self.tp_dt)

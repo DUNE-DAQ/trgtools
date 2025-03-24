@@ -353,8 +353,8 @@ def main():
                 'log': log,
                 'log_style': dict(color='#EE442F', alpha=0.6, label='Log')
             },
-            'time_peak': {
-                'title': "Relative Time Peak Histogram",
+            'samples_to_peak': {
+                'title': "Samples To Peak Histogram",
                 'xlabel': time_label,
                 'ylabel': "Count",
                 'linear': linear,
