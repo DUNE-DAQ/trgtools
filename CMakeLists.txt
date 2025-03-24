@@ -50,6 +50,7 @@ daq_add_python_bindings(*.cpp LINK_LIBRARIES ${PROJECT_NAME} ) # Any additional 
 daq_add_application(trgtools_tapipe tapipe.cxx LINK_LIBRARIES ${PROJECT_NAME})
 daq_add_application(trgtools_copy_tpstream copy_tpstream.cxx LINK_LIBRARIES ${PROJECT_NAME})
 daq_add_application(trgtools_process_tpstream process_tpstream.cxx LINK_LIBRARIES ${PROJECT_NAME})
+daq_add_application(trgtools_emulate_from_tpstream emulate_from_tpstream.cxx LINK_LIBRARIES ${PROJECT_NAME})
 
 ##############################################################################
 
