@@ -175,7 +175,7 @@ void TAFileHandler::process_tasks()
         for(size_t tpid(0); tpid<n_tps; ++tpid) {
           auto& tp = tp_array[tpid];
           if (tp.time_start <= last_ts && !m_quiet) {
-            fmt::print("  ERROR: {} {} ", tp.time_start, last_ts );
+            fmt::print("  ERROR: {} {} ", +tp.time_start, last_ts );
           }
           tp_buffer.push_back(tp);
         }
