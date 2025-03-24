@@ -229,6 +229,11 @@ def parse():
         action="store_true",
         help="Overwrite old outputs. Default: False."
     )
+    parser.add_argument(
+        "--batch-mode", "-b",
+        action="store_true",
+        help="Do you want to run in batch mode (without loading bars/tqdm)?"
+    )
 
     return parser.parse_args()
 
@@ -246,6 +251,7 @@ def main():
     no_anomaly = args.no_anomaly
     seconds = args.seconds
     overwrite = args.overwrite
+    batch_mode = args.batch_mode
 
     linear = args.linear
     log = args.log
@@ -255,7 +261,7 @@ def main():
         linear = True
         log = True
 
-    data = trgtools.TPReader(filename, verbosity)
+    data = trgtools.TPReader(filename, verbosity, batch_mode)
 
     # Check that there are TP fragments.
     if len(data.get_fragment_paths()) == 0:
@@ -410,6 +416,7 @@ def main():
     # ==== ADC Integral vs ADC Peak ====
     plot_pdf_adc_integral_vs_peak(data.tp_data, pdf, verbosity)
     # ===================================
+    pdf_plotter.close()
 
     return None
 

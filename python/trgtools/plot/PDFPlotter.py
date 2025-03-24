@@ -86,11 +86,6 @@ class PDFPlotter:
         """
         return self._pdf
 
-    def __del__(self):
-        """ Must close the PdfPages object before del. """
-        self._pdf.close()
-        return None
-
     def plot_histogram(
             self,
             data: np.ndarray,
@@ -205,3 +200,10 @@ class PDFPlotter:
         self._pdf.savefig()
         plt.close()
         return None
+
+    def close(self) -> None:
+        """
+        Close the PdfPages object.
+        """
+        self._pdf.close()
+        return

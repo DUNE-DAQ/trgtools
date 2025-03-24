@@ -255,6 +255,11 @@ def parse():
         action="store_true",
         help="Overwrite old outputs. Default: False."
     )
+    parser.add_argument(
+        "--batch_mode", "-b",
+        action="store_true",
+        help="Do you want to run in batch mode (without loading bars/tqdm)?"
+    )
 
     return parser.parse_args()
 
@@ -272,6 +277,7 @@ def main():
     no_anomaly = args.no_anomaly
     seconds = args.seconds
     overwrite = args.overwrite
+    batch_mode = args.batch_mode
 
     linear = args.linear
     log = args.log
@@ -281,7 +287,7 @@ def main():
         linear = True
         log = True
 
-    data = trgtools.TCReader(filename, verbosity)
+    data = trgtools.TCReader(filename, verbosity, batch_mode)
 
     # Check that there are TC fragments.
     if len(data.get_fragment_paths()) == 0:
@@ -519,6 +525,7 @@ def main():
     tc_count = np.arange(len(time_candidate))
     pdf_plotter.plot_errorbar(tc_count, time_candidate, time_spans_dict)
     # ===========================
+    pdf_plotter.close()
 
     return None
 

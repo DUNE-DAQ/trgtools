@@ -54,7 +54,7 @@ class TAReader(HDF5Reader):
                       ('version', np.uint8)
                      ])
 
-    def __init__(self, filename: str, verbosity: int = 0) -> None:
+    def __init__(self, filename: str, verbosity: int = 0, batch_mode: bool = False) -> None:
         """
         Loads a given HDF5 file.
 
@@ -64,7 +64,7 @@ class TAReader(HDF5Reader):
 
         Returns nothing.
         """
-        super().__init__(filename, verbosity)
+        super().__init__(filename, verbosity, batch_mode)
         self.ta_data = np.array([], dtype=self.ta_dt)
         self.tp_data = []
         return None

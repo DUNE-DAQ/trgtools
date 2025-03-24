@@ -2,6 +2,7 @@
 Generic HDF5Reader class to read and store data.
 """
 from hdf5libs import HDF5RawDataFile
+from tqdm import tqdm 
 
 import abc
 
@@ -21,7 +22,7 @@ class HDF5Reader(abc.ABC):
     _END_TEXT_COLOR = '\033[0m'
 
 
-    def __init__(self, filename: str, verbosity: int = 0) -> None:
+    def __init__(self, filename: str, verbosity: int = 0, batch_mode: bool = False) -> None:
         """
         Loads a given HDF5 file.
 
@@ -42,6 +43,8 @@ class HDF5Reader(abc.ABC):
         self._filter_fragment_paths()  # Derived class must define this.
 
         self._num_empty = 0  # Counts the number of empty fragments.
+
+        self._batch_mode = batch_mode
 
         return None
 
@@ -71,7 +74,7 @@ class HDF5Reader(abc.ABC):
 
     def read_all_fragments(self) -> None:
         """ Read all fragments. """
-        for fragment_path in self._fragment_paths:
+        for fragment_path in tqdm(self._fragment_paths, desc='Reading all the fragments', disable=self._batch_mode):
             _ = self.read_fragment(fragment_path)
 
         # self.read_fragment should increment self._num_empty.
