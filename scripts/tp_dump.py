@@ -48,7 +48,7 @@ def find_save_name(run_id: int, file_index: int, overwrite: bool) -> str:
     return save_name
 
 
-def plot_pdf_tot_vs_channel(tp_data: np.ndarray, pdf: PdfPages) -> None:
+def plot_pdf_sot_vs_channel(tp_data: np.ndarray, pdf: PdfPages) -> None:
     """
     Plot the TP channel vs time over threshold scatter plot.
 
@@ -63,11 +63,11 @@ def plot_pdf_tot_vs_channel(tp_data: np.ndarray, pdf: PdfPages) -> None:
     """
     plt.figure(figsize=(6, 4), dpi=200)
 
-    plt.plot(tp_data['channel'], tp_data['time_over_threshold'], 'hk', mew=0, alpha=0.4, ms=2, label='TP', rasterized=True)
+    plt.plot(tp_data['channel'], tp_data['samples_over_threshold'], 'hk', mew=0, alpha=0.4, ms=2, label='TP', rasterized=True)
 
-    plt.title("TP Time Over Threshold vs Channel")
+    plt.title("TP Samples Over Threshold vs Channel")
     plt.xlabel("Channel")
-    plt.ylabel("Time Over Threshold (Ticks)")
+    plt.ylabel("Samples Over Threshold (Readout Ticks)")
     plt.legend()
 
     plt.tight_layout()
@@ -344,8 +344,8 @@ def main():
                 'log_style': dict(color='#EE442F', alpha=0.6, label='Log'),
                 'use_integer_xticks': True
             },
-            'time_over_threshold': {
-                'title': "Time Over Threshold Histogram",
+            'samples_over_threshold': {
+                'title': "Samples Over Threshold Histogram",
                 'xlabel': time_label,
                 'ylabel': "Count",
                 'linear': linear,
@@ -404,7 +404,7 @@ def main():
     pdf = pdf_plotter.get_pdf()
     # Analysis plots
     # ==== Time Over Threshold vs Channel ====
-    plot_pdf_tot_vs_channel(data.tp_data, pdf)
+    plot_pdf_sot_vs_channel(data.tp_data, pdf)
     # ========================================
 
     # ==== ADC Integral vs ADC Peak ====
