@@ -120,7 +120,12 @@ def plot_pdf_time_delta_histograms(
     last_tp_peak_diff = []
     for idx, tp in enumerate(tp_data):
         last_tp_start_diff.append(np.max(tp['time_start']) - ta_data[idx]['time_start'])
-        last_tp_peak_diff.append(np.max(tp['time_peak']) - ta_data[idx]['time_start'])
+        max_peak_arg = np.argmax(tp['samples_to_peak'])
+
+        # FIXME: Replace the hard-coded SOT to TOT scaling.
+        max_peak_time = tp[max_peak_arg]['samples_to_peak'].astype(np.uint64) * 32 + tp[max_peak_arg]['time_start']
+
+        last_tp_peak_diff.append(max_peak_time +  - ta_data[idx]['time_start'])
 
     last_tp_start_diff = np.array(last_tp_start_diff)
     last_tp_peak_diff = np.array(last_tp_peak_diff)

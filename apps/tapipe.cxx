@@ -208,7 +208,7 @@ main(int argc, char* argv[])
   for(size_t i(0); i<n_tps; ++i) {
     auto& tp = tp_array[i];
     if (tp.time_start <= last_ts) {
-      fmt::print("ERROR: {} {} ", tp.time_start, last_ts );
+      fmt::print("ERROR: {} {} ", +tp.time_start, last_ts );
     }
     tp_buffer.push_back(tp);
   }

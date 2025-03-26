@@ -17,11 +17,6 @@ import os
 import argparse
 
 
-ALGORITHM_LABELS = list(trgdataformats.TriggerPrimitive.Algorithm.__members__.keys())
-ALGORITHM_TICKS = [tp_alg.value for tp_alg in trgdataformats.TriggerPrimitive.Algorithm.__members__.values()]
-TYPE_LABELS = list(trgdataformats.TriggerPrimitive.Type.__members__.keys())
-TYPE_TICKS = [tp_type.value for tp_type in trgdataformats.TriggerPrimitive.Type.__members__.values()]
-
 TICK_TO_SEC_SCALE = 16e-9  # s per tick
 
 
@@ -53,7 +48,7 @@ def find_save_name(run_id: int, file_index: int, overwrite: bool) -> str:
     return save_name
 
 
-def plot_pdf_tot_vs_channel(tp_data: np.ndarray, pdf: PdfPages) -> None:
+def plot_pdf_sot_vs_channel(tp_data: np.ndarray, pdf: PdfPages) -> None:
     """
     Plot the TP channel vs time over threshold scatter plot.
 
@@ -68,11 +63,11 @@ def plot_pdf_tot_vs_channel(tp_data: np.ndarray, pdf: PdfPages) -> None:
     """
     plt.figure(figsize=(6, 4), dpi=200)
 
-    plt.plot(tp_data['channel'], tp_data['time_over_threshold'], 'hk', mew=0, alpha=0.4, ms=2, label='TP', rasterized=True)
+    plt.plot(tp_data['channel'], tp_data['samples_over_threshold'], 'hk', mew=0, alpha=0.4, ms=2, label='TP', rasterized=True)
 
-    plt.title("TP Time Over Threshold vs Channel")
+    plt.title("TP Samples Over Threshold vs Channel")
     plt.xlabel("Channel")
-    plt.ylabel("Time Over Threshold (Ticks)")
+    plt.ylabel("Samples Over Threshold (Readout Ticks)")
     plt.legend()
 
     plt.tight_layout()
@@ -322,22 +317,6 @@ def main():
                 'log': log,
                 'log_style': dict(color='#EE442F', alpha=0.6, label='Log')
             },
-            'algorithm': {
-                'bins': np.sort(np.array([(tick-0.45, tick+0.45) for tick in ALGORITHM_TICKS]).flatten()),
-                'title': "Algorithm Histogram",
-                'xlabel': 'Algorithm Type',
-                'ylabel': "Count",
-                'linear': True,  # TODO: Hard set for now
-                'linear_style': dict(color='k'),
-                'log': False,
-                'xticks': {
-                        'labels': ALGORITHM_LABELS,
-                        'ticks': ALGORITHM_TICKS,
-                        'fontsize': 6,
-                        'rotation': 60,
-                        'ha': 'right'  # Horizontal alignment
-                    }
-            },
             # TODO: Channel should bin on the available
             # channels; however, this is inconsistent
             # between detectors (APA/CRP).
@@ -371,8 +350,8 @@ def main():
                 'log_style': dict(color='#EE442F', alpha=0.6, label='Log'),
                 'use_integer_xticks': True
             },
-            'time_over_threshold': {
-                'title': "Time Over Threshold Histogram",
+            'samples_over_threshold': {
+                'title': "Samples Over Threshold Histogram",
                 'xlabel': time_label,
                 'ylabel': "Count",
                 'linear': linear,
@@ -380,8 +359,8 @@ def main():
                 'log': log,
                 'log_style': dict(color='#EE442F', alpha=0.6, label='Log')
             },
-            'time_peak': {
-                'title': "Relative Time Peak Histogram",
+            'samples_to_peak': {
+                'title': "Samples To Peak Histogram",
                 'xlabel': time_label,
                 'ylabel': "Count",
                 'linear': linear,
@@ -397,22 +376,6 @@ def main():
                 'linear_style': dict(color='#63ACBE', alpha=0.6, label='Linear'),
                 'log': log,
                 'log_style': dict(color='#EE442F', alpha=0.6, label='Log')
-            },
-            'type': {
-                'bins': np.sort(np.array([(tick-0.45, tick+0.45) for tick in TYPE_TICKS]).flatten()),
-                'title': "Type Histogram",
-                'xlabel': "Type",
-                'ylabel': "Count",
-                'linear': True,  # TODO: Hard set for now
-                'linear_style': dict(color='k'),
-                'log': False,
-                'xticks': {
-                        'labels': TYPE_LABELS,
-                        'ticks': TYPE_TICKS,
-                        'fontsize': 6,
-                        'rotation': 60,
-                        'ha': 'right'  # Horizontal alignment
-                    }
             },
             'version': {
                 'title': "Version Histogram",
@@ -440,14 +403,6 @@ def main():
                 write_summary_stats(time - min_time, anomaly_filename, tp_key)
             continue
 
-        if tp_key == 'algorithm' or tp_key == 'type':  # Special case.
-            plot_data = np.array([datum.value for datum in data.tp_data[tp_key]], dtype=int)
-            pdf_plotter.plot_histogram(plot_data, plot_hist_dict[tp_key])
-            if not no_anomaly:
-                write_summary_stats(plot_data, anomaly_filename, tp_key)
-            del plot_data
-            continue
-
         pdf_plotter.plot_histogram(data.tp_data[tp_key], plot_hist_dict[tp_key])
         if not no_anomaly:
             write_summary_stats(data.tp_data[tp_key], anomaly_filename, tp_key)
@@ -455,7 +410,7 @@ def main():
     pdf = pdf_plotter.get_pdf()
     # Analysis plots
     # ==== Time Over Threshold vs Channel ====
-    plot_pdf_tot_vs_channel(data.tp_data, pdf)
+    plot_pdf_sot_vs_channel(data.tp_data, pdf)
     # ========================================
 
     # ==== ADC Integral vs ADC Peak ====
