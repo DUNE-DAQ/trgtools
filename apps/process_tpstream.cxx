@@ -185,7 +185,7 @@ int main(int argc, char const *argv[])
   // TP source id (subsystem)
   auto tp_subsystem_requirement = daqdataformats::SourceID::Subsystem::kTrigger;
 
-  auto channel_map = dunedaq::detchannelmaps::make_map(channel_map_name);
+  auto channel_map = dunedaq::detchannelmaps::make_tpc_map(channel_map_name);
 
   // Read configuration
   std::ifstream config_stream(config_name);
