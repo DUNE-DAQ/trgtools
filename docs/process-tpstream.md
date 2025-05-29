@@ -14,4 +14,4 @@ In the second case, the default map will be `VDColdboxTPCChannelMap`. The `DUNE-
 
 ## Algorithm Configuration
 
-An example `algo_config.json` file with an explenanation is provided [HERE](README.md#configuration).
+An example `algo_config.json` file with an explanation is provided [HERE](README.md#configuration).
