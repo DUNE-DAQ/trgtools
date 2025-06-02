@@ -160,7 +160,7 @@ int main(int argc, char const *argv[])
   app.add_option("-i", input_file_path, "Input TPStream file path")->required();
   std::string output_file_path;
   app.add_option("-o", output_file_path, "Output TPStream file path");
-  std::string channel_map_name = "VDColdboxChannelMap";
+  std::string channel_map_name = "VDColdboxTPCChannelMap";
   app.add_option("-m", channel_map_name, "Detector Channel Map");
   std::string config_name;
   app.add_option("-j", config_name, "Trigger Activity and Candidate config JSON to use.")->required();
@@ -185,7 +185,7 @@ int main(int argc, char const *argv[])
   // TP source id (subsystem)
   auto tp_subsystem_requirement = daqdataformats::SourceID::Subsystem::kTrigger;
 
-  auto channel_map = dunedaq::detchannelmaps::make_map(channel_map_name);
+  auto channel_map = dunedaq::detchannelmaps::make_tpc_map(channel_map_name);
 
   // Read configuration
   std::ifstream config_stream(config_name);
