@@ -1,4 +1,4 @@
-# Emulate from TPG from raw ADCs
+# Emulate TPG from raw ADCs
 
 `tpg_emulator.cxx` (and the application `trgtools_tpg_emulator`)
 processes trigger records from HDF5 files that contain raw ADCs inside WIB frames, 
@@ -12,7 +12,7 @@ can be used as input to the `trgtools_emulate_from_tpstream` application.
 
 ```bash
 RAW=np04hd_raw_run026300_0050_dataflow0_datawriter_0_20240520T093907.hdf5
-trgtools_tpg_emulator -i $RAW -o output_file.hdf5 -j ../tpg_config.json
+trgtools_tpg_emulator -i $RAW -o output_file.hdf5 -j tpg_config.json
 ```
 
 ### TPG Algorithm Configuration
@@ -26,16 +26,7 @@ An example `tpg_config.json` file includes the following items:.
       "AVXFrugalPedestalSubtractProcessor":
       {
         "accum_limit" : 10,
-        "pedestals" : [
-          16383, 16383, 16383, 16383, 16383, 16383, 16383, 16383,
-          16383, 16383, 16383, 16383, 16383, 16383, 16383, 16383,
-          16383, 16383, 16383, 16383, 16383, 16383, 16383, 16383,
-          16383, 16383, 16383, 16383, 16383, 16383, 16383, 16383,
-          16383, 16383, 16383, 16383, 16383, 16383, 16383, 16383,
-          16383, 16383, 16383, 16383, 16383, 16383, 16383, 16383,
-          16383, 16383, 16383, 16383, 16383, 16383, 16383, 16383,
-          16383, 16383, 16383, 16383, 16383, 16383, 16383, 16383
-        ]
+        "pedestals" : []
       },
       "AVXThresholdProcessor":
       {
