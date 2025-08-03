@@ -10,6 +10,34 @@
 
 #include "trgdataformats/TriggerPrimitive.hpp"
 
+/// TODO: move to 
+/// triggeralgs/include/triggeralgs/TriggerObjectOverlay.hpp
+namespace triggeralgs {
+template<class T>
+struct TypeToOverlayType;
+
+template<>
+struct TypeToOverlayType<TriggerPrimitive>
+{
+  using overlay_t = dunedaq::trgdataformats::TriggerPrimitive;
+};
+
+template<class Object, class Overlay = typename TypeToOverlayType<Object>::overlay_t>
+size_t
+get_overlay_nbytes_tp(const Object& object)
+{
+  return sizeof(Overlay);
+}
+
+template<class Object, class Overlay = typename TypeToOverlayType<Object>::overlay_t>
+void
+write_overlay_tp(const Object& object, void* buffer)
+{
+  Overlay* overlay = reinterpret_cast<Overlay*>(buffer);
+}
+}
+
+
 namespace dunedaq {
 namespace trgtools {
 
@@ -104,6 +132,52 @@ EmulationUnit<T, U, V>::emulate_vector(const std::vector<T>& inputs) {
 }
 
 template <typename T, typename U, typename V>
+std::unique_ptr<daqdataformats::Fragment>
+EmulationUnit<T, U, V>::emulate_vector_raw(const std::vector<T>& inputs) {
+  // Create the output.
+  std::vector<U> output_buffer;
+  std::vector<U> temp_buffer;
+
+  for (const T& input : inputs) {
+
+    size_t output_buffer_size = output_buffer.size();
+    uint64_t time_diff = emulate_raw(input, temp_buffer);
+    if (temp_buffer.size() != 0) {
+      output_buffer.insert(output_buffer.end(), temp_buffer.begin(), temp_buffer.end());
+      temp_buffer.clear();
+    }
+
+  }
+
+  // Get the size to save on.
+  size_t payload_size(0);
+  for (const U& output : output_buffer) {
+    payload_size += triggeralgs::get_overlay_nbytes_tp(output);
+  }
+
+  // Awkward type conversion to avoid compiler complaints on void* arithmetic.
+  char* payload = static_cast<char*>(malloc(payload_size));
+  size_t payload_offset(0);
+  for (const U& output : output_buffer) {
+    triggeralgs::write_overlay_tp(output, static_cast<void*>(payload + payload_offset));
+    payload_offset += triggeralgs::get_overlay_nbytes_tp(output);
+  }
+
+  // Hand it to a fragment,
+  std::unique_ptr<daqdataformats::Fragment> frag
+    = std::make_unique<daqdataformats::Fragment>(static_cast<void*>(payload), payload_size);
+  // And release it.
+  free(static_cast<void*>(payload));
+
+  m_last_output_buffer = output_buffer;
+ 
+  //std::unique_ptr<daqdataformats::Fragment> frag = nullptr;
+  return frag;
+}
+
+
+
+template <typename T, typename U, typename V>
 uint64_t
 EmulationUnit<T, U, V>::emulate(const T& input, std::vector<U>& outputs) {
   auto time_start = std::chrono::steady_clock::now();
@@ -112,6 +186,20 @@ EmulationUnit<T, U, V>::emulate(const T& input, std::vector<U>& outputs) {
 
   uint64_t time_diff = std::chrono::nanoseconds(time_end - time_start).count();
   return time_diff;
+}
+
+template <typename T, typename U, typename V>
+uint64_t
+EmulationUnit<T, U, V>::emulate_raw(const T& input, std::vector<U>& outputs) {
+  outputs = (*m_maker)(input);
+
+  /* 
+  for (const auto& output : outputs) { 
+    std::cout << output.channel << "," << output.time_start << "," << output.samples_over_threshold << "," << output.samples_to_peak << "," << output.adc_peak << "," << output.adc_integral << "," << output.detid << "\n"; 
+  }
+  */
+
+  return 0;
 }
 
 template <typename T, typename U, typename V>

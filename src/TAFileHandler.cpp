@@ -306,7 +306,6 @@ std::map<uint64_t, std::vector<std::unique_ptr<daqdataformats::Fragment>>> TAFil
   return std::move(m_ta_fragments);
 }
 
-
 }; // namespace dunedaq::trgtools
 
 #endif //TRGTOOLS_TAFILEHANDLER_CXX_

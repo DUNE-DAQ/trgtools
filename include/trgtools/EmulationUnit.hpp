@@ -37,7 +37,9 @@ class EmulationUnit
 
   public:
     uint64_t emulate(const input_t& input, std::vector<output_t>& outputs);
+    uint64_t emulate_raw(const input_t& input, std::vector<output_t>& outputs);
     std::unique_ptr<daqdataformats::Fragment> emulate_vector(const std::vector<input_t>& inputs);
+    std::unique_ptr<daqdataformats::Fragment> emulate_vector_raw(const std::vector<input_t>& inputs);
     std::vector<output_t> get_last_output_buffer();
     void set_maker(std::unique_ptr<maker_t>& maker) { m_maker = std::move(maker); }
     void set_timing_file(const std::string& file_name) { m_timing_file_name = file_name; }

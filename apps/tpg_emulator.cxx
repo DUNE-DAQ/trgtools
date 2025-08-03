@@ -1,12 +1,5 @@
-/**
- * @file tapipe.cxx
- *
- * Developer(s) of this DAQ application have yet to replace this line with a brief description of the application.
- *
- * This is part of the DUNE DAQ Application Framework, copyright 2020.
- * Licensing/copyright details are in the COPYING file that you should have
- * received with this code.
- */
+#include "trgtools/EmulateTCUnit.hpp"
+#include "trgtools/TPFileHandler.hpp"
 
 #include "CLI/App.hpp"
 #include "CLI/Config.hpp"
@@ -14,178 +7,337 @@
 
 #include <fmt/core.h>
 #include <fmt/format.h>
+#include <fmt/chrono.h>
+#include <filesystem>
 
 #include "hdf5libs/HDF5RawDataFile.hpp"
-#include "detchannelmaps/TPCChannelMap.hpp"
+#include "hdf5libs/HDF5SourceIDHandler.hpp"
 
-#include "fdreadoutlibs/DUNEWIBEthTypeAdapter.hpp"
-#include "fddetdataformats/WIBEthFrame.hpp"
-#include "trgdataformats/TriggerPrimitive.hpp"
-#include "tpglibs/TPGenerator.hpp"
+#include "triggeralgs/TriggerCandidateFactory.hpp"
 
+//#include "fdreadoutlibs/DUNEWIBEthTypeAdapter.hpp"
+
+//-----------------------------------------------------------------------------
 
 using namespace dunedaq;
+using namespace trgtools;
 
-void tpgemu_config(auto& frag_ptr, auto& info, bool& verbose) 
+/**
+ * @brief Saves fragments in timeslice format into output HDF5 file
+ *
+ * @param _outputfilename Name of the hdf5 file to save the output into
+ * @param _sourceid_geoid_map sourceid--geoid map required to create a HDF5 file
+ * @param _frags Map of fragments, with a vector of fragment pointers for each slice id
+ * @param _quiet Do we want to quiet down the cout?
+ */
+void SaveFragments(const std::string& _outputfilename,
+                   const hdf5libs::HDF5SourceIDHandler::source_id_geo_id_map_t& _sourceid_geoid_map,
+                   std::map<uint64_t, std::vector<std::unique_ptr<daqdataformats::Fragment>>> _frags,
+                   bool _quiet)
 {
-  dunedaq::fddetdataformats::WIBEthFrame* fr =
-    reinterpret_cast<dunedaq::fddetdataformats::WIBEthFrame*>(
-    static_cast<char*>(frag_ptr->get_data()));
+  // Create layout parameter object required for HDF5 creation
+  hdf5libs::HDF5FileLayoutParameters layout_params;
 
-  info.m_det_id = fr->daq_header.det_id;
-  info.m_crate_id  = fr->daq_header.crate_id;
-  info.m_slot_id   = fr->daq_header.slot_id;
-  info.m_stream_id =  fr->daq_header.stream_id;
-}
+  // Create HDF5 parameter path required for the layout
+  hdf5libs::HDF5PathParameters params_trigger;
+  params_trigger.detector_group_type = "Detector_Readout";
+  /// @todo Maybe in the future we will want to emulate PDS TPs. 
+  params_trigger.detector_group_name = "TPC";
+  params_trigger.element_name_prefix = "Link";
+  params_trigger.digits_for_element_number = 5;
 
-void tpgemu_process(auto& frag_ptr, auto& info, 
-		    auto& m_channel_map, auto& m_tpg_configs, 
-		    bool& verbose)
-{
-  int16_t num_frames = frag_ptr->get_data_size() / sizeof(dunedaq::fddetdataformats::WIBEthFrame);
+  // Fill the HDF5 layout
+  std::vector<hdf5libs::HDF5PathParameters> params;
+  params.push_back(params_trigger);
+  layout_params.record_name_prefix = "TimeSlice";
+  layout_params.digits_for_record_number = 6;
+  layout_params.digits_for_sequence_number = 0;
+  layout_params.record_header_dataset_name = "TimeSliceHeader";
+  layout_params.raw_data_group_name = "RawData";
+  layout_params.view_group_name = "Views";
+  layout_params.path_params_list = {params};
 
-  auto fp_first_frame = reinterpret_cast<dunedaq::fdreadoutlibs::types::DUNEWIBEthTypeAdapter*>(
-                        static_cast<char*>(frag_ptr->get_data()));
+  // Create pointer to a new output HDF5 file
+  std::unique_ptr<hdf5libs::HDF5RawDataFile> output_file = std::make_unique<hdf5libs::HDF5RawDataFile>(
+      _outputfilename + ".hdf5",
+      _frags.begin()->second[0]->get_run_number(),
+      0,
+      "emulate_from_raw_adcs",
+      layout_params,
+      _sourceid_geoid_map);
 
+  // Iterate over the time slices & save all the fragments
+  for (auto& [slice_id, vec_frags]: _frags) {
+    // Create a new timeslice header
+    daqdataformats::TimeSliceHeader tsh;
+    tsh.timeslice_number = slice_id;
+    tsh.run_number = vec_frags[0]->get_run_number();
+    tsh.element_id = dunedaq::daqdataformats::SourceID(dunedaq::daqdataformats::SourceID::Subsystem::kTRBuilder, 0);
 
-  std::vector<std::pair<trgdataformats::channel_t, int16_t>> m_channel_plane_numbers;
-  m_channel_plane_numbers.reserve(64);
-  for (int chan = 0; chan < 64; chan++) {
-    trgdataformats::channel_t off_channel = m_channel_map->get_offline_channel_from_det_crate_slot_stream_chan(info.m_det_id, info.m_crate_id, info.m_slot_id, info.m_stream_id, chan);
-    int16_t plane = m_channel_map->get_plane_from_offline_channel(off_channel);
-    m_channel_plane_numbers.push_back(std::make_pair(off_channel, plane));
-  }
-  std::unique_ptr<tpglibs::TPGenerator> m_tp_generator = std::make_unique<tpglibs::TPGenerator>();
-  m_tp_generator->configure(m_tpg_configs, m_channel_plane_numbers, dunedaq::fdreadoutlibs::types::DUNEWIBEthTypeAdapter::samples_tick_difference);
-
-  for (int16_t ifr = 0; ifr < num_frames; ifr++) {
-    auto fp = reinterpret_cast<dunedaq::fdreadoutlibs::types::DUNEWIBEthTypeAdapter*>(
-              static_cast<char*>(frag_ptr->get_data()) + ifr * sizeof(dunedaq::fddetdataformats::WIBEthFrame));
-
-    auto wfptr = reinterpret_cast<dunedaq::fddetdataformats::WIBEthFrame*>((uint8_t*)fp); // NOLINT
-
-    std::vector<trgdataformats::TriggerPrimitive> tps = (*m_tp_generator)(wfptr);
-
-    for (const auto& tp : tps) {
-      if (verbose) std::cout << tp.channel << "," << tp.time_start << "," << tp.samples_over_threshold << "," << tp.samples_to_peak << "," << tp.adc_peak << "," << tp.adc_integral << "," << tp.detid << "\n";
+    // Create a new timeslice
+    dunedaq::daqdataformats::TimeSlice ts(tsh);
+    if (!_quiet) {
+      std::cout << "Time slice number: " << slice_id << std::endl;
     }
+    // Add the fragments to the timeslices
+    for (std::unique_ptr<daqdataformats::Fragment>& frag_ptr: vec_frags) {
+      if (!_quiet) {
+        std::cout << "  Writing elementid: " << frag_ptr->get_element_id()  << " trigger number: " << frag_ptr->get_trigger_number() << " trigger_timestamp: " << frag_ptr->get_trigger_timestamp() << " window_begin: " << frag_ptr->get_window_begin() << " sequence_no: " << frag_ptr->get_sequence_number() << std::endl;
+      }
+      ts.add_fragment(std::move(frag_ptr));
+    }
+
+    // Write the timeslice to output file
+    output_file->write(ts);
   }
 }
 
-int
-main(int argc, char* argv[])
+/**
+ * @brief Returns sorted map of HDF5 files per datawriter application
+ *
+ * @param _files: vector of strings corresponding to the input file paths
+ */
+std::map<std::string, std::vector<std::shared_ptr<hdf5libs::HDF5RawDataFile>>>
+SortFilesPerWriter(const std::vector<std::string>& _files)
 {
-  bool verbose = false;
-  CLI::App app{"tpgemu"};
-  // argv = app.ensure_utf8(argv);
+  std::map<std::string, std::vector<std::shared_ptr<hdf5libs::HDF5RawDataFile>>> files_sorted;
 
-  std::string input_file_path;
-  app.add_option("-i", input_file_path, "Input Trigger Record file path")->required();
-  std::string output_file_path;
-  app.add_option("-o", output_file_path, "Output TPStream/TR file path")->required();
-  std::string channel_map_name = "VDColdboxTPCChannelMap";
-  app.add_option("-m", channel_map_name, "Detector Channel Map");
-  int trigger_number = -1;
-  app.add_option("-n", trigger_number, "Trigger number to analyse. Default: -1 (all trigger records).");
+  // Put files into per-writer app groups
+  for (const std::string& file : _files) {
+    std::shared_ptr<hdf5libs::HDF5RawDataFile> fl = std::make_shared<hdf5libs::HDF5RawDataFile>(file);
+    if (!fl->is_trigger_record_type()) {
+      throw std::runtime_error(fmt::format("ERROR: input file '{}' not of type 'TimeSlice'", file));
+    }
 
-  app.add_flag("-v", verbose);
-  CLI11_PARSE(app, argc, argv);
-
-  fmt::print("TPStream file: {}\n", input_file_path);
-
-  // Pointer to DD hdf5 file
-  std::unique_ptr<hdf5libs::HDF5RawDataFile> input_file, output_file;
-  int tr_first = 0, tr_last = 0, num_trs = 0;
-
-  try {
-    input_file = std::make_unique<hdf5libs::HDF5RawDataFile>(input_file_path);
-  } catch(const hdf5libs::FileOpenFailed& e) {
-    fmt::print("ERROR: failed to open input file '{}'\n", input_file_path);
-    std::cerr << e.what() << '\n';
-    exit(-1);
+    std::string application_name = fl->get_attribute<std::string>("application_name");
+    files_sorted[application_name].push_back(fl);
   }
 
-  if (!input_file->is_trigger_record_type()) {
-    fmt::print("ERROR: input file '{}' not of type 'TimeSlice'\n", input_file_path);
-    exit(-1);
-  } else {
-    auto records = input_file->get_all_record_ids();
-    auto first_rec = *(records.begin());
-    auto all_rh_paths = input_file->get_record_header_dataset_paths();
-    auto trh_ptr = input_file->get_trh_ptr(first_rec);
-    tr_first = trh_ptr->get_header().trigger_number;
-    tr_last = input_file->get_trh_ptr(all_rh_paths.back())->get_header().trigger_number;
-    num_trs = tr_last - tr_first + 1;
-  }
-
-  auto run_number = input_file->get_attribute<daqdataformats::run_number_t>("run_number");
-  auto file_index = input_file->get_attribute<size_t>("file_index");
-  // auto creation_timestamp = input_file->get_attribute("creation_timestamp");
-  auto application_name = input_file->get_attribute<std::string>("application_name");
-
-  fmt::print("Run Number: {}\nFile Index: {}\nApp name: '{}'\n", run_number, file_index, application_name);
-  fmt::print("First Trigger Record: {}\nLast Trigger Record: {}\nNumber of Trigger Records: {}\n", tr_first, tr_last, num_trs);
-
-  struct {
-    uint32_t m_det_id = 0;    // NOLINT(build/unsigned)
-    uint32_t m_crate_id = 0;  // NOLINT(build/unsigned)
-    uint32_t m_slot_id = 0;   // NOLINT(build/unsigned)
-    uint32_t m_stream_id = 0; // NOLINT(build/unsigned)
-  } info;
-
-  std::shared_ptr<dunedaq::detchannelmaps::TPCChannelMap> m_channel_map;
-  m_channel_map = dunedaq::detchannelmaps::make_tpc_map(channel_map_name);
-  // move to file
-  std::vector<std::pair<std::string, nlohmann::json>> m_tpg_configs;
-  std::string name = "";
-  name = "AVXFrugalPedestalSubtractProcessor";
-  nlohmann::json json_pedsub;
-  json_pedsub["accum_limit"] = 10;
-  m_tpg_configs.push_back(std::make_pair(name, json_pedsub));
-  name = "AVXThresholdProcessor";
-  nlohmann::json json;
-  json["plane0"] = 90;
-  json["plane1"] = 90;
-  json["plane2"] = 90;
-  m_tpg_configs.push_back(std::make_pair(name, json));
-
-
-  for (auto const& rid : input_file->get_all_record_ids()) {
-
-    auto trh_ptr = input_file->get_trh_ptr(rid);
-    int tr_num = trh_ptr->get_header().trigger_number;
-
-    if (trigger_number > 0 && tr_num != trigger_number) {
+  // Sort files for each writer application individually
+  for (auto& [app_name, vec_files]: files_sorted) {
+    // Don't sort if we have 0 or 1 files in the application...
+    if (vec_files.size() <= 1) {
       continue;
     }
 
-    int elmid = 0;
-    int num_frags = 0;
-    for(auto const& frag_dataset : input_file->get_fragment_dataset_paths(rid)) {
-      auto frag_ptr = input_file->get_frag_ptr(frag_dataset);
+    // Sort w.r.t. file index attribute
+    std::sort(vec_files.begin(), vec_files.end(),
+        [](const std::shared_ptr<hdf5libs::HDF5RawDataFile>& a, const std::shared_ptr<hdf5libs::HDF5RawDataFile>& b) {
+        return a->get_attribute<size_t>("file_index") <
+               b->get_attribute<size_t>("file_index");
+        });
+  }
 
-      if (frag_ptr->get_data_size() == 0) {
-         continue;
+  return files_sorted;
+};
+
+/**
+ * @brief Retrieves the available slice ID range
+ *
+ * Finds the overlap in the slice ID range between the provided files, and
+ * returns that overlap as an available range -- or crashes if there is a file
+ * with a range that does not overlap.
+ *
+ * @todo: Rather than returning the sliceID range, should try to return a time range -- and have processors go off that.
+ *
+ * @param _files: a map of writer app names & vectors of HDF5 files from that application.
+ * @param _quiet Do we want to quiet down the cout?
+ */
+std::pair<uint64_t, uint64_t>
+GetAvailableSliceIDRange(const std::map<std::string, std::vector<std::shared_ptr<hdf5libs::HDF5RawDataFile>>>& _files,
+                         bool _quiet)
+{
+  if (_files.empty()) {
+    throw std::runtime_error("No files provided");
+  }
+
+  uint64_t global_start = std::numeric_limits<uint64_t>::min();
+  uint64_t global_end = std::numeric_limits<uint64_t>::max();
+
+  // Get the min & max record id per application, and the global
+  for (auto& [appid, vec_files]: _files) {
+    uint64_t app_start = std::numeric_limits<uint64_t>::max();
+    uint64_t app_end = std::numeric_limits<uint64_t>::min();
+
+    // Find min / max record id for this application
+    for (auto& file : vec_files) {
+      auto record_ids = file->get_all_record_ids();
+      if (record_ids.empty()) {
+        throw std::runtime_error(fmt::format("File from application {} contains no records.", appid));
       }
+      app_start = std::min(app_start, record_ids.begin()->first);
+      app_end = std::max(app_end, record_ids.rbegin()->first);
+    }
 
-      if (frag_ptr->get_fragment_type() != dunedaq::daqdataformats::FragmentType::kWIBEth) {
-        continue;
+    // Update the global min / max record id
+    global_start = std::max(global_start, app_start);
+    global_end = std::min(global_end, app_end);
+
+    if (!_quiet) {
+      std::cout << "Application: " << appid << " " << " TimeSliceID start: " << app_start << " end: " << app_end << std::endl;
+    }
+  }
+
+  if (!_quiet) {
+    std::cout << "Global start: " << global_start << " Global end: " << global_end << std::endl;
+  }
+  if (global_start > global_end) {
+    throw std::runtime_error("One of the provided files' id range did not overlap with the rest. Please select files with overlapping TimeSlice IDs");
+  }
+
+  // Extra validation / error handling
+  for (auto& [appid, vec_files]: _files) {
+    for (auto& file : vec_files) {
+      auto record_ids = file->get_all_record_ids();
+
+      uint64_t file_start = record_ids.begin()->first;
+      uint64_t file_end = record_ids.rbegin()->first;
+      if ((file_start > global_end || file_end < global_start)) {
+        uint64_t file_index = file->get_attribute<size_t>("file_index");
+        throw std::runtime_error(fmt::format(
+          "File from TPStreamWrite application '{}' (index '{}') has record id range [{}, {}], which does not overlap with global range [{}, {}].",
+           appid, file_index, file_start, file_end, global_start, global_end
+          ));
       }
+    }
+  }
 
-      elmid = frag_ptr->get_header().element_id.id;
-      if (verbose) std::cout << "INFO elmid " << elmid << "\n";
-      tpgemu_config(frag_ptr, info, verbose);
-      tpgemu_process(frag_ptr, info, m_channel_map, m_tpg_configs, verbose);
+  return {global_start, global_end};
+}
 
-      num_frags++;
+/**
+ * @brief Struct with available cli application options
+ */
+struct Options
+{
+  /// @brief vector of input filenames
+  std::vector<std::string> input_files;
+  /// @brief output filename
+  std::string output_filename;
+  /// @brief the configuration filename
+  std::string config_name;
+  /// @brief do we want to quiet down the cout? Default: no
+  bool quiet = false;
+  /// @brief do we want to measure latencies? Default: no
+  /// @todo: Latencies currently not supported!
+  bool latencies = false;
+  /// @brief runs each TPGnerator on a separate thread
+  bool run_parallel = false;
+};
 
-    } // fragments
-    fmt::print("Number of fragments: {}\n", num_frags);
+/**
+ * @brief Adds options to our CLI application
+ * 
+ * @param _app CLI application
+ * @param _opts Struct with the available options
+ */
+void ParseApp(CLI::App& _app, Options& _opts)
+{
+  _app.add_option("-i,--input-files", _opts.input_files, "List of input files (required)")
+    ->required()
+    ->check(CLI::ExistingFile); // Validate that each file exists
 
-  } // records
+  _app.add_option("-o,--output-file", _opts.output_filename, "Output file (required)")
+    ->required(); // make the argument required
+
+  _app.add_option("-j,--json-config", _opts.config_name, "Trigger Activity and Candidate config JSON to use (required)")
+    ->required()
+    ->check(CLI::ExistingFile);
+  
+  _app.add_flag("--parallel", _opts.run_parallel, "Run the TPGenerators in parallel");
+
+  _app.add_flag("--quiet", _opts.quiet, "Quiet outputs.");
+
+  _app.add_flag("--latencies", _opts.latencies, "Saves latencies per TP into csv");
+}
+
+int main(int argc, char const *argv[])
+{
+  // Do all the CLI processing first
+  CLI::App app{"Offline trigger TriggerPrimitive  emulatior"};
+  Options opts{};
+
+  ParseApp(app, opts);
+
+  try {
+    app.parse(argc, argv);
+  }
+  catch (const CLI::ParseError &e) {
+    return app.exit(e);
+  }
+
+  // Get the configuration file
+  std::ifstream config_stream(opts.config_name);
+  nlohmann::json config = nlohmann::json::parse(config_stream);
+
+  if (!opts.quiet) {
+    std::cout << "Files to process:\n";
+    for (const std::string& file : opts.input_files) {
+      std::cout << "- " << file << "\n";
+    }
+  }
+
+  // Sort the files into a map writer_id::vector<HDF5>
+  std::map<std::string, std::vector<std::shared_ptr<hdf5libs::HDF5RawDataFile>>> sorted_files =
+    SortFilesPerWriter(opts.input_files);
+
+  // Get the available record_id range
+  std::pair<uint64_t, uint64_t> recordid_range = GetAvailableSliceIDRange(sorted_files, opts.quiet);
+
+  // Create the file handlers
+  std::vector<std::unique_ptr<TPFileHandler>> file_handlers;
+  for (auto [name, files] : sorted_files) {
+    file_handlers.push_back(std::make_unique<TPFileHandler>(files, config, recordid_range, opts.run_parallel, opts.quiet));
+  }
+
+  // Start each file handler
+  for (const auto& handler : file_handlers) {
+    handler->start_processing();
+  }
+
+  // Output map of TP vectors & function that appends TPs to that vector
+  std::map<uint64_t, std::vector<triggeralgs::TriggerPrimitive>> tps;
+  auto append_tps = [&tps](std::map<uint64_t, std::vector<triggeralgs::TriggerPrimitive>>&& _tps) {
+    for (auto& [sliceid, src_vec] : _tps) {
+      auto& dest_vec = tps[sliceid];
+      dest_vec.reserve(dest_vec.size() + src_vec.size());
+
+      dest_vec.insert(dest_vec.end(), std::make_move_iterator(src_vec.begin()), std::make_move_iterator(src_vec.end()));
+      src_vec.clear();
+    }
+  };
+
+  // Output map of Fragment vectors & function that appends TPs to that vector
+  std::map<uint64_t, std::vector<std::unique_ptr<daqdataformats::Fragment>>> frags;
+  auto append_frags = [&frags](std::map<uint64_t, std::vector<std::unique_ptr<daqdataformats::Fragment>>>&& _frags) {
+    for (auto& [sliceid, src_vec] : _frags) {
+      auto& dest_vec = frags[sliceid];
+
+      dest_vec.reserve(dest_vec.size() + src_vec.size());
+
+      dest_vec.insert(dest_vec.end(), std::make_move_iterator(src_vec.begin()), std::make_move_iterator(src_vec.end()));
+      src_vec.clear();
+    }
+  };
 
 
+  // Iterate over the handlers, wait for them to complete their job & append
+  // their TPs to our vector when ready.
+  hdf5libs::HDF5SourceIDHandler::source_id_geo_id_map_t sourceid_geoid_map;
+  for (const auto& handler : file_handlers) {
+    // Wait for all TPs to be made
+    handler->wait_to_complete_work();
 
+    // Append output TPs/fragments
+    append_tps(std::move(handler->get_tps()));
+    append_frags(std::move(handler->get_frags()));
 
-  return 0;
+    // Get and merge the source ID map
+    hdf5libs::HDF5SourceIDHandler::source_id_geo_id_map_t map = handler->get_sourceid_geoid_map();
+    sourceid_geoid_map.insert(map.begin(), map.end());
+  }
+
+  SaveFragments(opts.output_filename, sourceid_geoid_map, std::move(frags), opts.quiet);
+
+  return 0; 
 }
