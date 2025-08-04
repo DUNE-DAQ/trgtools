@@ -232,11 +232,6 @@ void TPFileHandler::process_tasks()
         continue;
       }
 
-      if (record.first != 1401) {
-        continue;
-      }
-      fmt::print("  Will only process RecordID {}!\n", record.first);
-
       // Get all the fragments
       daqdataformats::TriggerRecord trigger_record = input_file->get_trigger_record(record);
       const auto& fragments = trigger_record.get_fragments_ref();
