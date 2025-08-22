@@ -53,7 +53,7 @@ def find_save_name(run_id: int, file_index: int, overwrite: bool) -> str:
     return save_name
 
 
-def plot_all_event_displays(tp_data: list[np.ndarray], run_id: int, file_index: int, seconds: bool = False) -> None:
+def plot_all_event_displays(tp_data: list[np.ndarray], ta_data: np.ndarray, run_id: int, file_index: int, seconds: bool = False) -> None:
     """
     Plot all event displays.
 
@@ -68,13 +68,13 @@ def plot_all_event_displays(tp_data: list[np.ndarray], run_id: int, file_index: 
     time_unit = 's' if seconds else 'Ticks'
 
     with PdfPages(f"event_displays_{run_id}.{file_index:04}.pdf") as pdf:
-        for tadx, ta in enumerate(tp_data):
+        for tadx, (ta_event, tp_event) in enumerate(zip(ta_data, tp_data)):
             if seconds:
-                ta['time_start'] = ta['time_start'] * TICK_TO_SEC_SCALE
+                tp_event['time_start'] = tp_event['time_start'] * TICK_TO_SEC_SCALE
             plt.figure(figsize=(6, 4))
 
-            times = ta['time_start'] - np.min(ta['time_start'])
-            plt.scatter(times, ta['channel'], c='k', s=2)
+            times = tp_event['time_start'] - np.min(tp_event['time_start'])
+            plt.scatter(times, tp_event['channel'], c='k', s=2)
 
             # Auto limits were too wide; this narrows it.
             max_time = np.max(times)
@@ -85,7 +85,7 @@ def plot_all_event_displays(tp_data: list[np.ndarray], run_id: int, file_index: 
             if time_diff != 0:
                 plt.xlim((min_time - 0.1*time_diff, max_time + 0.1*time_diff))
 
-            plt.title(f'Run {run_id}.{file_index:04} Event Display: {tadx:03}')
+            plt.title(f"Run {run_id}.{file_index:04} Event Display: {tadx:03} \n trigger record: {ta_event['trigger_number']}")
             plt.xlabel(f"Relative Start Time ({time_unit})")
             plt.ylabel("Channel")
 
@@ -472,6 +472,15 @@ def main():
                         'ha': 'right'  # Horizontal alignment
                     }
             },
+            'trigger_number': {
+                'title': "Trigger Number Histogram",
+                'xlabel': "Trigger Number",
+                'ylabel': "Count",
+                'linear': linear,
+                'linear_style': dict(color='#63ACBE', alpha=0.6, label='Linear'),
+                'log': log,
+                'log_style': dict(color='#EE442F', alpha=0.6, label='Log')
+            },
             'version': {
                 'title': "Version Histogram",
                 'xlabel': "Versions",
@@ -558,7 +567,7 @@ def main():
     pdf_plotter.close()
 
     if not no_displays:
-        plot_all_event_displays(data.tp_data, data.run_id, data.file_index, seconds)
+        plot_all_event_displays(data.tp_data, data.ta_data, data.run_id, data.file_index, seconds)
 
     return None
 
