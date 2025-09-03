@@ -38,7 +38,8 @@ class TAReader(HDF5Reader):
                       ('time_peak', np.uint64),
                       ('time_start', np.uint64),
                       ('type', trgdataformats.TriggerActivityData.Type),
-                      ('version', np.uint16)
+                      ('version', np.uint16),
+                      ('trigger_number', np.uint64)
                      ])
 
     # TP data type
@@ -103,6 +104,7 @@ class TAReader(HDF5Reader):
 
         fragment = self._h5_file.get_frag(fragment_path)
         fragment_data_size = fragment.get_data_size()
+        trigger_number = fragment.get_trigger_number()
 
         if fragment_data_size == 0:
             self._num_empty += 1
@@ -140,7 +142,8 @@ class TAReader(HDF5Reader):
                                 ta_datum.data.time_peak,
                                 ta_datum.data.time_start,
                                 ta_datum.data.type,
-                                np.uint16(ta_datum.data.version))],
+                                np.uint16(ta_datum.data.version),
+                                trigger_number)],
                                 dtype=self.ta_dt)
 
             self.ta_data = np.hstack((self.ta_data, np_ta_datum))
