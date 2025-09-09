@@ -413,6 +413,16 @@ def main():
                         'ha': 'right'  # Horizontal alignment
                     }
             },
+            'trigger_number': {
+                'title': "Trigger Number",
+                'xlabel': "Trigger Number",
+                'ylabel': "Count",
+                'linear': linear,
+                'linear_style': dict(color='#63ACBE', alpha=0.6, label='Linear'),
+                'log': log,
+                'log_style': dict(color='#EE442F', alpha=0.6, label='Log'),
+                'use_integer_xticks': True
+            },
             'version': {
                 'title': "Version",
                 'xlabel': "Versions",

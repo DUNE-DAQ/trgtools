@@ -33,6 +33,7 @@ class TCReader(HDF5Reader):
         ('time_start', np.uint64),
         ('type', trgdataformats.TriggerCandidateData.Type),
         ('version', np.uint16),
+        ('trigger_number', np.uint64)
     ])
 
     # TA data type
@@ -101,6 +102,7 @@ class TCReader(HDF5Reader):
 
         fragment = self._h5_file.get_frag(fragment_path)
         fragment_data_size = fragment.get_data_size()
+        trigger_number = fragment.get_trigger_number()
 
         if fragment_data_size == 0:  # Empty fragment
             self._num_empty += 1
@@ -132,7 +134,8 @@ class TCReader(HDF5Reader):
                                 tc_datum.data.time_end,
                                 tc_datum.data.time_start,
                                 tc_datum.data.type,
-                                tc_datum.data.version)],
+                                tc_datum.data.version,
+                                trigger_number)],
                                 dtype=self.tc_dt)
 
             self.tc_data = np.hstack((self.tc_data, np_tc_datum))
