@@ -1,5 +1,5 @@
-#include "trgtools/EmulateTCUnit.hpp"
-#include "trgtools/TAFileHandler.hpp"
+#include "trgtools/TCEmulationUnit.hpp"
+#include "trgtools/TAEmulationWorker.hpp"
 
 #include "CLI/App.hpp"
 #include "CLI/Config.hpp"
@@ -299,9 +299,9 @@ int main(int argc, char const *argv[])
   std::pair<uint64_t, uint64_t> recordid_range = get_available_slice_id_range(sorted_files, opts.quiet);
 
   // Create the file handlers
-  std::vector<std::unique_ptr<TAFileHandler>> file_handlers;
+  std::vector<std::unique_ptr<TAEmulationWorker>> file_handlers;
   for (auto [name, files] : sorted_files) {
-    file_handlers.push_back(std::make_unique<TAFileHandler>(files, config, recordid_range, opts.run_parallel, opts.quiet));
+    file_handlers.push_back(std::make_unique<TAEmulationWorker>(files, config, recordid_range, opts.run_parallel, opts.quiet));
   }
 
   // Start each file handler
@@ -372,7 +372,7 @@ int main(int argc, char const *argv[])
     triggeralgs::TriggerCandidateFactory::get_instance()->build_maker(algo_name);
   tc_maker->configure(algo_config);
 
-  trgtools::EmulateTCUnit tc_emulator;
+  trgtools::TCEmulationUnit tc_emulator;
   tc_emulator.set_maker(tc_maker);
 
   // Emulate the TriggerCandidates

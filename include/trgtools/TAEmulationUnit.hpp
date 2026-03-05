@@ -1,4 +1,4 @@
-/* @file: EmulateTAUnit.hpp
+/* @file: TAEmulationUnit.hpp
  *
  * Emulation unit for TriggerActivities.
  *
@@ -7,8 +7,8 @@
  * received with this code.
  */
 
-#ifndef TRGTOOLS_EMULATETAUNIT_HPP_
-#define TRGTOOLS_EMULATETAUNIT_HPP_
+#ifndef TRGTOOLS_TAEMULATIONUNIT_HPP_
+#define TRGTOOLS_TAEMULATIONUNIT_HPP_
 
 #include "trgtools/EmulationUnit.hpp"
 #include "trgdataformats/TriggerPrimitive.hpp"
@@ -17,11 +17,11 @@
 namespace dunedaq {
 namespace trgtools {
 
-class EmulateTAUnit
+class TAEmulationUnit
   : public EmulationUnit<trgdataformats::TriggerPrimitive, triggeralgs::TriggerActivity, triggeralgs::TriggerActivityMaker>
 {};
 
 } // namespace trgtools
 } // namespace dunedaq
 
-#endif // TRGTOOLS_EMULATETAUNIT_HPP_
+#endif // TRGTOOLS_TAEMULATIONUNIT_HPP_

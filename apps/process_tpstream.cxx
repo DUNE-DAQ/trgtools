@@ -1,5 +1,5 @@
-#include "trgtools/EmulateTAUnit.hpp"
-#include "trgtools/EmulateTCUnit.hpp"
+#include "trgtools/TAEmulationUnit.hpp"
+#include "trgtools/TCEmulationUnit.hpp"
 
 #include "CLI/App.hpp"
 #include "CLI/Config.hpp"
@@ -203,7 +203,7 @@ int main(int argc, char const *argv[])
   std::unique_ptr<triggeralgs::TriggerActivityMaker> ta_maker =
     triggeralgs::TriggerActivityFactory::get_instance()->build_maker(ta_algo);
   ta_maker->configure(ta_config);
-  std::unique_ptr<trgtools::EmulateTAUnit> ta_emulator = std::make_unique<trgtools::EmulateTAUnit>();
+  std::unique_ptr<trgtools::TAEmulationUnit> ta_emulator = std::make_unique<trgtools::TAEmulationUnit>();
   ta_emulator->set_maker(ta_maker);
   // TODO: Use a better file naming scheme for CSV.
   if (latencies) {
@@ -216,7 +216,7 @@ int main(int argc, char const *argv[])
   std::unique_ptr<triggeralgs::TriggerCandidateMaker> tc_maker =
     triggeralgs::TriggerCandidateFactory::get_instance()->build_maker(tc_algo);
   tc_maker->configure(tc_config);
-  std::unique_ptr<trgtools::EmulateTCUnit> tc_emulator = std::make_unique<trgtools::EmulateTCUnit>();
+  std::unique_ptr<trgtools::TCEmulationUnit> tc_emulator = std::make_unique<trgtools::TCEmulationUnit>();
   tc_emulator->set_maker(tc_maker);
   // TODO: Use a better file naming scheme for CSV.
   if (latencies) {

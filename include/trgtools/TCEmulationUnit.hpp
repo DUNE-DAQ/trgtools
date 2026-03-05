@@ -1,4 +1,4 @@
-/* @file: EmulateTCUnit.hpp
+/* @file: TCEmulationUnit.hpp
  *
  * Emulation unit for TriggerCandidates.
  *
@@ -7,8 +7,8 @@
  * received with this code.
  */
 
-#ifndef TRGTOOLS_EMULATETCUNIT_HPP_
-#define TRGTOOLS_EMULATETCUNIT_HPP_
+#ifndef TRGTOOLS_TCEMULATIONUNIT_HPP_
+#define TRGTOOLS_TCEMULATIONUNIT_HPP_
 
 #include "trgtools/EmulationUnit.hpp"
 #include "triggeralgs/TriggerActivity.hpp"
@@ -17,7 +17,7 @@
 namespace dunedaq {
 namespace trgtools {
 
-class EmulateTCUnit
+class TCEmulationUnit
   : public EmulationUnit<triggeralgs::TriggerActivity,
                          triggeralgs::TriggerCandidate,
                          triggeralgs::TriggerCandidateMaker>
@@ -26,4 +26,4 @@ class EmulateTCUnit
 } // namespace trgtools
 } // namespace dunedaq
 
-#endif // TRGTOOLS_EMULATETAUNIT_HPP_
+#endif // TRGTOOLS_TCEMULATIONUNIT_HPP_

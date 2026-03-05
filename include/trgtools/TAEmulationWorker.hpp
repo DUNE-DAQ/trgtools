@@ -1,7 +1,7 @@
-#ifndef TRGTOOLS_TAFILEHANDLER_HPP_
-#define TRGTOOLS_TAFILEHANDLER_HPP_
+#ifndef TRGTOOLS_TAEMULATIONWORKER_HPP_
+#define TRGTOOLS_TAEMULATIONWORKER_HPP_
 
-#include "trgtools/EmulateTAUnit.hpp"
+#include "trgtools/TAEmulationUnit.hpp"
 
 #include "CLI/App.hpp"
 #include "CLI/Config.hpp"
@@ -20,13 +20,13 @@
 namespace dunedaq::trgtools 
 {
 
-class TAFileHandler
+class TAEmulationWorker
 {
   public:
     /**
      * @brief Constructor, takes file input path & configuration
      * 
-     * Each TAFileHandler will create its own thread, so all TAFileHandlers are
+     * Each TAEmulationWorker will create its own thread, so all TAEmulationWorkers are
      * run on separate threads
      * 
      * @param _input_files a vector of input HDF5 shared pointers to process
@@ -35,13 +35,13 @@ class TAFileHandler
      * @param _run_parallel run each TAMaker (one per SourceID) in parallel
      * @param _quiet quiet down the cout
      */
-    TAFileHandler(std::vector<std::shared_ptr<hdf5libs::HDF5RawDataFile>> _input_files,
+    TAEmulationWorker(std::vector<std::shared_ptr<hdf5libs::HDF5RawDataFile>> _input_files,
                   nlohmann::json _config,
                   std::pair<uint64_t, uint64_t> _sliceid_range,
                   bool _run_parallel,
                   bool _quiet);
 
-    ~TAFileHandler() = default;
+    ~TAEmulationWorker() = default;
 
     /**
      * @brief Get the valid sourceids object from HDF5 file
@@ -124,7 +124,7 @@ class TAFileHandler
     std::vector<std::string> m_input_paths;
 
     /// @brief Map of SourceID : Emulator unit (TAMaker)
-    std::map<daqdataformats::SourceID, std::unique_ptr<trgtools::EmulateTAUnit>> m_ta_emulators;
+    std::map<daqdataformats::SourceID, std::unique_ptr<trgtools::TAEmulationUnit>> m_ta_emulators;
 
     /// @brief Range of TimeSlice IDs to process
     std::pair<uint64_t, uint64_t> m_sliceid_range;
@@ -165,7 +165,7 @@ class TAFileHandler
     /// @brief Output vector of TA fragments
     std::map<uint64_t, std::vector<std::unique_ptr<daqdataformats::Fragment>>> m_ta_fragments;
 
-    /// @brief Unique ID for this TAFileHandler
+    /// @brief Unique ID for this TAEmulationWorker
     uint16_t m_id;
     /// @brief Global variable used to get the next ID
     static uint16_t m_id_next;
