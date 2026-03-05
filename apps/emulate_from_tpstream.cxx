@@ -28,7 +28,7 @@ using namespace trgtools;
  * @param _frags Map of fragments, with a vector of fragment pointers for each slice id
  * @param _quiet Do we want to quiet down the cout?
  */
-void SaveFragments(const std::string& _outputfilename,
+void save_fragments(const std::string& _outputfilename,
                    const hdf5libs::HDF5SourceIDHandler::source_id_geo_id_map_t& _sourceid_geoid_map,
                    std::map<uint64_t, std::vector<std::unique_ptr<daqdataformats::Fragment>>> _frags,
                    bool _quiet)
@@ -91,12 +91,20 @@ void SaveFragments(const std::string& _outputfilename,
 }
 
 /**
- * @brief Returns sorted map of HDF5 files per datawriter application
+ * @brief Group and order input TimeSlice files per TPStream writer application.
  *
- * @param _files: vector of strings corresponding to the input file paths
+ * Opens each input file, validates that it is of `TimeSlice` type, and groups
+ * files by their `application_name` attribute. Within each application group,
+ * files are sorted by their `file_index` attribute so consecutive segments from
+ * the same writer are processed in order.
+ *
+ * @param _files Vector of input HDF5 file paths.
+ * @return Map keyed by `application_name`, each value a vector of file handles
+ *         ordered by `file_index`.
+ * @throws std::runtime_error If any input file is not of type `TimeSlice`.
  */
 std::map<std::string, std::vector<std::shared_ptr<hdf5libs::HDF5RawDataFile>>>
-SortFilesPerWriter(const std::vector<std::string>& _files)
+sort_files_per_writer(const std::vector<std::string>& _files)
 {
   std::map<std::string, std::vector<std::shared_ptr<hdf5libs::HDF5RawDataFile>>> files_sorted;
 
@@ -130,19 +138,27 @@ SortFilesPerWriter(const std::vector<std::string>& _files)
 };
 
 /**
- * @brief Retrieves the available slice ID range
+ * @brief Compute the common SliceID interval shared by all writer groups.
  *
- * Finds the overlap in the slice ID range between the provided files, and
- * returns that overlap as an available range -- or crashes if there is a file
- * with a range that does not overlap.
+ * For each writer application, this function scans all of its files and finds
+ * the minimum and maximum available record IDs. It then computes the global
+ * intersection across applications:
+ * - global_start = max(all per-application starts)
+ * - global_end   = min(all per-application ends)
  *
- * @todo: Rather than returning the sliceID range, should try to return a time range -- and have processors go off that.
+ * The returned range is therefore the SliceID window for which data is
+ * expected to be available from every application.
  *
- * @param _files: a map of writer app names & vectors of HDF5 files from that application.
- * @param _quiet Do we want to quiet down the cout?
+ * @todo: Rather than returning the SliceID range, should try to return a time range and have processors use that.
+ *
+ * @param _files Map of writer application names to vectors of input HDF5 files.
+ * @param _quiet If false, print per-application and global range diagnostics.
+ * @return Inclusive pair `{global_start, global_end}` of overlapping SliceIDs.
+ * @throws std::runtime_error If `_files` is empty, if any file has no records,
+ *         or if no overlapping SliceID interval exists.
  */
 std::pair<uint64_t, uint64_t>
-GetAvailableSliceIDRange(const std::map<std::string, std::vector<std::shared_ptr<hdf5libs::HDF5RawDataFile>>>& _files,
+get_available_slice_id_range(const std::map<std::string, std::vector<std::shared_ptr<hdf5libs::HDF5RawDataFile>>>& _files,
                          bool _quiet)
 {
   if (_files.empty()) {
@@ -229,7 +245,7 @@ struct Options
  * @param _app CLI application
  * @param _opts Struct with the available options
  */
-void ParseApp(CLI::App& _app, Options& _opts)
+void parse_app(CLI::App& _app, Options& _opts)
 {
   _app.add_option("-i,--input-files", _opts.input_files, "List of input files (required)")
     ->required()
@@ -255,7 +271,7 @@ int main(int argc, char const *argv[])
   CLI::App app{"Offline trigger TriggerActivity & TriggerCandidate emulatior"};
   Options opts{};
 
-  ParseApp(app, opts);
+  parse_app(app, opts);
 
   try {
     app.parse(argc, argv);
@@ -277,10 +293,10 @@ int main(int argc, char const *argv[])
 
   // Sort the files into a map writer_id::vector<HDF5>
   std::map<std::string, std::vector<std::shared_ptr<hdf5libs::HDF5RawDataFile>>> sorted_files =
-    SortFilesPerWriter(opts.input_files);
+    sort_files_per_writer(opts.input_files);
 
   // Get the available record_id range
-  std::pair<uint64_t, uint64_t> recordid_range = GetAvailableSliceIDRange(sorted_files, opts.quiet);
+  std::pair<uint64_t, uint64_t> recordid_range = get_available_slice_id_range(sorted_files, opts.quiet);
 
   // Create the file handlers
   std::vector<std::unique_ptr<TAFileHandler>> file_handlers;
@@ -388,7 +404,7 @@ int main(int argc, char const *argv[])
     std::cout << "Total number of TCs made: " << tcs.size() << std::endl;
   }
 
-  SaveFragments(opts.output_filename, sourceid_geoid_map, std::move(frags), opts.quiet);
+  save_fragments(opts.output_filename, sourceid_geoid_map, std::move(frags), opts.quiet);
 
   return 0;
 }
