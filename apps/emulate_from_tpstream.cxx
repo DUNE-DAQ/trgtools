@@ -9,6 +9,7 @@
 #include <fmt/format.h>
 #include <fmt/chrono.h>
 #include <filesystem>
+#include <optional>
 
 #include "hdf5libs/HDF5RawDataFile.hpp"
 #include "hdf5libs/HDF5SourceIDHandler.hpp"
@@ -33,6 +34,12 @@ void save_fragments(const std::string& _outputfilename,
                    std::map<uint64_t, std::vector<std::unique_ptr<daqdataformats::Fragment>>> _frags,
                    bool _quiet)
 {
+  std::string output_filename = _outputfilename;
+  if (output_filename.size() < 5 ||
+      output_filename.compare(output_filename.size() - 5, 5, ".hdf5") != 0) {
+    output_filename += ".hdf5";
+  }
+
   // Create layout parameter object required for HDF5 creation
   hdf5libs::HDF5FileLayoutParameters layout_params;
 
@@ -57,7 +64,7 @@ void save_fragments(const std::string& _outputfilename,
 
   // Create pointer to a new output HDF5 file
   std::unique_ptr<hdf5libs::HDF5RawDataFile> output_file = std::make_unique<hdf5libs::HDF5RawDataFile>(
-      _outputfilename + ".hdf5",
+      output_filename,
       _frags.begin()->second[0]->get_run_number(),
       0,
       "emulate_from_tpstream",
@@ -237,6 +244,10 @@ struct Options
   bool latencies = false;
   /// @brief runs each TAMaker on a separate thread
   bool run_parallel = false;
+  /// @brief optional lower bound (inclusive) for TimeSlice IDs to process
+  std::optional<uint64_t> slice_start = std::nullopt;
+  /// @brief optional number of TimeSlices to process
+  std::optional<uint64_t> num_slices = std::nullopt;
 };
 
 /**
@@ -263,6 +274,9 @@ void parse_app(CLI::App& _app, Options& _opts)
   _app.add_flag("--quiet", _opts.quiet, "Quiet outputs.");
 
   _app.add_flag("--latencies", _opts.latencies, "Saves latencies per TP into csv");
+
+  _app.add_option("-s,--slice-start", _opts.slice_start, "Inclusive lower bound for TimeSlice ID to process");
+  _app.add_option("-n,--num-slices", _opts.num_slices, "Number of TimeSlices to process");
 }
 
 int main(int argc, char const *argv[])
@@ -297,15 +311,46 @@ int main(int argc, char const *argv[])
 
   // Get the available record_id range
   std::pair<uint64_t, uint64_t> recordid_range = get_available_slice_id_range(sorted_files, opts.quiet);
+  std::pair<uint64_t, uint64_t> processing_range = recordid_range;
+
+  if (opts.slice_start.has_value()) {
+    processing_range.first = std::max(processing_range.first, opts.slice_start.value());
+  }
+
+  if (opts.num_slices.has_value()) {
+    if (opts.num_slices.value() == 0) {
+      throw std::runtime_error("Invalid --num-slices value: must be greater than 0");
+    }
+
+    uint64_t requested_end = processing_range.first + (opts.num_slices.value() - 1);
+    if (requested_end < processing_range.first) {
+      requested_end = std::numeric_limits<uint64_t>::max();
+    }
+
+    processing_range.second = std::min(processing_range.second, requested_end);
+  }
+
+  if (processing_range.first > processing_range.second) {
+    throw std::runtime_error(fmt::format(
+      "Requested timeslice subset (slice-start={}, num-slices={}) does not overlap available range [{}, {}]",
+      opts.slice_start.value_or(0),
+      opts.num_slices.value_or(0),
+      recordid_range.first,
+      recordid_range.second));
+  }
+
+  if (!opts.quiet) {
+    std::cout << "Processing TimeSliceID range: [" << processing_range.first << ", " << processing_range.second << "]" << std::endl;
+  }
 
   // Create the file handlers
-  std::vector<std::unique_ptr<TAEmulationWorker>> file_handlers;
+  std::vector<std::unique_ptr<TAEmulationWorker>> ta_emu_workers;
   for (auto [name, files] : sorted_files) {
-    file_handlers.push_back(std::make_unique<TAEmulationWorker>(files, config, recordid_range, opts.run_parallel, opts.quiet));
+    ta_emu_workers.push_back(std::make_unique<TAEmulationWorker>(files, config, processing_range, opts.run_parallel, opts.quiet));
   }
 
   // Start each file handler
-  for (const auto& handler : file_handlers) {
+  for (const auto& handler : ta_emu_workers) {
     handler->start_processing();
   }
 
@@ -337,7 +382,7 @@ int main(int argc, char const *argv[])
   // Iterate over the handlers, wait for them to complete their job & append
   // their TAs to our vector when ready.
   hdf5libs::HDF5SourceIDHandler::source_id_geo_id_map_t sourceid_geoid_map;
-  for (const auto& handler : file_handlers) {
+  for (const auto& handler : ta_emu_workers) {
     // Wait for all TAs to be made
     handler->wait_to_complete_work();
 
@@ -360,6 +405,7 @@ int main(int argc, char const *argv[])
         });
     n_tas += vec_tas.size();
   }
+
   if (!opts.quiet) {
     std::cout << "Total number of TAs made: " << n_tas << std::endl;
     std::cout << "Creating a TCMaker..." << std::endl;
@@ -404,7 +450,11 @@ int main(int argc, char const *argv[])
     std::cout << "Total number of TCs made: " << tcs.size() << std::endl;
   }
 
-  save_fragments(opts.output_filename, sourceid_geoid_map, std::move(frags), opts.quiet);
+  if (!frags.empty()) {
+    save_fragments(opts.output_filename, sourceid_geoid_map, std::move(frags), opts.quiet);
+  } else {
+    std::cout << "No TA/TC fragments generated. Output file will not be generated" << std::endl;
+  }
 
   return 0;
 }

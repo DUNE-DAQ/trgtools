@@ -16,48 +16,8 @@ import matplotlib as mtp
 from matplotlib.backends.backend_pdf import PdfPages
 from tqdm import tqdm
 
-import argparse
+import click
 
-def parse() -> dict[str, Any]:
-    """
-    Parses CLI input arguments.
-
-    Returns:
-        (dict[str, Any]): A dictionary of argument names vs argument values
-    """
-    parser = argparse.ArgumentParser(
-        description="Display diagnostic information for TCs for a given HDF5 file."
-    )
-    parser.add_argument(
-        "filename",
-        help="Absolute path to tpstream file to display."
-    )
-    parser.add_argument(
-        "--verbose", "-v",
-        action="count",
-        help="Increment the verbose level (errors, warnings, all)."
-        "Save names and skipped writes are always printed. Default: 0.",
-        default=0
-    )
-    parser.add_argument(
-        "--start-frag",
-        type=int,
-        help="Starting fragment index to process from. Takes negative indexing (Default: -10), NOT SUPPORTED YET).",
-        default=-10
-    )
-    parser.add_argument(
-        "--end-frag",
-        type=int,
-        help="Fragment index to stop processing (i.e. not inclusive). Takes negative indexing (Default: N(0), NOT SUPPORTED YET).",
-        default=0
-    )
-    parser.add_argument(
-        "--batch", "-b",
-        action="store_true",
-        help="Do you want to run in batch mode (e.g. without loading bars/tqdm)?"
-    )
-
-    return parser.parse_args()
 
 def plot_all_event_displays(tc_data: list[NDArray],
                             tc_data_tas: list[NDArray],
@@ -65,7 +25,8 @@ def plot_all_event_displays(tc_data: list[NDArray],
                             ta_data_tps: list[NDArray],
                             run_id: int,
                             file_index: int,
-                            batch: bool) -> None:
+                            batch: bool,
+                            output_file: str | None = None) -> None:
     """
 
     Plots all the event displays, one per TC.
@@ -84,13 +45,16 @@ def plot_all_event_displays(tc_data: list[NDArray],
 
     time_unit = "Ticks"
 
-    with PdfPages(f"event_displays_{run_id}.{file_index:04}.pdf") as pdf:
+    output_pdf = output_file if output_file is not None else f"event_displays_{run_id}.{file_index:04}.pdf"
+    with PdfPages(output_pdf) as pdf:
         for tcdx, (tc, tas) in tqdm(enumerate(zip(tc_data, tc_data_tas)), total=len(tc_data), desc="Saving event displays", disable=batch):
             plt.figure(figsize=(6, 4))
 
             yend = tc["time_end"] - tc["time_start"]
             ta_times_starts = tas['time_start'] - tc["time_start"]
             ta_times_ends = tas['time_end'] - tc["time_start"] 
+            ta_times_peak = tas['time_peak'] - tc["time_start"] 
+            ta_chan_peak = tas['channel_peak'] 
 
             channel_start = np.min(tas['channel_start'])
             channel_end = np.max(tas['channel_end'])
@@ -107,7 +71,12 @@ def plot_all_event_displays(tc_data: list[NDArray],
                 for tatmpdx, tatmp in enumerate(ta_data):
                     if (tatmp['time_start'] == ta['time_start']) and (tatmp['time_end'] == ta['time_end']) and (tatmp['channel_start'] == ta['channel_start']) and (tatmp['channel_end'] == ta['channel_end']):
                         time_starts = ta_data_tps[tatmpdx]['time_start'] - tc["time_start"]
-                        plt.scatter(ta_data_tps[tatmpdx]['channel'], time_starts, lw=0, color='black', marker=',', s=1)
+                        time_end = ta_data_tps[tatmpdx]['time_start']+32*ta_data_tps[tatmpdx]['samples_over_threshold'] - tc["time_start"]
+                        plt.vlines(ta_data_tps[tatmpdx]['channel'], time_starts, time_end)
+
+
+                plt.plot([ta['channel_peak']],[ta['time_peak']- tc["time_start"]], color='black', marker='x', markersize=10)
+
 
             plt.title(f'Run {run_id}.{file_index:04} Event Display: {tcdx:03}')
             plt.ylabel(f"Relative Start Time ({time_unit})")
@@ -119,13 +88,42 @@ def plot_all_event_displays(tc_data: list[NDArray],
             pdf.savefig()
             plt.close()
 
-def main():
-    args = parse()
-    filename = args.filename
-    verbosity = args.verbose
-    #start_frag = args.start_frag
-    #end_frag = args.end_frag
-    batch = args.batch
+@click.command(help="Display diagnostic information for TCs for a given HDF5 file.")
+@click.argument("filename", type=click.Path(exists=True, dir_okay=False, path_type=str))
+@click.option(
+    "--verbose", "-v",
+    count=True,
+    help="Increment the verbose level (errors, warnings, all). Save names and skipped writes are always printed. Default: 0.",
+)
+@click.option(
+    "--start-frag",
+    type=int,
+    default=-10,
+    show_default=True,
+    help="Starting fragment index to process from. Takes negative indexing (NOT SUPPORTED YET).",
+)
+@click.option(
+    "--end-frag",
+    type=int,
+    default=0,
+    show_default=True,
+    help="Fragment index to stop processing (i.e. not inclusive). Takes negative indexing (NOT SUPPORTED YET).",
+)
+@click.option(
+    "--batch", "-b",
+    is_flag=True,
+    help="Run in batch mode (e.g. without loading bars/tqdm).",
+)
+@click.option(
+    "--output-file", "-o",
+    type=click.Path(dir_okay=False, path_type=str),
+    default=None,
+    help="Output PDF file name. Defaults to event_displays_<run_id>.<file_index>.pdf.",
+)
+def main(filename: str, verbose: int, start_frag: int, end_frag: int, batch: bool, output_file: str | None) -> None:
+    verbosity = verbose
+    # start_frag and end_frag are intentionally parsed but not yet used.
+    _ = (start_frag, end_frag)
 
     # Getting the ta data
     ta_reader = trgtools.TAReader(filename, verbosity, batch)
@@ -136,7 +134,16 @@ def main():
     tc_reader.read_all_fragments()
 
     # Make the displays
-    plot_all_event_displays(tc_reader.tc_data, tc_reader.ta_data, ta_reader.ta_data, ta_reader.tp_data, tc_reader.run_id, tc_reader.file_index, batch)
+    plot_all_event_displays(
+        tc_reader.tc_data,
+        tc_reader.ta_data,
+        ta_reader.ta_data,
+        ta_reader.tp_data,
+        tc_reader.run_id,
+        tc_reader.file_index,
+        batch,
+        output_file,
+    )
 
     print(f"From TCReader: number of TCs: {len(tc_reader.tc_data)}, all the TAs in TCs: {len(np.concatenate(tc_reader.ta_data))}")
     print(f"From TAReader: number of TAs: {len(ta_reader.tp_data)}")
