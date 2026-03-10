@@ -71,8 +71,8 @@ def plot_all_event_displays(tc_data: list[NDArray],
                 for tatmpdx, tatmp in enumerate(ta_data):
                     if (tatmp['time_start'] == ta['time_start']) and (tatmp['time_end'] == ta['time_end']) and (tatmp['channel_start'] == ta['channel_start']) and (tatmp['channel_end'] == ta['channel_end']):
                         time_starts = ta_data_tps[tatmpdx]['time_start'] - tc["time_start"]
-                        time_end = ta_data_tps[tatmpdx]['time_start']+32*ta_data_tps[tatmpdx]['samples_over_threshold'] - tc["time_start"]
-                        plt.vlines(ta_data_tps[tatmpdx]['channel'], time_starts, time_end)
+                        time_ends = ta_data_tps[tatmpdx]['time_start']+32*ta_data_tps[tatmpdx]['samples_over_threshold'] - tc["time_start"]
+                        plt.vlines(ta_data_tps[tatmpdx]['channel'], time_starts, time_ends)
 
 
                 plt.plot([ta['channel_peak']],[ta['time_peak']- tc["time_start"]], color='black', marker='x', markersize=10)
