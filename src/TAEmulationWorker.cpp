@@ -1,14 +1,14 @@
-#ifndef TRGTOOLS_TAFILEHANDLER_CPP_
-#define TRGTOOLS_TAFILEHANDLER_CPP_
+#ifndef TRGTOOLS_TAEMULATIONWORKER_CPP_
+#define TRGTOOLS_TAEMULATIONWORKER_CPP_
 
-#include "trgtools/TAFileHandler.hpp"
+#include "trgtools/TAEmulationWorker.hpp"
 
 namespace dunedaq::trgtools 
 {
 
-uint16_t TAFileHandler::m_id_next = 0;
+uint16_t TAEmulationWorker::m_id_next = 0;
 
-TAFileHandler::TAFileHandler(std::vector<std::shared_ptr<hdf5libs::HDF5RawDataFile>> input_files,
+TAEmulationWorker::TAEmulationWorker(std::vector<std::shared_ptr<hdf5libs::HDF5RawDataFile>> input_files,
                              nlohmann::json config,
                              std::pair<uint64_t, uint64_t> sliceid_range,
                              bool run_parallel,
@@ -61,18 +61,18 @@ TAFileHandler::TAFileHandler(std::vector<std::shared_ptr<hdf5libs::HDF5RawDataFi
     ta_maker->configure(algo_config);
 
     // Add it to the enulators
-    m_ta_emulators[sid] = std::make_unique<trgtools::EmulateTAUnit>();
+    m_ta_emulators[sid] = std::make_unique<trgtools::TAEmulationUnit>();
     m_ta_emulators[sid]->set_maker(ta_maker);
 
     // Create a worker thread per emulator
     if (m_run_parallel) {
-      m_thread_pool.emplace_back(&TAFileHandler::worker_thread, this);
+      m_thread_pool.emplace_back(&TAEmulationWorker::worker_thread, this);
     }
   }
 }
 
 std::vector<daqdataformats::SourceID> 
-TAFileHandler::get_valid_sourceids(daqdataformats::TimeSlice& _timeslice)
+TAEmulationWorker::get_valid_sourceids(daqdataformats::TimeSlice& _timeslice)
 {
   const auto& fragments = _timeslice.get_fragments_ref();
 
@@ -91,7 +91,7 @@ TAFileHandler::get_valid_sourceids(daqdataformats::TimeSlice& _timeslice)
 }
 
 hdf5libs::HDF5SourceIDHandler::source_id_geo_id_map_t
-TAFileHandler::get_sourceid_geoid_map()
+TAEmulationWorker::get_sourceid_geoid_map()
 {
   if (!m_input_files.size()) {
     throw "Files not set yet!";
@@ -100,7 +100,7 @@ TAFileHandler::get_sourceid_geoid_map()
   return m_input_files.front()->get_srcid_geoid_map();
 }
 
-void TAFileHandler::worker_thread()
+void TAEmulationWorker::worker_thread()
 {
   while (true) {
     /// Get a task from the queue (with locking)
@@ -131,7 +131,7 @@ void TAFileHandler::worker_thread()
   }
 }
 
-void TAFileHandler::process_tasks()
+void TAEmulationWorker::process_tasks()
 {
   // Iterate over the input files
   for (auto& input_file: m_input_files) {
@@ -210,13 +210,13 @@ void TAFileHandler::process_tasks()
   }
 }
 
-void TAFileHandler::start_processing()
+void TAEmulationWorker::start_processing()
 {
-  m_main_thread = std::thread(&TAFileHandler::process_tasks, this);
+  m_main_thread = std::thread(&TAEmulationWorker::process_tasks, this);
 }
 
 
-void TAFileHandler::enqueue_task(std::function<void()> task)
+void TAEmulationWorker::enqueue_task(std::function<void()> task)
 {
   {
     std::lock_guard<std::mutex> lock(m_queue_mutex);
@@ -226,17 +226,17 @@ void TAFileHandler::enqueue_task(std::function<void()> task)
   m_condition.notify_one();
 }
 
-void TAFileHandler::wait_to_complete_tasks()
+void TAEmulationWorker::wait_to_complete_tasks()
 {
   std::unique_lock<std::mutex> lock(m_queue_mutex);
   m_task_complete_condition.wait(lock, [this]() { return m_active_tasks == 0; });
 }
 
-void TAFileHandler::wait_to_complete_work()
+void TAEmulationWorker::wait_to_complete_work()
 {
   // Wait for the main threads to join
   m_main_thread.join();
-  fmt::print("TAFileHandler_{} work completed\n", m_id);
+  fmt::print("TAEmulationWorker_{} work completed\n", m_id);
 
   // Wait for the tasks to complete
   if (m_run_parallel) {
@@ -255,7 +255,7 @@ void TAFileHandler::wait_to_complete_work()
   }
 }
 
-void TAFileHandler::process_task(daqdataformats::SourceID _source_id,
+void TAEmulationWorker::process_task(daqdataformats::SourceID _source_id,
                                  uint64_t _rec,
                                  daqdataformats::FragmentHeader _header,
                                  std::vector<trgdataformats::TriggerPrimitive>&& _tps)
@@ -296,12 +296,12 @@ void TAFileHandler::process_task(daqdataformats::SourceID _source_id,
   }
 }
 
-std::map<uint64_t, std::vector<triggeralgs::TriggerActivity>> TAFileHandler::get_tas()
+std::map<uint64_t, std::vector<triggeralgs::TriggerActivity>> TAEmulationWorker::get_tas()
 {
   return std::move(m_tas);
 }
 
-std::map<uint64_t, std::vector<std::unique_ptr<daqdataformats::Fragment>>> TAFileHandler::get_frags()
+std::map<uint64_t, std::vector<std::unique_ptr<daqdataformats::Fragment>>> TAEmulationWorker::get_frags()
 {
   return std::move(m_ta_fragments);
 }
@@ -309,4 +309,4 @@ std::map<uint64_t, std::vector<std::unique_ptr<daqdataformats::Fragment>>> TAFil
 
 }; // namespace dunedaq::trgtools
 
-#endif //TRGTOOLS_TAFILEHANDLER_CXX_
+#endif //TRGTOOLS_TAEMULATIONWORKER_CXX_
