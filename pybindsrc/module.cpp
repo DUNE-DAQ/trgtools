@@ -20,10 +20,7 @@ PYBIND11_MODULE(_daq_trgtools_py, m)
 
   m.doc() = "C++ implementation of the trgtools modules";
 
-  // You'd want to change renameme to the name of a function which
-  // you'd like to have a python binding to
-
-  // register_renameme(m);
+  register_timeslice_builder(m);
 }
 
 } // namespace dunedaq::trgtools::python

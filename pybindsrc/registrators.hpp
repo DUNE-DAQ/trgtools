@@ -16,7 +16,7 @@
 
 namespace dunedaq::trgtools::python {
 
-//  void register_renameme(pybind11::module&);
+void register_timeslice_builder(pybind11::module&);
 
 }
 

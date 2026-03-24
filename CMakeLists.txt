@@ -16,6 +16,8 @@ find_package(fmt REQUIRED)
 
 find_package(nlohmann_json REQUIRED)
 find_package(hdf5libs REQUIRED)
+find_package(daqdataformats REQUIRED)
+find_package(detdataformats REQUIRED)
 find_package(trgdataformats REQUIRED)
 find_package(triggeralgs REQUIRED)
 find_package(detchannelmaps REQUIRED)
@@ -31,7 +33,7 @@ find_package(Boost COMPONENTS unit_test_framework REQUIRED)
 
 # See https://dune-daq-sw.readthedocs.io/en/latest/packages/daq-cmake/#daq_add_library
 
-daq_add_library(*.cpp LINK_LIBRARIES hdf5libs::hdf5libs trgdataformats::trgdataformats triggeralgs::triggeralgs detchannelmaps::detchannelmaps CLI11::CLI11 fmt::fmt nlohmann_json::nlohmann_json)
+daq_add_library(*.cpp LINK_LIBRARIES daqdataformats::daqdataformats detdataformats::detdataformats hdf5libs::hdf5libs trgdataformats::trgdataformats triggeralgs::triggeralgs detchannelmaps::detchannelmaps CLI11::CLI11 fmt::fmt nlohmann_json::nlohmann_json)
 
 ##############################################################################
 
@@ -51,6 +53,8 @@ daq_add_application(trgtools_tapipe tapipe.cxx LINK_LIBRARIES ${PROJECT_NAME})
 daq_add_application(trgtools_copy_tpstream copy_tpstream.cxx LINK_LIBRARIES ${PROJECT_NAME})
 daq_add_application(trgtools_process_tpstream process_tpstream.cxx LINK_LIBRARIES ${PROJECT_NAME})
 daq_add_application(trgtools_emulate_from_tpstream emulate_from_tpstream.cxx LINK_LIBRARIES ${PROJECT_NAME})
+daq_add_application(trgtools_write_tpstream write_tpstream.cxx LINK_LIBRARIES ${PROJECT_NAME})
+daq_add_application(trgtools_csv_to_tp csv_to_tp.cxx LINK_LIBRARIES ${PROJECT_NAME})
 
 ##############################################################################
 

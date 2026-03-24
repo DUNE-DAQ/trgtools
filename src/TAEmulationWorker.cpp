@@ -3,8 +3,8 @@
 
 #include "trgtools/TAEmulationWorker.hpp"
 
-namespace dunedaq::trgtools 
-{
+namespace dunedaq {
+namespace trgtools {
 
 uint16_t TAEmulationWorker::m_id_next = 0;
 
@@ -307,6 +307,7 @@ std::map<uint64_t, std::vector<std::unique_ptr<daqdataformats::Fragment>>> TAEmu
 }
 
 
-}; // namespace dunedaq::trgtools
+} // namespace trgtools
+} // namespace dunedaq
 
 #endif //TRGTOOLS_TAEMULATIONWORKER_CXX_

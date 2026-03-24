@@ -13,6 +13,8 @@ find_dependency(fmt)
 
 find_dependency(nlohmann_json)
 find_dependency(hdf5libs)
+find_dependency(daqdataformats)
+find_dependency(detdataformats)
 find_dependency(trgdataformats)
 find_dependency(triggeralgs)
 find_dependency(detchannelmaps)
