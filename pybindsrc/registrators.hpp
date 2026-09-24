@@ -8,7 +8,6 @@
  * received with this code.
  */
 
-
 #ifndef TRGTOOLS_PYBINDSRC_REGISTRATORS_HPP_
 #define TRGTOOLS_PYBINDSRC_REGISTRATORS_HPP_
 

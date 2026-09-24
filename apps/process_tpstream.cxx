@@ -5,17 +5,17 @@
 #include "CLI/Config.hpp"
 #include "CLI/Formatter.hpp"
 
+#include <filesystem>
+#include <fmt/chrono.h>
 #include <fmt/core.h>
 #include <fmt/format.h>
-#include <fmt/chrono.h>
-#include <filesystem>
 
+#include "detchannelmaps/TPCChannelMap.hpp"
 #include "hdf5libs/HDF5RawDataFile.hpp"
 #include "trgdataformats/TriggerPrimitive.hpp"
 #include "triggeralgs/TriggerActivityFactory.hpp"
 #include "triggeralgs/TriggerCandidateFactory.hpp"
 #include "triggeralgs/TriggerObjectOverlay.hpp"
-#include "detchannelmaps/TPCChannelMap.hpp"
 
 using namespace dunedaq;
 
@@ -29,19 +29,17 @@ private:
   void open_files(std::string input_path, std::string output_path);
   void close_files();
 
-  void process( daqdataformats::TimeSlice& tls );
+  void process(daqdataformats::TimeSlice& tls);
 
   // Can modify?
   std::function<void(daqdataformats::TimeSlice&)> m_processor;
 
 public:
-
   TimeSliceProcessor(std::string input_path, std::string output_path);
   ~TimeSliceProcessor();
 
   void set_processor(std::function<void(daqdataformats::TimeSlice&)> processor);
   void loop(uint64_t num_records = 0, uint64_t offset = 0, bool quiet = false);
-
 };
 
 //-----------------------------------------------------------------------------
@@ -58,7 +56,8 @@ TimeSliceProcessor::~TimeSliceProcessor()
 
 //-----------------------------------------------------------------------------
 void
-TimeSliceProcessor::open_files(std::string input_path, std::string output_path) {
+TimeSliceProcessor::open_files(std::string input_path, std::string output_path)
+{
   // Open input file
   m_input_file = std::make_unique<hdf5libs::HDF5RawDataFile>(input_path);
 
@@ -81,47 +80,50 @@ TimeSliceProcessor::open_files(std::string input_path, std::string output_path) 
       m_input_file->get_attribute<size_t>("file_index"),
       m_input_file->get_attribute<std::string>("application_name"),
       m_input_file->get_file_layout().get_file_layout_params(),
-      m_input_file->get_srcid_geoid_map()
-    );
+      m_input_file->get_srcid_geoid_map());
   }
 }
 
 //-----------------------------------------------------------------------------
 void
-TimeSliceProcessor::close_files() {
+TimeSliceProcessor::close_files()
+{
   // Do something?
 }
 
 //-----------------------------------------------------------------------------
 void
-TimeSliceProcessor::set_processor(std::function<void(daqdataformats::TimeSlice& )> processor) {
+TimeSliceProcessor::set_processor(std::function<void(daqdataformats::TimeSlice&)> processor)
+{
   m_processor = processor;
 }
 
 //-----------------------------------------------------------------------------
 void
-TimeSliceProcessor::process( daqdataformats::TimeSlice& tls ) {
+TimeSliceProcessor::process(daqdataformats::TimeSlice& tls)
+{
   if (m_processor)
     m_processor(tls);
 }
 
 //-----------------------------------------------------------------------------
 void
-TimeSliceProcessor::loop(uint64_t num_records, uint64_t offset, bool quiet) {
+TimeSliceProcessor::loop(uint64_t num_records, uint64_t offset, bool quiet)
+{
 
   // Replace with a record selection?
   auto records = m_input_file->get_all_record_ids();
 
   if (!num_records) {
-    num_records = (records.size()-offset);
+    num_records = (records.size() - offset);
   }
 
-  uint64_t first_rec = offset, last_rec = offset+num_records;
+  uint64_t first_rec = offset, last_rec = offset + num_records;
 
   uint64_t i_rec(0);
-  for( const auto& rid : records ) {
+  for (const auto& rid : records) {
 
-    if (i_rec < first_rec || i_rec >= last_rec ) {
+    if (i_rec < first_rec || i_rec >= last_rec) {
       ++i_rec;
       continue;
     }
@@ -132,7 +134,7 @@ TimeSliceProcessor::loop(uint64_t num_records, uint64_t offset, bool quiet) {
     // Or filter on a selection here using a lambda?
 
     // if (!quiet)
-      // fmt::print("TSL number {}\n", tsl.get_header().timeslice_number);
+    // fmt::print("TSL number {}\n", tsl.get_header().timeslice_number);
 
     // Add a process method
     this->process(tsl);
@@ -141,19 +143,17 @@ TimeSliceProcessor::loop(uint64_t num_records, uint64_t offset, bool quiet) {
       m_output_file->write(tsl);
 
     ++i_rec;
-    if(!quiet)
+    if (!quiet)
       fmt::print("\n-- Finished TSL {}:{}\n\n", rid.first, rid.second);
-
   }
-
 }
 
-
 //-----------------------------------------------------------------------------
-int main(int argc, char const *argv[])
+int
+main(int argc, char const* argv[])
 {
 
-  CLI::App app{"tapipe"};
+  CLI::App app{ "tapipe" };
   // argv = app.ensure_utf8(argv);
 
   std::string input_file_path;
@@ -176,7 +176,6 @@ int main(int argc, char const *argv[])
   app.add_flag("--latencies", latencies, "Saves latencies per TP into csv");
   CLI11_PARSE(app, argc, argv);
 
-
   if (!quiet)
     fmt::print("TPStream file: {}\n", input_file_path);
 
@@ -198,7 +197,6 @@ int main(int argc, char const *argv[])
   nlohmann::json tc_algo = config["trigger_candidate_plugin"][0];
   nlohmann::json tc_config = config["trigger_candidate_config"][0];
 
-
   // Finally create a TA maker
   std::unique_ptr<triggeralgs::TriggerActivityMaker> ta_maker =
     triggeralgs::TriggerActivityFactory::get_instance()->build_maker(ta_algo);
@@ -208,7 +206,8 @@ int main(int argc, char const *argv[])
   // TODO: Use a better file naming scheme for CSV.
   if (latencies) {
     std::filesystem::path output_path(output_file_path);
-    ta_emulator->set_timing_file((output_path.parent_path() / ("ta_timings_" + output_path.stem().string() + ".csv")).string());
+    ta_emulator->set_timing_file(
+      (output_path.parent_path() / ("ta_timings_" + output_path.stem().string() + ".csv")).string());
     ta_emulator->write_csv_header("TP Time Start,TP ADC Integral,Time Diffs,Is Last TP In TA");
   }
 
@@ -221,23 +220,24 @@ int main(int argc, char const *argv[])
   // TODO: Use a better file naming scheme for CSV.
   if (latencies) {
     std::filesystem::path output_path(output_file_path);
-    tc_emulator->set_timing_file((output_path.parent_path() / ("tc_timings_" + output_path.stem().string() + ".csv")).string());
+    tc_emulator->set_timing_file(
+      (output_path.parent_path() / ("tc_timings_" + output_path.stem().string() + ".csv")).string());
     tc_emulator->write_csv_header("Time Diffs");
   }
 
   // Generic filter hook
   std::function<bool(const trgdataformats::TriggerPrimitive&)> tp_filter;
 
-  auto z_plane_filter = [&]( const trgdataformats::TriggerPrimitive& tp ) -> bool {
+  auto z_plane_filter = [&](const trgdataformats::TriggerPrimitive& tp) -> bool {
     return (channel_map->get_plane_from_offline_channel(tp.channel) != 2);
   };
 
   tp_filter = z_plane_filter;
 
-  rp.set_processor([&]( daqdataformats::TimeSlice& tsl ) -> void {
+  rp.set_processor([&](daqdataformats::TimeSlice& tsl) -> void {
     const std::vector<std::unique_ptr<daqdataformats::Fragment>>& frags = tsl.get_fragments_ref();
     const size_t num_frags = frags.size();
-    if(!quiet)
+    if (!quiet)
       fmt::print("The number of fragments: {}\n", num_frags);
 
     uint64_t average_ta_time = 0;
@@ -252,24 +252,26 @@ int main(int argc, char const *argv[])
 
       // The fragment has to be for the trigger (not e.g. for retreival from readout)
       if (frag->get_element_id().subsystem != tp_subsystem_requirement) {
-        if(!quiet)
+        if (!quiet)
           fmt::print("  Warning, got non kTrigger SourceID {}\n", frag->get_element_id().to_string());
         continue;
       }
 
       // The fragment has to be TriggerPrimitive
-      if(frag->get_fragment_type() != daqdataformats::FragmentType::kTriggerPrimitive){
-        if(!quiet)
+      if (frag->get_fragment_type() != daqdataformats::FragmentType::kTriggerPrimitive) {
+        if (!quiet)
           fmt::print("  Error: FragmentType is: {}!\n", fragment_type_to_string(frag->get_fragment_type()));
         continue;
       }
 
       // This bit should be outside the loop
       if (!quiet)
-        fmt::print("  Fragment id: {} [{}]\n", frag->get_element_id().to_string(), daqdataformats::fragment_type_to_string(frag->get_fragment_type()));
+        fmt::print("  Fragment id: {} [{}]\n",
+                   frag->get_element_id().to_string(),
+                   daqdataformats::fragment_type_to_string(frag->get_fragment_type()));
 
       // Pull tps out
-      size_t n_tps = frag->get_data_size()/sizeof(trgdataformats::TriggerPrimitive);
+      size_t n_tps = frag->get_data_size() / sizeof(trgdataformats::TriggerPrimitive);
       if (!quiet) {
         fmt::print("  TP fragment size: {}\n", frag->get_data_size());
         fmt::print("  Num TPs: {}\n", n_tps);
@@ -278,23 +280,23 @@ int main(int argc, char const *argv[])
       // Create a TP buffer
       std::vector<trgdataformats::TriggerPrimitive> tp_buffer;
       // Prepare the TP buffer, checking for time ordering
-      tp_buffer.reserve(tp_buffer.size()+n_tps);
+      tp_buffer.reserve(tp_buffer.size() + n_tps);
 
       // Populate the TP buffer
       trgdataformats::TriggerPrimitive* tp_array = static_cast<trgdataformats::TriggerPrimitive*>(frag->get_data());
       uint64_t last_ts = 0;
-      for(size_t i(0); i<n_tps; ++i) {
+      for (size_t i(0); i < n_tps; ++i) {
         auto& tp = tp_array[i];
         if (tp.time_start <= last_ts && !quiet) {
-          fmt::print("  ERROR: {} {} ", +tp.time_start, last_ts );
+          fmt::print("  ERROR: {} {} ", +tp.time_start, last_ts);
         }
         tp_buffer.push_back(tp);
       }
 
       // Print some useful info
-      uint64_t d_ts = tp_array[n_tps-1].time_start - tp_array[0].time_start;
+      uint64_t d_ts = tp_array[n_tps - 1].time_start - tp_array[0].time_start;
       if (!quiet)
-        fmt::print("  TS gap: {} {} ms\n", d_ts, d_ts*16.0/1'000'000);
+        fmt::print("  TS gap: {} {} ms\n", d_ts, d_ts * 16.0 / 1'000'000);
 
       //
       // TA Processing
@@ -318,11 +320,11 @@ int main(int argc, char const *argv[])
       daqdataformats::FragmentHeader frag_hdr = frag->get_header();
 
       // Customise the source id (add 1000 to id)
-      frag_hdr.element_id = daqdataformats::SourceID{daqdataformats::SourceID::Subsystem::kTrigger, frag->get_element_id().id+1000};
+      frag_hdr.element_id =
+        daqdataformats::SourceID{ daqdataformats::SourceID::Subsystem::kTrigger, frag->get_element_id().id + 1000 };
 
       ta_frag->set_header_fields(frag_hdr);
       ta_frag->set_type(daqdataformats::FragmentType::kTriggerActivity);
-
 
       tsl.add_fragment(std::move(ta_frag));
       //
@@ -357,10 +359,14 @@ int main(int argc, char const *argv[])
 
     } // Fragment for loop
 
-    if (num_tas == 0) average_ta_time = 0;
-    else average_ta_time /= num_tas;
-    if (num_tcs == 0) average_tc_time = 0;
-    else average_tc_time /= num_tcs;
+    if (num_tas == 0)
+      average_ta_time = 0;
+    else
+      average_ta_time /= num_tas;
+    if (num_tcs == 0)
+      average_tc_time = 0;
+    else
+      average_tc_time /= num_tcs;
     if (!quiet) {
       fmt::print("\t\tAverage TA Time Process ({} TAs): {} ns.\n", num_tas, average_ta_time);
       fmt::print("\t\tAverage TC Time Process ({} TCs): {} ns.\n", num_tcs, average_tc_time);

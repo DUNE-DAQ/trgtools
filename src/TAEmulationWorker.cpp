@@ -3,21 +3,20 @@
 
 #include "trgtools/TAEmulationWorker.hpp"
 
-namespace dunedaq::trgtools 
-{
+namespace dunedaq::trgtools {
 
 uint16_t TAEmulationWorker::m_id_next = 0;
 
 TAEmulationWorker::TAEmulationWorker(std::vector<std::shared_ptr<hdf5libs::HDF5RawDataFile>> input_files,
-                             nlohmann::json config,
-                             std::pair<uint64_t, uint64_t> sliceid_range,
-                             bool run_parallel,
-                             bool quiet)
-  : m_input_files(input_files),
-    m_sliceid_range(sliceid_range),
-    m_run_parallel(run_parallel),
-    m_quiet(quiet),
-    m_id(m_id_next++)
+                                     nlohmann::json config,
+                                     std::pair<uint64_t, uint64_t> sliceid_range,
+                                     bool run_parallel,
+                                     bool quiet)
+  : m_input_files(input_files)
+  , m_sliceid_range(sliceid_range)
+  , m_run_parallel(run_parallel)
+  , m_quiet(quiet)
+  , m_id(m_id_next++)
 {
   std::string algo_name = config["trigger_activity_plugin"][0];
   nlohmann::json algo_config = config["trigger_activity_config"][0];
@@ -27,23 +26,26 @@ TAEmulationWorker::TAEmulationWorker(std::vector<std::shared_ptr<hdf5libs::HDF5R
   std::vector<daqdataformats::run_number_t> run_numbers;
   std::vector<size_t> file_indices;
   for (const auto& input_file : input_files) {
-    if (std::find(run_numbers.begin(), run_numbers.end(),
-        input_file->get_attribute<daqdataformats::run_number_t>("run_number")) ==
-        run_numbers.end()) {
-          run_numbers.push_back(input_file->get_attribute<daqdataformats::run_number_t>("run_number"));
+    if (std::find(run_numbers.begin(),
+                  run_numbers.end(),
+                  input_file->get_attribute<daqdataformats::run_number_t>("run_number")) == run_numbers.end()) {
+      run_numbers.push_back(input_file->get_attribute<daqdataformats::run_number_t>("run_number"));
     }
 
-    if (std::find(file_indices.begin(), file_indices.end(),
-        input_file->get_attribute<daqdataformats::run_number_t>("run_number")) ==
-        file_indices.end()) {
-          file_indices.push_back(input_file->get_attribute<size_t>("file_index"));
+    if (std::find(file_indices.begin(),
+                  file_indices.end(),
+                  input_file->get_attribute<daqdataformats::run_number_t>("run_number")) == file_indices.end()) {
+      file_indices.push_back(input_file->get_attribute<size_t>("file_index"));
     }
   }
 
   std::string application_name = m_input_files.front()->get_attribute<std::string>("application_name");
 
   if (!m_quiet) {
-    fmt::print("Run Numbers: {}\nFile Indices: {}\nApp name: '{}'\n", fmt::join(run_numbers, ","), fmt::join(file_indices, ","), application_name);
+    fmt::print("Run Numbers: {}\nFile Indices: {}\nApp name: '{}'\n",
+               fmt::join(run_numbers, ","),
+               fmt::join(file_indices, ","),
+               application_name);
   }
 
   // std::set of record IDs (pair of record number & sequence number)
@@ -71,7 +73,7 @@ TAEmulationWorker::TAEmulationWorker(std::vector<std::shared_ptr<hdf5libs::HDF5R
   }
 }
 
-std::vector<daqdataformats::SourceID> 
+std::vector<daqdataformats::SourceID>
 TAEmulationWorker::get_valid_sourceids(daqdataformats::TimeSlice& _timeslice)
 {
   const auto& fragments = _timeslice.get_fragments_ref();
@@ -100,14 +102,15 @@ TAEmulationWorker::get_sourceid_geoid_map()
   return m_input_files.front()->get_srcid_geoid_map();
 }
 
-void TAEmulationWorker::worker_thread()
+void
+TAEmulationWorker::worker_thread()
 {
   while (true) {
     /// Get a task from the queue (with locking)
     std::function<void()> task;
     {
       std::unique_lock<std::mutex> lock(m_queue_mutex);
-      m_condition.wait(lock, [this]() {return m_stop || !m_task_queue.empty(); });
+      m_condition.wait(lock, [this]() { return m_stop || !m_task_queue.empty(); });
 
       if (m_stop && m_task_queue.empty()) {
         return;
@@ -131,10 +134,11 @@ void TAEmulationWorker::worker_thread()
   }
 }
 
-void TAEmulationWorker::process_tasks()
+void
+TAEmulationWorker::process_tasks()
 {
   // Iterate over the input files
-  for (auto& input_file: m_input_files) {
+  for (auto& input_file : m_input_files) {
     // std::set of record IDs (pair of record number & sequence number)
     auto records = input_file->get_all_record_ids();
 
@@ -158,7 +162,7 @@ void TAEmulationWorker::process_tasks()
         }
 
         // Pull tps out
-        size_t n_tps = fragment->get_data_size()/SIZE_TP;
+        size_t n_tps = fragment->get_data_size() / SIZE_TP;
         if (!m_quiet) {
           fmt::print("  TP fragment size: {}\n", fragment->get_data_size());
           fmt::print("  Num TPs: {}\n", n_tps);
@@ -170,12 +174,13 @@ void TAEmulationWorker::process_tasks()
         tp_buffer.reserve(n_tps);
 
         // Populate the TP buffer
-        trgdataformats::TriggerPrimitive* tp_array = static_cast<trgdataformats::TriggerPrimitive*>(fragment->get_data());
+        trgdataformats::TriggerPrimitive* tp_array =
+          static_cast<trgdataformats::TriggerPrimitive*>(fragment->get_data());
         uint64_t last_ts = 0;
-        for(size_t tpid(0); tpid<n_tps; ++tpid) {
+        for (size_t tpid(0); tpid < n_tps; ++tpid) {
           auto& tp = tp_array[tpid];
           if (tp.time_start <= last_ts && !m_quiet) {
-            fmt::print("  ERROR: {} {} ", +tp.time_start, last_ts );
+            fmt::print("  ERROR: {} {} ", +tp.time_start, last_ts);
           }
           tp_buffer.push_back(tp);
         }
@@ -183,15 +188,15 @@ void TAEmulationWorker::process_tasks()
         daqdataformats::FragmentHeader frag_hdr = fragment->get_header();
 
         // Customise the source id (add 1000 to id)
-        frag_hdr.element_id = daqdataformats::SourceID{daqdataformats::SourceID::Subsystem::kTrigger, fragment->get_element_id().id+1000};
+        frag_hdr.element_id = daqdataformats::SourceID{ daqdataformats::SourceID::Subsystem::kTrigger,
+                                                        fragment->get_element_id().id + 1000 };
 
         // Either enqueue the task if using parallel processing, or execute the task now
         if (m_run_parallel) {
           enqueue_task([this, sid, record, frag_hdr, tp_buffer = std::move(tp_buffer)]() mutable {
             this->process_task(sid, record.first, frag_hdr, std::move(tp_buffer));
           });
-        }
-        else {
+        } else {
           this->process_task(sid, record.first, frag_hdr, std::move(tp_buffer));
         }
       }
@@ -203,20 +208,21 @@ void TAEmulationWorker::process_tasks()
     }
 
     size_t total = 0;
-    for (auto& [key, vec_tas]: m_tas) {
+    for (auto& [key, vec_tas] : m_tas) {
       total += vec_tas.size();
     }
     std::cout << "We have a total of " << total << " TAs!" << std::endl;
   }
 }
 
-void TAEmulationWorker::start_processing()
+void
+TAEmulationWorker::start_processing()
 {
   m_main_thread = std::thread(&TAEmulationWorker::process_tasks, this);
 }
 
-
-void TAEmulationWorker::enqueue_task(std::function<void()> task)
+void
+TAEmulationWorker::enqueue_task(std::function<void()> task)
 {
   {
     std::lock_guard<std::mutex> lock(m_queue_mutex);
@@ -226,13 +232,15 @@ void TAEmulationWorker::enqueue_task(std::function<void()> task)
   m_condition.notify_one();
 }
 
-void TAEmulationWorker::wait_to_complete_tasks()
+void
+TAEmulationWorker::wait_to_complete_tasks()
 {
   std::unique_lock<std::mutex> lock(m_queue_mutex);
   m_task_complete_condition.wait(lock, [this]() { return m_active_tasks == 0; });
 }
 
-void TAEmulationWorker::wait_to_complete_work()
+void
+TAEmulationWorker::wait_to_complete_work()
 {
   // Wait for the main threads to join
   m_main_thread.join();
@@ -255,10 +263,11 @@ void TAEmulationWorker::wait_to_complete_work()
   }
 }
 
-void TAEmulationWorker::process_task(daqdataformats::SourceID _source_id,
-                                 uint64_t _rec,
-                                 daqdataformats::FragmentHeader _header,
-                                 std::vector<trgdataformats::TriggerPrimitive>&& _tps)
+void
+TAEmulationWorker::process_task(daqdataformats::SourceID _source_id,
+                                uint64_t _rec,
+                                daqdataformats::FragmentHeader _header,
+                                std::vector<trgdataformats::TriggerPrimitive>&& _tps)
 {
   // Get te last fragment
   std::unique_ptr<daqdataformats::Fragment> frag = m_ta_emulators[_source_id]->emulate_vector(_tps);
@@ -287,7 +296,8 @@ void TAEmulationWorker::process_task(daqdataformats::SourceID _source_id,
       std::lock_guard<std::mutex> lock(m_savetps_mutex);
     }
     m_tas[_rec].reserve(m_tas[_rec].size() + ta_buffer.size());
-    m_tas[_rec].insert(m_tas[_rec].end(), std::make_move_iterator(ta_buffer.begin()), std::make_move_iterator(ta_buffer.end()));
+    m_tas[_rec].insert(
+      m_tas[_rec].end(), std::make_move_iterator(ta_buffer.begin()), std::make_move_iterator(ta_buffer.end()));
 
     frag->set_header_fields(_header);
     frag->set_type(daqdataformats::FragmentType::kTriggerActivity);
@@ -296,17 +306,18 @@ void TAEmulationWorker::process_task(daqdataformats::SourceID _source_id,
   }
 }
 
-std::map<uint64_t, std::vector<triggeralgs::TriggerActivity>> TAEmulationWorker::get_tas()
+std::map<uint64_t, std::vector<triggeralgs::TriggerActivity>>
+TAEmulationWorker::get_tas()
 {
   return std::move(m_tas);
 }
 
-std::map<uint64_t, std::vector<std::unique_ptr<daqdataformats::Fragment>>> TAEmulationWorker::get_frags()
+std::map<uint64_t, std::vector<std::unique_ptr<daqdataformats::Fragment>>>
+TAEmulationWorker::get_frags()
 {
   return std::move(m_ta_fragments);
 }
 
-
 }; // namespace dunedaq::trgtools
 
-#endif //TRGTOOLS_TAEMULATIONWORKER_CXX_
+#endif // TRGTOOLS_TAEMULATIONWORKER_CXX_

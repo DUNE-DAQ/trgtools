@@ -10,15 +10,17 @@
 #ifndef TRGTOOLS_TAEMULATIONUNIT_HPP_
 #define TRGTOOLS_TAEMULATIONUNIT_HPP_
 
-#include "trgtools/EmulationUnit.hpp"
 #include "trgdataformats/TriggerPrimitive.hpp"
+#include "trgtools/EmulationUnit.hpp"
 #include "triggeralgs/TriggerActivityMaker.hpp"
 
 namespace dunedaq {
 namespace trgtools {
 
 class TAEmulationUnit
-  : public EmulationUnit<trgdataformats::TriggerPrimitive, triggeralgs::TriggerActivity, triggeralgs::TriggerActivityMaker>
+  : public EmulationUnit<trgdataformats::TriggerPrimitive,
+                         triggeralgs::TriggerActivity,
+                         triggeralgs::TriggerActivityMaker>
 {};
 
 } // namespace trgtools

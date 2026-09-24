@@ -1,14 +1,14 @@
-#include "trgtools/TCEmulationUnit.hpp"
 #include "trgtools/TAEmulationWorker.hpp"
+#include "trgtools/TCEmulationUnit.hpp"
 
 #include "CLI/App.hpp"
 #include "CLI/Config.hpp"
 #include "CLI/Formatter.hpp"
 
+#include <filesystem>
+#include <fmt/chrono.h>
 #include <fmt/core.h>
 #include <fmt/format.h>
-#include <fmt/chrono.h>
-#include <filesystem>
 #include <optional>
 
 #include "hdf5libs/HDF5RawDataFile.hpp"
@@ -29,14 +29,14 @@ using namespace trgtools;
  * @param _frags Map of fragments, with a vector of fragment pointers for each slice id
  * @param _quiet Do we want to quiet down the cout?
  */
-void save_fragments(const std::string& _outputfilename,
-                   const hdf5libs::HDF5SourceIDHandler::source_id_geo_id_map_t& _sourceid_geoid_map,
-                   std::map<uint64_t, std::vector<std::unique_ptr<daqdataformats::Fragment>>> _frags,
-                   bool _quiet)
+void
+save_fragments(const std::string& _outputfilename,
+               const hdf5libs::HDF5SourceIDHandler::source_id_geo_id_map_t& _sourceid_geoid_map,
+               std::map<uint64_t, std::vector<std::unique_ptr<daqdataformats::Fragment>>> _frags,
+               bool _quiet)
 {
   std::string output_filename = _outputfilename;
-  if (output_filename.size() < 5 ||
-      output_filename.compare(output_filename.size() - 5, 5, ".hdf5") != 0) {
+  if (output_filename.size() < 5 || output_filename.compare(output_filename.size() - 5, 5, ".hdf5") != 0) {
     output_filename += ".hdf5";
   }
 
@@ -46,7 +46,7 @@ void save_fragments(const std::string& _outputfilename,
   // Create HDF5 parameter path required for the layout
   hdf5libs::HDF5PathParameters params_trigger;
   params_trigger.detector_group_type = "Detector_Readout";
-  /// @todo Maybe in the future we will want to emulate PDS TPs. 
+  /// @todo Maybe in the future we will want to emulate PDS TPs.
   params_trigger.detector_group_name = "TPC";
   params_trigger.element_name_prefix = "Link";
   params_trigger.digits_for_element_number = 5;
@@ -60,19 +60,19 @@ void save_fragments(const std::string& _outputfilename,
   layout_params.record_header_dataset_name = "TimeSliceHeader";
   layout_params.raw_data_group_name = "RawData";
   layout_params.view_group_name = "Views";
-  layout_params.path_params_list = {params};
+  layout_params.path_params_list = { params };
 
   // Create pointer to a new output HDF5 file
-  std::unique_ptr<hdf5libs::HDF5RawDataFile> output_file = std::make_unique<hdf5libs::HDF5RawDataFile>(
-      output_filename,
-      _frags.begin()->second[0]->get_run_number(),
-      0,
-      "emulate_from_tpstream",
-      layout_params,
-      _sourceid_geoid_map);
+  std::unique_ptr<hdf5libs::HDF5RawDataFile> output_file =
+    std::make_unique<hdf5libs::HDF5RawDataFile>(output_filename,
+                                                _frags.begin()->second[0]->get_run_number(),
+                                                0,
+                                                "emulate_from_tpstream",
+                                                layout_params,
+                                                _sourceid_geoid_map);
 
   // Iterate over the time slices & save all the fragments
-  for (auto& [slice_id, vec_frags]: _frags) {
+  for (auto& [slice_id, vec_frags] : _frags) {
     // Create a new timeslice header
     daqdataformats::TimeSliceHeader tsh;
     tsh.timeslice_number = slice_id;
@@ -85,9 +85,13 @@ void save_fragments(const std::string& _outputfilename,
       std::cout << "Time slice number: " << slice_id << std::endl;
     }
     // Add the fragments to the timeslices
-    for (std::unique_ptr<daqdataformats::Fragment>& frag_ptr: vec_frags) {
+    for (std::unique_ptr<daqdataformats::Fragment>& frag_ptr : vec_frags) {
       if (!_quiet) {
-        std::cout << "  Writing elementid: " << frag_ptr->get_element_id()  << " trigger number: " << frag_ptr->get_trigger_number() << " trigger_timestamp: " << frag_ptr->get_trigger_timestamp() << " window_begin: " << frag_ptr->get_window_begin() << " sequence_no: " << frag_ptr->get_sequence_number() << std::endl;
+        std::cout << "  Writing elementid: " << frag_ptr->get_element_id()
+                  << " trigger number: " << frag_ptr->get_trigger_number()
+                  << " trigger_timestamp: " << frag_ptr->get_trigger_timestamp()
+                  << " window_begin: " << frag_ptr->get_window_begin()
+                  << " sequence_no: " << frag_ptr->get_sequence_number() << std::endl;
       }
       ts.add_fragment(std::move(frag_ptr));
     }
@@ -127,18 +131,19 @@ sort_files_per_writer(const std::vector<std::string>& _files)
   }
 
   // Sort files for each writer application individually
-  for (auto& [app_name, vec_files]: files_sorted) {
+  for (auto& [app_name, vec_files] : files_sorted) {
     // Don't sort if we have 0 or 1 files in the application...
     if (vec_files.size() <= 1) {
       continue;
     }
 
     // Sort w.r.t. file index attribute
-    std::sort(vec_files.begin(), vec_files.end(),
-        [](const std::shared_ptr<hdf5libs::HDF5RawDataFile>& a, const std::shared_ptr<hdf5libs::HDF5RawDataFile>& b) {
-        return a->get_attribute<size_t>("file_index") <
-               b->get_attribute<size_t>("file_index");
-        });
+    std::sort(
+      vec_files.begin(),
+      vec_files.end(),
+      [](const std::shared_ptr<hdf5libs::HDF5RawDataFile>& a, const std::shared_ptr<hdf5libs::HDF5RawDataFile>& b) {
+        return a->get_attribute<size_t>("file_index") < b->get_attribute<size_t>("file_index");
+      });
   }
 
   return files_sorted;
@@ -165,8 +170,9 @@ sort_files_per_writer(const std::vector<std::string>& _files)
  *         or if no overlapping SliceID interval exists.
  */
 std::pair<uint64_t, uint64_t>
-get_available_slice_id_range(const std::map<std::string, std::vector<std::shared_ptr<hdf5libs::HDF5RawDataFile>>>& _files,
-                         bool _quiet)
+get_available_slice_id_range(
+  const std::map<std::string, std::vector<std::shared_ptr<hdf5libs::HDF5RawDataFile>>>& _files,
+  bool _quiet)
 {
   if (_files.empty()) {
     throw std::runtime_error("No files provided");
@@ -176,7 +182,7 @@ get_available_slice_id_range(const std::map<std::string, std::vector<std::shared
   uint64_t global_end = std::numeric_limits<uint64_t>::max();
 
   // Get the min & max record id per application, and the global
-  for (auto& [appid, vec_files]: _files) {
+  for (auto& [appid, vec_files] : _files) {
     uint64_t app_start = std::numeric_limits<uint64_t>::max();
     uint64_t app_end = std::numeric_limits<uint64_t>::min();
 
@@ -195,7 +201,8 @@ get_available_slice_id_range(const std::map<std::string, std::vector<std::shared
     global_end = std::min(global_end, app_end);
 
     if (!_quiet) {
-      std::cout << "Application: " << appid << " " << " TimeSliceID start: " << app_start << " end: " << app_end << std::endl;
+      std::cout << "Application: " << appid << " " << " TimeSliceID start: " << app_start << " end: " << app_end
+                << std::endl;
     }
   }
 
@@ -203,11 +210,12 @@ get_available_slice_id_range(const std::map<std::string, std::vector<std::shared
     std::cout << "Global start: " << global_start << " Global end: " << global_end << std::endl;
   }
   if (global_start > global_end) {
-    throw std::runtime_error("One of the provided files' id range did not overlap with the rest. Please select files with overlapping TimeSlice IDs");
+    throw std::runtime_error("One of the provided files' id range did not overlap with the rest. Please select files "
+                             "with overlapping TimeSlice IDs");
   }
 
   // Extra validation / error handling
-  for (auto& [appid, vec_files]: _files) {
+  for (auto& [appid, vec_files] : _files) {
     for (auto& file : vec_files) {
       auto record_ids = file->get_all_record_ids();
 
@@ -215,15 +223,19 @@ get_available_slice_id_range(const std::map<std::string, std::vector<std::shared
       uint64_t file_end = record_ids.rbegin()->first;
       if ((file_start > global_end || file_end < global_start)) {
         uint64_t file_index = file->get_attribute<size_t>("file_index");
-        throw std::runtime_error(fmt::format(
-          "File from TPStreamWrite application '{}' (index '{}') has record id range [{}, {}], which does not overlap with global range [{}, {}].",
-           appid, file_index, file_start, file_end, global_start, global_end
-          ));
+        throw std::runtime_error(fmt::format("File from TPStreamWrite application '{}' (index '{}') has record id "
+                                             "range [{}, {}], which does not overlap with global range [{}, {}].",
+                                             appid,
+                                             file_index,
+                                             file_start,
+                                             file_end,
+                                             global_start,
+                                             global_end));
       }
     }
   }
 
-  return {global_start, global_end};
+  return { global_start, global_end };
 }
 
 /**
@@ -252,11 +264,12 @@ struct Options
 
 /**
  * @brief Adds options to our CLI application
- * 
+ *
  * @param _app CLI application
  * @param _opts Struct with the available options
  */
-void parse_app(CLI::App& _app, Options& _opts)
+void
+parse_app(CLI::App& _app, Options& _opts)
 {
   _app.add_option("-i,--input-files", _opts.input_files, "List of input files (required)")
     ->required()
@@ -265,10 +278,11 @@ void parse_app(CLI::App& _app, Options& _opts)
   _app.add_option("-o,--output-file", _opts.output_filename, "Output file (required)")
     ->required(); // make the argument required
 
-  _app.add_option("-j,--json-config", _opts.config_name, "Trigger Activity and Candidate config JSON to use (required)")
+  _app
+    .add_option("-j,--json-config", _opts.config_name, "Trigger Activity and Candidate config JSON to use (required)")
     ->required()
     ->check(CLI::ExistingFile);
-  
+
   _app.add_flag("--parallel", _opts.run_parallel, "Run the TAMakers in parallel");
 
   _app.add_flag("--quiet", _opts.quiet, "Quiet outputs.");
@@ -279,18 +293,18 @@ void parse_app(CLI::App& _app, Options& _opts)
   _app.add_option("-n,--num-slices", _opts.num_slices, "Number of TimeSlices to process");
 }
 
-int main(int argc, char const *argv[])
+int
+main(int argc, char const* argv[])
 {
   // Do all the CLI processing first
-  CLI::App app{"Offline trigger TriggerActivity & TriggerCandidate emulatior"};
+  CLI::App app{ "Offline trigger TriggerActivity & TriggerCandidate emulatior" };
   Options opts{};
 
   parse_app(app, opts);
 
   try {
     app.parse(argc, argv);
-  }
-  catch (const CLI::ParseError &e) {
+  } catch (const CLI::ParseError& e) {
     return app.exit(e);
   }
 
@@ -340,13 +354,15 @@ int main(int argc, char const *argv[])
   }
 
   if (!opts.quiet) {
-    std::cout << "Processing TimeSliceID range: [" << processing_range.first << ", " << processing_range.second << "]" << std::endl;
+    std::cout << "Processing TimeSliceID range: [" << processing_range.first << ", " << processing_range.second << "]"
+              << std::endl;
   }
 
   // Create the file handlers
   std::vector<std::unique_ptr<TAEmulationWorker>> ta_emu_workers;
   for (auto [name, files] : sorted_files) {
-    ta_emu_workers.push_back(std::make_unique<TAEmulationWorker>(files, config, processing_range, opts.run_parallel, opts.quiet));
+    ta_emu_workers.push_back(
+      std::make_unique<TAEmulationWorker>(files, config, processing_range, opts.run_parallel, opts.quiet));
   }
 
   // Start each file handler
@@ -397,12 +413,12 @@ int main(int argc, char const *argv[])
 
   // Sort the TAs in each slice before pushing them into the TCMaker
   size_t n_tas = 0;
-  for (auto& [sliceid, vec_tas]: tas) {
-    std::sort(vec_tas.begin(), vec_tas.end(),
-        [](const triggeralgs::TriggerActivity& a, const triggeralgs::TriggerActivity& b) {
+  for (auto& [sliceid, vec_tas] : tas) {
+    std::sort(
+      vec_tas.begin(), vec_tas.end(), [](const triggeralgs::TriggerActivity& a, const triggeralgs::TriggerActivity& b) {
         return std::tie(a.time_start, a.channel_start, a.time_end) <
                std::tie(b.time_start, b.channel_start, b.time_end);
-        });
+      });
     n_tas += vec_tas.size();
   }
 
@@ -423,7 +439,7 @@ int main(int argc, char const *argv[])
 
   // Emulate the TriggerCandidates
   std::vector<triggeralgs::TriggerCandidate> tcs;
-  for (auto& [sliceid, vec_tas]: tas) {
+  for (auto& [sliceid, vec_tas] : tas) {
     std::unique_ptr<daqdataformats::Fragment> tc_frag = tc_emulator.emulate_vector(vec_tas);
     if (!tc_frag) {
       continue;
@@ -431,7 +447,8 @@ int main(int argc, char const *argv[])
 
     // Manipulate the fragment header
     daqdataformats::FragmentHeader frag_hdr = tc_frag->get_header();
-    frag_hdr.element_id = daqdataformats::SourceID{daqdataformats::SourceID::Subsystem::kTrigger, tc_frag->get_element_id().id+10000};
+    frag_hdr.element_id =
+      daqdataformats::SourceID{ daqdataformats::SourceID::Subsystem::kTrigger, tc_frag->get_element_id().id + 10000 };
 
     tc_frag->set_header_fields(frag_hdr);
     tc_frag->set_type(daqdataformats::FragmentType::kTriggerCandidate);

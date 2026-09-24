@@ -9,10 +9,11 @@
 
 using namespace dunedaq;
 
-int main(int argc, char const *argv[])
+int
+main(int argc, char const* argv[])
 {
 
-  CLI::App app{"tapipe"};
+  CLI::App app{ "tapipe" };
   // argv = app.ensure_utf8(argv);
 
   std::string input_file_path;
@@ -30,7 +31,7 @@ int main(int argc, char const *argv[])
 
   try {
     input_file = std::make_unique<hdf5libs::HDF5RawDataFile>(input_file_path);
-  } catch(const hdf5libs::FileOpenFailed& e) {
+  } catch (const hdf5libs::FileOpenFailed& e) {
     fmt::print("ERROR: failed to open input file '{}'\n", input_file_path);
     std::cerr << e.what() << '\n';
     exit(-1);
@@ -49,16 +50,15 @@ int main(int argc, char const *argv[])
   fmt::print("Run Number: {}\nFile Index: {}\nApp name: '{}'\n", run_number, file_index, application_name);
 
   try {
-    output_file = std::make_unique<hdf5libs::HDF5RawDataFile>(
-      output_file_path,
-      input_file->get_attribute<daqdataformats::run_number_t>("run_number"),
-      input_file->get_attribute<size_t>("file_index"),
-      input_file->get_attribute<std::string>("application_name"),
-      input_file->get_file_layout().get_file_layout_params(),
-      input_file->get_srcid_geoid_map()
-    );
+    output_file =
+      std::make_unique<hdf5libs::HDF5RawDataFile>(output_file_path,
+                                                  input_file->get_attribute<daqdataformats::run_number_t>("run_number"),
+                                                  input_file->get_attribute<size_t>("file_index"),
+                                                  input_file->get_attribute<std::string>("application_name"),
+                                                  input_file->get_file_layout().get_file_layout_params(),
+                                                  input_file->get_srcid_geoid_map());
 
-  } catch(const hdf5libs::FileOpenFailed& e) {
+  } catch (const hdf5libs::FileOpenFailed& e) {
     std::cout << "ERROR: failed to open output file" << std::endl;
     std::cerr << e.what() << '\n';
     exit(-1);
@@ -66,13 +66,12 @@ int main(int argc, char const *argv[])
 
   auto records = input_file->get_all_record_ids();
 
-  for( const auto& rid : records ) {
+  for (const auto& rid : records) {
     auto tsl = input_file->get_timeslice(rid);
     output_file->write(tsl);
     // Just 1, for testing
     // break;
   }
-
 
   /* code */
   return 0;
