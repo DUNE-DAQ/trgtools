@@ -13,9 +13,10 @@
 namespace dunedaq {
 namespace trgtools {
 
-template <typename T, typename U, typename V>
+template<typename T, typename U, typename V>
 std::unique_ptr<daqdataformats::Fragment>
-EmulationUnit<T, U, V>::emulate_vector(const std::vector<T>& inputs) {
+EmulationUnit<T, U, V>::emulate_vector(const std::vector<T>& inputs)
+{
   // Create the output.
   std::vector<U> output_buffer;
   std::vector<U> temp_buffer;
@@ -64,10 +65,9 @@ EmulationUnit<T, U, V>::emulate_vector(const std::vector<T>& inputs) {
     timings.open(m_timing_file_name, std::ios::out | std::ios::app);
     for (size_t i = 0; i < time_diffs.size(); i++) {
       if (std::is_same<T, dunedaq::trgdataformats::TriggerPrimitive>::value) {
-        timings << tp_time_start[i] << "," << tp_adc_integral[i] << "," 
-                << time_diffs[i] << "," << is_last_tp_in_ta[i] << "\n";
-      }
-      else {
+        timings << tp_time_start[i] << "," << tp_adc_integral[i] << "," << time_diffs[i] << "," << is_last_tp_in_ta[i]
+                << "\n";
+      } else {
         timings << time_diffs[i] << "\n";
       }
     }
@@ -94,8 +94,8 @@ EmulationUnit<T, U, V>::emulate_vector(const std::vector<T>& inputs) {
   }
 
   // Hand it to a fragment,
-  std::unique_ptr<daqdataformats::Fragment> frag
-    = std::make_unique<daqdataformats::Fragment>(static_cast<void*>(payload), payload_size);
+  std::unique_ptr<daqdataformats::Fragment> frag =
+    std::make_unique<daqdataformats::Fragment>(static_cast<void*>(payload), payload_size);
   // And release it.
   free(static_cast<void*>(payload));
 
@@ -103,9 +103,10 @@ EmulationUnit<T, U, V>::emulate_vector(const std::vector<T>& inputs) {
   return frag;
 }
 
-template <typename T, typename U, typename V>
+template<typename T, typename U, typename V>
 uint64_t
-EmulationUnit<T, U, V>::emulate(const T& input, std::vector<U>& outputs) {
+EmulationUnit<T, U, V>::emulate(const T& input, std::vector<U>& outputs)
+{
   auto time_start = std::chrono::steady_clock::now();
   (*m_maker)(input, outputs); // Feed TX into the TXMaker
   auto time_end = std::chrono::steady_clock::now();
@@ -114,9 +115,10 @@ EmulationUnit<T, U, V>::emulate(const T& input, std::vector<U>& outputs) {
   return time_diff;
 }
 
-template <typename T, typename U, typename V>
+template<typename T, typename U, typename V>
 std::vector<U>
-EmulationUnit<T, U, V>::get_last_output_buffer() {
+EmulationUnit<T, U, V>::get_last_output_buffer()
+{
   return m_last_output_buffer;
 }
 
