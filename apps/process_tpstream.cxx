@@ -9,10 +9,14 @@
 #include <fmt/chrono.h>
 #include <fmt/core.h>
 #include <fmt/format.h>
+#include <optional>
 
 #include "detchannelmaps/TPCChannelMap.hpp"
-#include "hdf5libs/HDF5RawDataFile.hpp"
+#include "hdf5libs/HDF5Backend.hpp"
+#include "rawdatafilelibs/BackendFactory.hpp"
+#include "rawdatafilelibs/RawDataFileReader.hpp"
 #include "trgdataformats/TriggerPrimitive.hpp"
+#include "trgtools/OutputFile.hpp"
 #include "triggeralgs/TriggerActivityFactory.hpp"
 #include "triggeralgs/TriggerCandidateFactory.hpp"
 #include "triggeralgs/TriggerObjectOverlay.hpp"
@@ -23,10 +27,10 @@ class TimeSliceProcessor
 {
 private:
   /* data */
-  std::unique_ptr<hdf5libs::HDF5RawDataFile> m_input_file;
-  std::unique_ptr<hdf5libs::HDF5RawDataFile> m_output_file;
+  std::unique_ptr<rawdatafilelibs::RawDataFileReader> m_input_file;
+  std::unique_ptr<rawdatafilelibs::RawDataFileWriter> m_output_file;
 
-  void open_files(std::string input_path, std::string output_path);
+  void open_files(std::string input_path, std::string output_path, bool overwrite);
   void close_files();
 
   void process(daqdataformats::TimeSlice& tls);
@@ -35,7 +39,7 @@ private:
   std::function<void(daqdataformats::TimeSlice&)> m_processor;
 
 public:
-  TimeSliceProcessor(std::string input_path, std::string output_path);
+  TimeSliceProcessor(std::string input_path, std::string output_path, bool overwrite = false);
   ~TimeSliceProcessor();
 
   void set_processor(std::function<void(daqdataformats::TimeSlice&)> processor);
@@ -43,9 +47,9 @@ public:
 };
 
 //-----------------------------------------------------------------------------
-TimeSliceProcessor::TimeSliceProcessor(std::string input_path, std::string output_path)
+TimeSliceProcessor::TimeSliceProcessor(std::string input_path, std::string output_path, bool overwrite)
 {
-  this->open_files(input_path, output_path);
+  this->open_files(input_path, output_path, overwrite);
 }
 
 //-----------------------------------------------------------------------------
@@ -56,31 +60,37 @@ TimeSliceProcessor::~TimeSliceProcessor()
 
 //-----------------------------------------------------------------------------
 void
-TimeSliceProcessor::open_files(std::string input_path, std::string output_path)
+TimeSliceProcessor::open_files(std::string input_path, std::string output_path, bool overwrite)
 {
   // Open input file
-  m_input_file = std::make_unique<hdf5libs::HDF5RawDataFile>(input_path);
+  m_input_file = rawdatafilelibs::open_raw_data_file(input_path);
 
-  if (!m_input_file->is_timeslice_type()) {
+  if (m_input_file->get_record_type() != rawdatafilelibs::RecordType::kTimeSlice) {
     fmt::print("ERROR: input file '{}' not of type 'TimeSlice'\n", input_path);
     throw std::runtime_error(fmt::format("ERROR: input file '{}' not of type 'TimeSlice'", input_path));
   }
 
-  auto run_number = m_input_file->get_attribute<daqdataformats::run_number_t>("run_number");
-  auto file_index = m_input_file->get_attribute<size_t>("file_index");
-  auto application_name = m_input_file->get_attribute<std::string>("application_name");
+  auto const& input_metadata = m_input_file->get_metadata();
+  auto run_number = input_metadata.run_number;
+  auto file_index = input_metadata.file_index;
+  auto application_name = input_metadata.application_name;
 
   fmt::print("Run Number: {}\nFile Index: {}\nApp name: '{}'\n", run_number, file_index, application_name);
 
   if (!output_path.empty()) {
-    // Open output file
-    m_output_file = std::make_unique<hdf5libs::HDF5RawDataFile>(
-      output_path,
-      m_input_file->get_attribute<daqdataformats::run_number_t>("run_number"),
-      m_input_file->get_attribute<size_t>("file_index"),
-      m_input_file->get_attribute<std::string>("application_name"),
-      m_input_file->get_file_layout().get_file_layout_params(),
-      m_input_file->get_srcid_geoid_map());
+    // Open output file: it keeps the input's run number, file index, application name and, for
+    // HDF5, file layout
+    rawdatafilelibs::FileMetadata output_metadata;
+    output_metadata.run_number = run_number;
+    output_metadata.file_index = file_index;
+    output_metadata.application_name = application_name;
+    std::optional<hdf5libs::HDF5FileLayoutParameters> layout;
+    if (auto* hdf5_input = dynamic_cast<hdf5libs::HDF5ReaderBackend*>(&m_input_file->get_backend())) {
+      layout = hdf5_input->get_file_layout().get_file_layout_params();
+    }
+    trgtools::prepare_output_path(output_path, overwrite);
+    m_output_file =
+      trgtools::create_hdf5_timeslice_file(output_path, output_metadata, m_input_file->get_geo_id_map(), layout);
   }
 }
 
@@ -88,7 +98,9 @@ TimeSliceProcessor::open_files(std::string input_path, std::string output_path)
 void
 TimeSliceProcessor::close_files()
 {
-  // Do something?
+  if (m_output_file) {
+    m_output_file->close();
+  }
 }
 
 //-----------------------------------------------------------------------------
@@ -112,7 +124,7 @@ TimeSliceProcessor::loop(uint64_t num_records, uint64_t offset, bool quiet)
 {
 
   // Replace with a record selection?
-  auto records = m_input_file->get_all_record_ids();
+  auto const& records = m_input_file->get_record_ids();
 
   if (!num_records) {
     num_records = (records.size() - offset);
@@ -129,7 +141,7 @@ TimeSliceProcessor::loop(uint64_t num_records, uint64_t offset, bool quiet)
     }
 
     if (!quiet)
-      fmt::print("\n-- Processing TSL {}:{}\n\n", rid.first, rid.second);
+      fmt::print("\n-- Processing TSL {}:{}\n\n", rid.number, rid.sequence);
     auto tsl = m_input_file->get_timeslice(rid);
     // Or filter on a selection here using a lambda?
 
@@ -144,7 +156,7 @@ TimeSliceProcessor::loop(uint64_t num_records, uint64_t offset, bool quiet)
 
     ++i_rec;
     if (!quiet)
-      fmt::print("\n-- Finished TSL {}:{}\n\n", rid.first, rid.second);
+      fmt::print("\n-- Finished TSL {}:{}\n\n", rid.number, rid.sequence);
   }
 }
 
@@ -160,6 +172,8 @@ main(int argc, char const* argv[])
   app.add_option("-i", input_file_path, "Input TPStream file path")->required();
   std::string output_file_path;
   app.add_option("-o", output_file_path, "Output TPStream file path");
+  bool overwrite = false;
+  app.add_flag("--overwrite", overwrite, "Replace the output file if it exists");
   std::string channel_map_name = "VDColdboxTPCChannelMap";
   app.add_option("-m", channel_map_name, "Detector Channel Map");
   std::string config_name;
@@ -179,7 +193,7 @@ main(int argc, char const* argv[])
   if (!quiet)
     fmt::print("TPStream file: {}\n", input_file_path);
 
-  TimeSliceProcessor rp(input_file_path, output_file_path);
+  TimeSliceProcessor rp(input_file_path, output_file_path, overwrite);
 
   // TP source id (subsystem)
   auto tp_subsystem_requirement = daqdataformats::SourceID::Subsystem::kTrigger;

@@ -7,7 +7,7 @@ namespace dunedaq::trgtools {
 
 uint16_t TAEmulationWorker::m_id_next = 0;
 
-TAEmulationWorker::TAEmulationWorker(std::vector<std::shared_ptr<hdf5libs::HDF5RawDataFile>> input_files,
+TAEmulationWorker::TAEmulationWorker(std::vector<std::shared_ptr<rawdatafilelibs::RawDataFileReader>> input_files,
                                      nlohmann::json config,
                                      std::pair<uint64_t, uint64_t> sliceid_range,
                                      bool run_parallel,
@@ -26,20 +26,17 @@ TAEmulationWorker::TAEmulationWorker(std::vector<std::shared_ptr<hdf5libs::HDF5R
   std::vector<daqdataformats::run_number_t> run_numbers;
   std::vector<size_t> file_indices;
   for (const auto& input_file : input_files) {
-    if (std::find(run_numbers.begin(),
-                  run_numbers.end(),
-                  input_file->get_attribute<daqdataformats::run_number_t>("run_number")) == run_numbers.end()) {
-      run_numbers.push_back(input_file->get_attribute<daqdataformats::run_number_t>("run_number"));
+    auto const& metadata = input_file->get_metadata();
+    if (std::find(run_numbers.begin(), run_numbers.end(), metadata.run_number) == run_numbers.end()) {
+      run_numbers.push_back(metadata.run_number);
     }
 
-    if (std::find(file_indices.begin(),
-                  file_indices.end(),
-                  input_file->get_attribute<daqdataformats::run_number_t>("run_number")) == file_indices.end()) {
-      file_indices.push_back(input_file->get_attribute<size_t>("file_index"));
+    if (std::find(file_indices.begin(), file_indices.end(), metadata.file_index) == file_indices.end()) {
+      file_indices.push_back(metadata.file_index);
     }
   }
 
-  std::string application_name = m_input_files.front()->get_attribute<std::string>("application_name");
+  std::string application_name = m_input_files.front()->get_metadata().application_name;
 
   if (!m_quiet) {
     fmt::print("Run Numbers: {}\nFile Indices: {}\nApp name: '{}'\n",
@@ -49,7 +46,7 @@ TAEmulationWorker::TAEmulationWorker(std::vector<std::shared_ptr<hdf5libs::HDF5R
   }
 
   // std::set of record IDs (pair of record number & sequence number)
-  auto records = m_input_files.front()->get_all_record_ids();
+  auto const& records = m_input_files.front()->get_record_ids();
 
   // Extract the number of TAMakers to create
   daqdataformats::TimeSlice first_timeslice = m_input_files.front()->get_timeslice(*records.begin());
@@ -92,14 +89,14 @@ TAEmulationWorker::get_valid_sourceids(daqdataformats::TimeSlice& _timeslice)
   return ret;
 }
 
-hdf5libs::HDF5SourceIDHandler::source_id_geo_id_map_t
+daqdataformats::SourceIDGeoIDMap
 TAEmulationWorker::get_sourceid_geoid_map()
 {
   if (!m_input_files.size()) {
     throw "Files not set yet!";
   }
 
-  return m_input_files.front()->get_srcid_geoid_map();
+  return m_input_files.front()->get_geo_id_map();
 }
 
 void
@@ -140,12 +137,12 @@ TAEmulationWorker::process_tasks()
   // Iterate over the input files
   for (auto& input_file : m_input_files) {
     // std::set of record IDs (pair of record number & sequence number)
-    auto records = input_file->get_all_record_ids();
+    auto const& records = input_file->get_record_ids();
 
     for (const auto& record : records) {
-      if (record.first < m_sliceid_range.first || record.first > m_sliceid_range.second) {
+      if (record.number < m_sliceid_range.first || record.number > m_sliceid_range.second) {
         if (!m_quiet)
-          fmt::print("  Will not process RecordID {} because it's outside of our range!", record.first);
+          fmt::print("  Will not process RecordID {} because it's outside of our range!", record.number);
         continue;
       }
 
@@ -194,10 +191,10 @@ TAEmulationWorker::process_tasks()
         // Either enqueue the task if using parallel processing, or execute the task now
         if (m_run_parallel) {
           enqueue_task([this, sid, record, frag_hdr, tp_buffer = std::move(tp_buffer)]() mutable {
-            this->process_task(sid, record.first, frag_hdr, std::move(tp_buffer));
+            this->process_task(sid, record.number, frag_hdr, std::move(tp_buffer));
           });
         } else {
-          this->process_task(sid, record.first, frag_hdr, std::move(tp_buffer));
+          this->process_task(sid, record.number, frag_hdr, std::move(tp_buffer));
         }
       }
       // If running in parallel, wait to process entire slice before we move to

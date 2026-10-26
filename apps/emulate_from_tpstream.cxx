@@ -11,8 +11,11 @@
 #include <fmt/format.h>
 #include <optional>
 
-#include "hdf5libs/HDF5RawDataFile.hpp"
-#include "hdf5libs/HDF5SourceIDHandler.hpp"
+#include "daqdataformats/SourceIDGeoIDMap.hpp"
+#include "hdf5libs/HDF5FileLayoutParameters.hpp"
+#include "rawdatafilelibs/BackendFactory.hpp"
+#include "rawdatafilelibs/RawDataFileReader.hpp"
+#include "trgtools/OutputFile.hpp"
 
 #include "triggeralgs/TriggerCandidateFactory.hpp"
 
@@ -21,6 +24,17 @@
 using namespace dunedaq;
 using namespace trgtools;
 
+/// @brief The output file name: the given name, with ".hdf5" appended if it doesn't end with it
+std::string
+hdf5_output_file_name(const std::string& _outputfilename)
+{
+  std::string output_filename = _outputfilename;
+  if (output_filename.size() < 5 || output_filename.compare(output_filename.size() - 5, 5, ".hdf5") != 0) {
+    output_filename += ".hdf5";
+  }
+  return output_filename;
+}
+
 /**
  * @brief Saves fragments in timeslice format into output HDF5 file
  *
@@ -28,17 +42,16 @@ using namespace trgtools;
  * @param _sourceid_geoid_map sourceid--geoid map required to create a HDF5 file
  * @param _frags Map of fragments, with a vector of fragment pointers for each slice id
  * @param _quiet Do we want to quiet down the cout?
+ * @param _overwrite Replace the output file if it exists (see trgtools::prepare_output_path)
  */
 void
 save_fragments(const std::string& _outputfilename,
-               const hdf5libs::HDF5SourceIDHandler::source_id_geo_id_map_t& _sourceid_geoid_map,
+               const daqdataformats::SourceIDGeoIDMap& _sourceid_geoid_map,
                std::map<uint64_t, std::vector<std::unique_ptr<daqdataformats::Fragment>>> _frags,
-               bool _quiet)
+               bool _quiet,
+               bool _overwrite)
 {
-  std::string output_filename = _outputfilename;
-  if (output_filename.size() < 5 || output_filename.compare(output_filename.size() - 5, 5, ".hdf5") != 0) {
-    output_filename += ".hdf5";
-  }
+  std::string output_filename = hdf5_output_file_name(_outputfilename);
 
   // Create layout parameter object required for HDF5 creation
   hdf5libs::HDF5FileLayoutParameters layout_params;
@@ -63,13 +76,13 @@ save_fragments(const std::string& _outputfilename,
   layout_params.path_params_list = { params };
 
   // Create pointer to a new output HDF5 file
-  std::unique_ptr<hdf5libs::HDF5RawDataFile> output_file =
-    std::make_unique<hdf5libs::HDF5RawDataFile>(output_filename,
-                                                _frags.begin()->second[0]->get_run_number(),
-                                                0,
-                                                "emulate_from_tpstream",
-                                                layout_params,
-                                                _sourceid_geoid_map);
+  rawdatafilelibs::FileMetadata metadata;
+  metadata.run_number = _frags.begin()->second[0]->get_run_number();
+  metadata.file_index = 0;
+  metadata.application_name = "emulate_from_tpstream";
+  trgtools::prepare_output_path(output_filename, _overwrite);
+  auto output_file =
+    trgtools::create_hdf5_timeslice_file(output_filename, metadata, _sourceid_geoid_map, layout_params);
 
   // Iterate over the time slices & save all the fragments
   for (auto& [slice_id, vec_frags] : _frags) {
@@ -99,6 +112,7 @@ save_fragments(const std::string& _outputfilename,
     // Write the timeslice to output file
     output_file->write(ts);
   }
+  output_file->close();
 }
 
 /**
@@ -114,19 +128,19 @@ save_fragments(const std::string& _outputfilename,
  *         ordered by `file_index`.
  * @throws std::runtime_error If any input file is not of type `TimeSlice`.
  */
-std::map<std::string, std::vector<std::shared_ptr<hdf5libs::HDF5RawDataFile>>>
+std::map<std::string, std::vector<std::shared_ptr<rawdatafilelibs::RawDataFileReader>>>
 sort_files_per_writer(const std::vector<std::string>& _files)
 {
-  std::map<std::string, std::vector<std::shared_ptr<hdf5libs::HDF5RawDataFile>>> files_sorted;
+  std::map<std::string, std::vector<std::shared_ptr<rawdatafilelibs::RawDataFileReader>>> files_sorted;
 
   // Put files into per-writer app groups
   for (const std::string& file : _files) {
-    std::shared_ptr<hdf5libs::HDF5RawDataFile> fl = std::make_shared<hdf5libs::HDF5RawDataFile>(file);
-    if (!fl->is_timeslice_type()) {
+    std::shared_ptr<rawdatafilelibs::RawDataFileReader> fl = rawdatafilelibs::open_raw_data_file(file);
+    if (fl->get_record_type() != rawdatafilelibs::RecordType::kTimeSlice) {
       throw std::runtime_error(fmt::format("ERROR: input file '{}' not of type 'TimeSlice'", file));
     }
 
-    std::string application_name = fl->get_attribute<std::string>("application_name");
+    std::string application_name = fl->get_metadata().application_name;
     files_sorted[application_name].push_back(fl);
   }
 
@@ -138,12 +152,12 @@ sort_files_per_writer(const std::vector<std::string>& _files)
     }
 
     // Sort w.r.t. file index attribute
-    std::sort(
-      vec_files.begin(),
-      vec_files.end(),
-      [](const std::shared_ptr<hdf5libs::HDF5RawDataFile>& a, const std::shared_ptr<hdf5libs::HDF5RawDataFile>& b) {
-        return a->get_attribute<size_t>("file_index") < b->get_attribute<size_t>("file_index");
-      });
+    std::sort(vec_files.begin(),
+              vec_files.end(),
+              [](const std::shared_ptr<rawdatafilelibs::RawDataFileReader>& a,
+                 const std::shared_ptr<rawdatafilelibs::RawDataFileReader>& b) {
+                return a->get_metadata().file_index < b->get_metadata().file_index;
+              });
   }
 
   return files_sorted;
@@ -171,7 +185,7 @@ sort_files_per_writer(const std::vector<std::string>& _files)
  */
 std::pair<uint64_t, uint64_t>
 get_available_slice_id_range(
-  const std::map<std::string, std::vector<std::shared_ptr<hdf5libs::HDF5RawDataFile>>>& _files,
+  const std::map<std::string, std::vector<std::shared_ptr<rawdatafilelibs::RawDataFileReader>>>& _files,
   bool _quiet)
 {
   if (_files.empty()) {
@@ -188,12 +202,12 @@ get_available_slice_id_range(
 
     // Find min / max record id for this application
     for (auto& file : vec_files) {
-      auto record_ids = file->get_all_record_ids();
+      auto const& record_ids = file->get_record_ids();
       if (record_ids.empty()) {
         throw std::runtime_error(fmt::format("File from application {} contains no records.", appid));
       }
-      app_start = std::min(app_start, record_ids.begin()->first);
-      app_end = std::max(app_end, record_ids.rbegin()->first);
+      app_start = std::min(app_start, record_ids.begin()->number);
+      app_end = std::max(app_end, record_ids.rbegin()->number);
     }
 
     // Update the global min / max record id
@@ -217,12 +231,12 @@ get_available_slice_id_range(
   // Extra validation / error handling
   for (auto& [appid, vec_files] : _files) {
     for (auto& file : vec_files) {
-      auto record_ids = file->get_all_record_ids();
+      auto const& record_ids = file->get_record_ids();
 
-      uint64_t file_start = record_ids.begin()->first;
-      uint64_t file_end = record_ids.rbegin()->first;
+      uint64_t file_start = record_ids.begin()->number;
+      uint64_t file_end = record_ids.rbegin()->number;
       if ((file_start > global_end || file_end < global_start)) {
-        uint64_t file_index = file->get_attribute<size_t>("file_index");
+        uint64_t file_index = file->get_metadata().file_index;
         throw std::runtime_error(fmt::format("File from TPStreamWrite application '{}' (index '{}') has record id "
                                              "range [{}, {}], which does not overlap with global range [{}, {}].",
                                              appid,
@@ -256,6 +270,8 @@ struct Options
   bool latencies = false;
   /// @brief runs each TAMaker on a separate thread
   bool run_parallel = false;
+  /// @brief replace the output file if it exists
+  bool overwrite = false;
   /// @brief optional lower bound (inclusive) for TimeSlice IDs to process
   std::optional<uint64_t> slice_start = std::nullopt;
   /// @brief optional number of TimeSlices to process
@@ -284,6 +300,7 @@ parse_app(CLI::App& _app, Options& _opts)
     ->check(CLI::ExistingFile);
 
   _app.add_flag("--parallel", _opts.run_parallel, "Run the TAMakers in parallel");
+  _app.add_flag("--overwrite", _opts.overwrite, "Replace the output file if it exists");
 
   _app.add_flag("--quiet", _opts.quiet, "Quiet outputs.");
 
@@ -308,6 +325,9 @@ main(int argc, char const* argv[])
     return app.exit(e);
   }
 
+  // Fail before any processing if the output can't be written (it is only replaced at the end)
+  trgtools::check_output_path(hdf5_output_file_name(opts.output_filename), opts.overwrite);
+
   // Get the configuration file
   std::ifstream config_stream(opts.config_name);
   nlohmann::json config = nlohmann::json::parse(config_stream);
@@ -320,7 +340,7 @@ main(int argc, char const* argv[])
   }
 
   // Sort the files into a map writer_id::vector<HDF5>
-  std::map<std::string, std::vector<std::shared_ptr<hdf5libs::HDF5RawDataFile>>> sorted_files =
+  std::map<std::string, std::vector<std::shared_ptr<rawdatafilelibs::RawDataFileReader>>> sorted_files =
     sort_files_per_writer(opts.input_files);
 
   // Get the available record_id range
@@ -397,7 +417,9 @@ main(int argc, char const* argv[])
 
   // Iterate over the handlers, wait for them to complete their job & append
   // their TAs to our vector when ready.
-  hdf5libs::HDF5SourceIDHandler::source_id_geo_id_map_t sourceid_geoid_map;
+  // the input files' stored GeoID maps, merged as before (the first map wins for a SourceID);
+  // built leniently, since it comes from stored data
+  daqdataformats::SourceIDGeoIDMap::encoded_map_t encoded_geoid_map;
   for (const auto& handler : ta_emu_workers) {
     // Wait for all TAs to be made
     handler->wait_to_complete_work();
@@ -407,9 +429,10 @@ main(int argc, char const* argv[])
     append_frags(std::move(handler->get_frags()));
 
     // Get and merge the source ID map
-    hdf5libs::HDF5SourceIDHandler::source_id_geo_id_map_t map = handler->get_sourceid_geoid_map();
-    sourceid_geoid_map.insert(map.begin(), map.end());
+    auto map = handler->get_sourceid_geoid_map().to_encoded();
+    encoded_geoid_map.insert(map.begin(), map.end());
   }
+  auto sourceid_geoid_map = daqdataformats::SourceIDGeoIDMap::from_encoded(encoded_geoid_map);
 
   // Sort the TAs in each slice before pushing them into the TCMaker
   size_t n_tas = 0;
@@ -468,7 +491,7 @@ main(int argc, char const* argv[])
   }
 
   if (!frags.empty()) {
-    save_fragments(opts.output_filename, sourceid_geoid_map, std::move(frags), opts.quiet);
+    save_fragments(opts.output_filename, sourceid_geoid_map, std::move(frags), opts.quiet, opts.overwrite);
   } else {
     std::cout << "No TA/TC fragments generated. Output file will not be generated" << std::endl;
   }

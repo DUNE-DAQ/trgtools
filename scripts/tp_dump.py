@@ -264,7 +264,7 @@ def main():
     data = trgtools.TPReader(filename, verbosity, batch_mode)
 
     # Check that there are TP fragments.
-    if len(data.get_fragment_paths()) == 0:
+    if len(data.get_fragment_keys()) == 0:
         print("File doesn't contain any TriggerPrimitive fragments.")
         return 1
 
@@ -273,12 +273,12 @@ def main():
         data.read_all_fragments()  # Has extra debug/warning info
     else:
         if end_frag == 0:  # Ex: [-10:0] is bad.
-            frag_paths = data.get_fragment_paths()[start_frag:]
+            frag_keys = data.get_fragment_keys()[start_frag:]
         else:
-            frag_paths = data.get_fragment_paths()[start_frag:end_frag]
+            frag_keys = data.get_fragment_keys()[start_frag:end_frag]
 
-        for path in frag_paths:
-            data.read_fragment(path)
+        for key in frag_keys:
+            data.read_fragment(key)
 
     # Find a new save name or overwrite an old one.
     save_name = find_save_name(data.run_id, data.file_index, overwrite)

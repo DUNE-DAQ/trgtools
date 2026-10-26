@@ -15,7 +15,8 @@ find_package(CLI11 REQUIRED)
 find_package(fmt REQUIRED)
 
 find_package(nlohmann_json REQUIRED)
-find_package(hdf5libs REQUIRED)
+find_package(rawdatafilelibs REQUIRED)
+find_package(hdf5libs REQUIRED) # for the HDF5 backend's layout options
 find_package(trgdataformats REQUIRED)
 find_package(triggeralgs REQUIRED)
 find_package(detchannelmaps REQUIRED)
@@ -31,7 +32,7 @@ find_package(Boost COMPONENTS unit_test_framework REQUIRED)
 
 # See https://dune-daq-sw.readthedocs.io/en/latest/packages/daq-cmake/#daq_add_library
 
-daq_add_library(*.cpp LINK_LIBRARIES hdf5libs::hdf5libs trgdataformats::trgdataformats triggeralgs::triggeralgs detchannelmaps::detchannelmaps CLI11::CLI11 fmt::fmt nlohmann_json::nlohmann_json)
+daq_add_library(*.cpp LINK_LIBRARIES rawdatafilelibs::rawdatafilelibs hdf5libs::hdf5libs trgdataformats::trgdataformats triggeralgs::triggeralgs detchannelmaps::detchannelmaps CLI11::CLI11 fmt::fmt nlohmann_json::nlohmann_json)
 
 ##############################################################################
 
@@ -58,6 +59,7 @@ daq_add_application(trgtools_emulate_from_tpstream emulate_from_tpstream.cxx LIN
 # See https://dune-daq-sw.readthedocs.io/en/latest/packages/daq-cmake/#daq_add_unit_test
 
 # daq_add_unit_test(TPGtools_unittest LINK_LIBRARIES)  # Should be replaced with real unit tests
+daq_add_unit_test(OutputFile_test LINK_LIBRARIES trgtools)
 
 ##############################################################################
 

@@ -55,6 +55,9 @@ class TAReader(HDF5Reader):
                       ('version', np.uint8)
                      ])
 
+    # the type of the fragments this reader reads
+    _FRAGMENT_TYPE = "Trigger_Activity"
+
     def __init__(self, filename: str, verbosity: int = 0, batch_mode: bool = False) -> None:
         """
         Loads a given HDF5 file.
@@ -80,29 +83,17 @@ class TAReader(HDF5Reader):
     def __len__(self) -> int:
         return len(self.ta_data)
 
-    def _filter_fragment_paths(self) -> None:
-        """ Filter the fragment paths for TAs. """
-        fragment_paths = []
-
-        # TA fragment paths contain their name in the path.
-        for path in self._fragment_paths:
-            if "Trigger_Activity" in path:
-                fragment_paths.append(path)
-
-        self._fragment_paths = fragment_paths
-        return None
-
-    def read_fragment(self, fragment_path: str) -> NDArray:
+    def read_fragment(self, fragment_key) -> NDArray:
         """
-        Read from the given data fragment path.
+        Read the fragment with the given key, (RecordID, SourceID) (or, deprecated, dataset path).
 
         Returns a np.ndarray of the first TA that was read and appends all TAs in the fragment to :self.ta_data:.
         """
         if self._verbosity >= 2:
             print("="*60)
-            print(f"INFO: Reading from the path\n{fragment_path}")
+            print(f"INFO: Reading the fragment\n{fragment_key}")
 
-        fragment = self._h5_file.get_frag(fragment_path)
+        fragment = self._fragment(fragment_key)
         fragment_data_size = fragment.get_data_size()
         trigger_number = fragment.get_trigger_number()
 

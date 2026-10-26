@@ -12,7 +12,8 @@
 #include <fmt/core.h>
 #include <fmt/format.h>
 
-#include "hdf5libs/HDF5RawDataFile.hpp"
+#include "daqdataformats/SourceIDGeoIDMap.hpp"
+#include "rawdatafilelibs/RawDataFileReader.hpp"
 #include "trgdataformats/TriggerPrimitive.hpp"
 #include "triggeralgs/TriggerActivityFactory.hpp"
 #include "triggeralgs/TriggerObjectOverlay.hpp"
@@ -28,13 +29,13 @@ public:
    * Each TAEmulationWorker will create its own thread, so all TAEmulationWorkers are
    * run on separate threads
    *
-   * @param _input_files a vector of input HDF5 shared pointers to process
+   * @param _input_files the input files (TimeSlice files, any format) to process
    * @param _config TAMaker configuration
    * @param _sliceid_range range of sliceids to process
    * @param _run_parallel run each TAMaker (one per SourceID) in parallel
    * @param _quiet quiet down the cout
    */
-  TAEmulationWorker(std::vector<std::shared_ptr<hdf5libs::HDF5RawDataFile>> _input_files,
+  TAEmulationWorker(std::vector<std::shared_ptr<rawdatafilelibs::RawDataFileReader>> _input_files,
                     nlohmann::json _config,
                     std::pair<uint64_t, uint64_t> _sliceid_range,
                     bool _run_parallel,
@@ -73,9 +74,9 @@ public:
   /**
    * @brief Get the sourceid to geoid map object
    *
-   * @return geoid to sourceid map
+   * @return the SourceID to GeoID map of the first input file
    */
-  hdf5libs::HDF5SourceIDHandler::source_id_geo_id_map_t get_sourceid_geoid_map();
+  daqdataformats::SourceIDGeoIDMap get_sourceid_geoid_map();
 
 private:
   /// @brief Function that processes the whole file
@@ -109,7 +110,7 @@ private:
 
 private:
   /// @brief A pointer to the input file
-  std::vector<std::shared_ptr<hdf5libs::HDF5RawDataFile>> m_input_files;
+  std::vector<std::shared_ptr<rawdatafilelibs::RawDataFileReader>> m_input_files;
 
   /// @brief configuration for the TA-makers
   nlohmann::json m_configuration;

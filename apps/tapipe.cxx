@@ -15,7 +15,9 @@
 #include <fmt/core.h>
 #include <fmt/format.h>
 
-#include "hdf5libs/HDF5RawDataFile.hpp"
+#include "daqdataformats/RecordID.hpp"
+#include "rawdatafilelibs/BackendFactory.hpp"
+#include "rawdatafilelibs/RawDataFileReader.hpp"
 #include "trgdataformats/TriggerPrimitive.hpp"
 #include "triggeralgs/HorizontalMuon/TAMakerHorizontalMuonAlgorithm.hpp"
 #include "triggeralgs/TriggerObjectOverlay.hpp"
@@ -25,7 +27,7 @@ using namespace dunedaq;
 class HDF5FileReader
 {
 private:
-  std::unique_ptr<hdf5libs::HDF5RawDataFile> m_file;
+  std::unique_ptr<rawdatafilelibs::RawDataFileReader> m_file;
 
 public:
   HDF5FileReader(const std::string& path);
@@ -34,7 +36,7 @@ public:
 
 HDF5FileReader::HDF5FileReader(const std::string& path)
 {
-  m_file = std::make_unique<hdf5libs::HDF5RawDataFile>(path);
+  m_file = rawdatafilelibs::open_raw_data_file(path);
 }
 
 HDF5FileReader::~HDF5FileReader() {}
@@ -100,7 +102,7 @@ struct fmt::formatter<dunedaq::daqdataformats::SourceID>
 };
 
 template<>
-struct fmt::formatter<hdf5libs::HDF5RawDataFile::record_id_t>
+struct fmt::formatter<dunedaq::daqdataformats::RecordID>
 {
 
   // Parses format specifications of the form ['f' | 'e'].
@@ -108,9 +110,9 @@ struct fmt::formatter<hdf5libs::HDF5RawDataFile::record_id_t>
 
   // Formats the point p using the parsed format specification (presentation)
   // stored in this formatter.
-  auto format(const hdf5libs::HDF5RawDataFile::record_id_t& rid, format_context& ctx) const -> format_context::iterator
+  auto format(const dunedaq::daqdataformats::RecordID& rid, format_context& ctx) const -> format_context::iterator
   {
-    return fmt::format_to(ctx.out(), "({}, {})", rid.first, rid.second);
+    return fmt::format_to(ctx.out(), "({}, {})", rid.number, rid.sequence);
   }
 };
 //-----
@@ -130,11 +132,11 @@ main(int argc, char* argv[])
   fmt::print("TPStream file: {}\n", input_file);
 
   // Pointer to DD hdf5 file
-  std::unique_ptr<hdf5libs::HDF5RawDataFile> tpstream_file;
+  std::unique_ptr<rawdatafilelibs::RawDataFileReader> tpstream_file;
 
   try {
-    tpstream_file = std::make_unique<hdf5libs::HDF5RawDataFile>(input_file);
-  } catch (const hdf5libs::FileOpenFailed& e) {
+    tpstream_file = rawdatafilelibs::open_raw_data_file(input_file);
+  } catch (const ers::Issue& e) {
     std::cout << ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> ERROR <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<" << std::endl;
     std::cerr << e.what() << '\n';
     exit(-1);
@@ -143,15 +145,21 @@ main(int argc, char* argv[])
   fmt::print("{} opened\n", input_file);
 
   // Check the record type
-  fmt::print("  File type: {}\n", tpstream_file->get_record_type());
+  fmt::print("  File type: {}\n", rawdatafilelibs::record_type_to_string(tpstream_file->get_record_type()));
 
   // Extract the list of timeslices in the file
-  auto records = tpstream_file->get_all_record_ids();
+  auto const& records = tpstream_file->get_record_ids();
+  // a record's SourceIDs: its fragments' and its header's
+  auto source_ids_of = [&tpstream_file](const daqdataformats::RecordID& rid) {
+    auto sids = tpstream_file->get_fragment_source_ids(rid);
+    sids.insert(tpstream_file->get_index(rid).get_header_source_id());
+    return sids;
+  };
   std::set<daqdataformats::SourceID> source_ids;
   // Find what Source IDs are available in the file (all records)
   for (const auto& rid : records) {
     const auto& [id, slice] = rid;
-    auto sids = tpstream_file->get_source_ids(rid);
+    auto sids = source_ids_of(rid);
     source_ids.merge(sids);
     if (verbose)
       fmt::print("TR {}:{} [{}]\n", id, slice, fmt::join(sids, ", "));
@@ -159,10 +167,10 @@ main(int argc, char* argv[])
   fmt::print("Source IDs [{}]\n", fmt::join(source_ids, ", "));
 
   // Map of source ids to trigger records
-  std::map<daqdataformats::SourceID, hdf5libs::HDF5RawDataFile::record_id_set> m;
+  std::map<daqdataformats::SourceID, std::set<daqdataformats::RecordID>> m;
   for (const auto& sid : source_ids) {
     for (const auto& rid : records) {
-      auto rec_sids = tpstream_file->get_source_ids(rid);
+      auto rec_sids = source_ids_of(rid);
       if (rec_sids.find(sid) != rec_sids.end()) {
         m[sid].insert(rid);
       }
@@ -178,6 +186,10 @@ main(int argc, char* argv[])
   // I know the nuber by spying into the TP Stream File
   daqdataformats::SourceID tp_writer_sid{ daqdataformats::SourceID::Subsystem::kTrigger, 0 };
   auto tp_records = m[tp_writer_sid];
+  if (tp_records.empty()) {
+    fmt::print("ERROR: no time slice has a fragment from the TP writer SourceID {}\n", tp_writer_sid);
+    return 1;
+  }
 
   // Prepare the TP buffer
   std::vector<trgdataformats::TriggerPrimitive> tp_buffer;
@@ -186,13 +198,13 @@ main(int argc, char* argv[])
   fmt::print("Processing tp time slice {}\n", a_slice_id);
 
   // auto tsl_hdr = tsl.get_header();
-  auto tsl_hdr = tpstream_file->get_tsh_ptr(a_slice_id);
+  auto tsl_hdr = tpstream_file->get_timeslice_header(a_slice_id);
 
   // Print header ingo
   fmt::print("  Run number: {}\n", tsl_hdr->run_number);
   fmt::print("  TSL number: {}\n", tsl_hdr->timeslice_number);
 
-  auto frag = tpstream_file->get_frag_ptr(a_slice_id, tp_writer_sid);
+  auto frag = tpstream_file->get_fragment(a_slice_id, tp_writer_sid);
 
   fmt::print("  Fragment id: {} [{}]\n",
              frag->get_element_id().to_string(),
