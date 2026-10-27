@@ -15,10 +15,14 @@
 #include <fmt/core.h>
 #include <fmt/format.h>
 
+#include <iostream>
+#include <stdexcept>
+
 #include "daqdataformats/RecordID.hpp"
 #include "rawdatafilelibs/BackendFactory.hpp"
 #include "rawdatafilelibs/RawDataFileReader.hpp"
 #include "trgdataformats/TriggerPrimitive.hpp"
+#include "trgtools/InputFile.hpp"
 #include "triggeralgs/HorizontalMuon/TAMakerHorizontalMuonAlgorithm.hpp"
 #include "triggeralgs/TriggerObjectOverlay.hpp"
 
@@ -139,6 +143,13 @@ main(int argc, char* argv[])
   } catch (const ers::Issue& e) {
     std::cout << ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> ERROR <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<" << std::endl;
     std::cerr << e.what() << '\n';
+    exit(-1);
+  }
+
+  try {
+    trgtools::check_no_firmware_tps(*tpstream_file);
+  } catch (const std::runtime_error& e) {
+    std::cerr << "ERROR: " << e.what() << '\n';
     exit(-1);
   }
 

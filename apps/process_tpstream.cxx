@@ -16,6 +16,7 @@
 #include "rawdatafilelibs/BackendFactory.hpp"
 #include "rawdatafilelibs/RawDataFileReader.hpp"
 #include "trgdataformats/TriggerPrimitive.hpp"
+#include "trgtools/InputFile.hpp"
 #include "trgtools/OutputFile.hpp"
 #include "triggeralgs/TriggerActivityFactory.hpp"
 #include "triggeralgs/TriggerCandidateFactory.hpp"
@@ -69,6 +70,7 @@ TimeSliceProcessor::open_files(std::string input_path, std::string output_path, 
     fmt::print("ERROR: input file '{}' not of type 'TimeSlice'\n", input_path);
     throw std::runtime_error(fmt::format("ERROR: input file '{}' not of type 'TimeSlice'", input_path));
   }
+  trgtools::check_no_firmware_tps(*m_input_file);
 
   auto const& input_metadata = m_input_file->get_metadata();
   auto run_number = input_metadata.run_number;
@@ -173,7 +175,7 @@ main(int argc, char const* argv[])
   std::string output_file_path;
   app.add_option("-o", output_file_path, "Output TPStream file path");
   bool overwrite = false;
-  app.add_flag("--overwrite", overwrite, "Replace the output file if it exists");
+  app.add_flag("--overwrite", overwrite, "Replace the output file if it exists: it is deleted before the new one is written. An unfinished <output>.writing file is never replaced");
   std::string channel_map_name = "VDColdboxTPCChannelMap";
   app.add_option("-m", channel_map_name, "Detector Channel Map");
   std::string config_name;
@@ -192,8 +194,6 @@ main(int argc, char const* argv[])
 
   if (!quiet)
     fmt::print("TPStream file: {}\n", input_file_path);
-
-  TimeSliceProcessor rp(input_file_path, output_file_path, overwrite);
 
   // TP source id (subsystem)
   auto tp_subsystem_requirement = daqdataformats::SourceID::Subsystem::kTrigger;
@@ -238,6 +238,11 @@ main(int argc, char const* argv[])
       (output_path.parent_path() / ("tc_timings_" + output_path.stem().string() + ".csv")).string());
     tc_emulator->write_csv_header("Time Diffs");
   }
+
+  // Opens the input and (replacing any existing one with --overwrite) the output file. Done only
+  // now, after the configuration has been read and the makers set up, so that a bad configuration
+  // fails before anything is deleted or an unfinished output file is left behind.
+  TimeSliceProcessor rp(input_file_path, output_file_path, overwrite);
 
   // Generic filter hook
   std::function<bool(const trgdataformats::TriggerPrimitive&)> tp_filter;
@@ -365,8 +370,12 @@ main(int argc, char const* argv[])
         fmt::print("\tTC Time Process: {} ns.\n", tc_diff);
       }
 
-      // Shares the same frag_hdr.
-      tc_frag->set_header_fields(frag_hdr);
+      // The TA's header, but a SourceID of its own (TA id + 10000, as in emulate_from_tpstream): two
+      // fragments of a record must not share a SourceID
+      daqdataformats::FragmentHeader tc_frag_hdr = frag_hdr;
+      tc_frag_hdr.element_id =
+        daqdataformats::SourceID{ daqdataformats::SourceID::Subsystem::kTrigger, frag_hdr.element_id.id + 10000 };
+      tc_frag->set_header_fields(tc_frag_hdr);
       tc_frag->set_type(daqdataformats::FragmentType::kTriggerCandidate);
 
       tsl.add_fragment(std::move(tc_frag));

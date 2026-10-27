@@ -5,6 +5,7 @@
 #include <fmt/core.h>
 #include <fmt/format.h>
 
+#include "trgtools/InputFile.hpp"
 #include "trgtools/OutputFile.hpp"
 
 #include "hdf5libs/HDF5Backend.hpp"
@@ -13,6 +14,7 @@
 
 #include <iostream>
 #include <optional>
+#include <stdexcept>
 #include <string>
 
 using namespace dunedaq;
@@ -29,7 +31,7 @@ main(int argc, char const* argv[])
   std::string output_file_path;
   app.add_option("-o", output_file_path, "Output TPStream file path")->required();
   bool overwrite = false;
-  app.add_flag("--overwrite", overwrite, "Replace the output file if it exists");
+  app.add_flag("--overwrite", overwrite, "Replace the output file if it exists: it is deleted before the new one is written. An unfinished <output>.writing file is never replaced");
   bool verbose = false;
   app.add_flag("-v", verbose);
   CLI11_PARSE(app, argc, argv);
@@ -47,6 +49,12 @@ main(int argc, char const* argv[])
 
   if (input_file->get_record_type() != rawdatafilelibs::RecordType::kTimeSlice) {
     fmt::print("ERROR: input file '{}' not of type 'TimeSlice'\n", input_file_path);
+    exit(-1);
+  }
+  try {
+    trgtools::check_no_firmware_tps(*input_file);
+  } catch (const std::runtime_error& e) {
+    fmt::print("ERROR: {}\n", e.what());
     exit(-1);
   }
 

@@ -15,6 +15,7 @@
 #include "hdf5libs/HDF5FileLayoutParameters.hpp"
 #include "rawdatafilelibs/BackendFactory.hpp"
 #include "rawdatafilelibs/RawDataFileReader.hpp"
+#include "trgtools/InputFile.hpp"
 #include "trgtools/OutputFile.hpp"
 
 #include "triggeralgs/TriggerCandidateFactory.hpp"
@@ -139,6 +140,7 @@ sort_files_per_writer(const std::vector<std::string>& _files)
     if (fl->get_record_type() != rawdatafilelibs::RecordType::kTimeSlice) {
       throw std::runtime_error(fmt::format("ERROR: input file '{}' not of type 'TimeSlice'", file));
     }
+    trgtools::check_no_firmware_tps(*fl);
 
     std::string application_name = fl->get_metadata().application_name;
     files_sorted[application_name].push_back(fl);
@@ -300,7 +302,7 @@ parse_app(CLI::App& _app, Options& _opts)
     ->check(CLI::ExistingFile);
 
   _app.add_flag("--parallel", _opts.run_parallel, "Run the TAMakers in parallel");
-  _app.add_flag("--overwrite", _opts.overwrite, "Replace the output file if it exists");
+  _app.add_flag("--overwrite", _opts.overwrite, "Replace the output file if it exists: it is deleted before the new one is written. An unfinished <output>.writing file is never replaced");
 
   _app.add_flag("--quiet", _opts.quiet, "Quiet outputs.");
 

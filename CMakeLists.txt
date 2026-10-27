@@ -60,6 +60,7 @@ daq_add_application(trgtools_emulate_from_tpstream emulate_from_tpstream.cxx LIN
 
 # daq_add_unit_test(TPGtools_unittest LINK_LIBRARIES)  # Should be replaced with real unit tests
 daq_add_unit_test(OutputFile_test LINK_LIBRARIES trgtools)
+daq_add_unit_test(InputFile_test LINK_LIBRARIES trgtools)
 
 ##############################################################################
 

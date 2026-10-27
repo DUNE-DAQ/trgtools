@@ -1,7 +1,7 @@
 """
 Reader class for TP data.
 """
-from .HDF5Reader import HDF5Reader
+from .HDF5Reader import HDF5Reader, check_no_firmware_tps
 
 import daqdataformats  # noqa: F401 : Not used, but needed to recognize formats.
 import trgdataformats
@@ -50,6 +50,7 @@ class TPReader(HDF5Reader):
         Returns nothing.
         """
         super().__init__(filename, verbosity, batch_mode)
+        check_no_firmware_tps(self._h5_file)
         self.tp_data = np.array([], dtype=self.tp_dt)
         return None
 

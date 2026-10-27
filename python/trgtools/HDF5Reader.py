@@ -12,6 +12,18 @@ def _deprecated(old: str, new: str) -> None:
     warnings.warn(f"trgtools reader {old} is deprecated; use {new}", DeprecationWarning, stacklevel=3)
 
 
+def check_no_firmware_tps(raw_data_file) -> None:
+    """
+    Raises ValueError, naming the file and the first record concerned, if the file holds any
+    FW_Trigger_Primitive fragment. That firmware TP format is deprecated and no longer supported.
+    Only the records' indices are looked at, not the fragment data.
+    """
+    for record in raw_data_file:
+        if record.source_ids(fragment_type="FW_Trigger_Primitive"):
+            raise ValueError(f"file {raw_data_file.path}, record {record.id.to_string()}: FW_Trigger_Primitive fragments "
+                             "(the deprecated firmware TP format) are no longer supported")
+
+
 class HDF5Reader(abc.ABC):
     """
     Abstract reader class for raw data files (HDF5, or any format rawdatafilelibs reads).

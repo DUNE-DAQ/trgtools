@@ -2,6 +2,7 @@
 #define TRGTOOLS_TAEMULATIONWORKER_CPP_
 
 #include "trgtools/TAEmulationWorker.hpp"
+#include "trgtools/InputFile.hpp"
 
 namespace dunedaq::trgtools {
 
@@ -18,6 +19,10 @@ TAEmulationWorker::TAEmulationWorker(std::vector<std::shared_ptr<rawdatafilelibs
   , m_quiet(quiet)
   , m_id(m_id_next++)
 {
+  for (auto const& input_file : m_input_files) {
+    check_no_firmware_tps(*input_file);
+  }
+
   std::string algo_name = config["trigger_activity_plugin"][0];
   nlohmann::json algo_config = config["trigger_activity_config"][0];
 
