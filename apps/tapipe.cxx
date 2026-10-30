@@ -163,7 +163,7 @@ main(int argc, char* argv[])
   // a record's SourceIDs: its fragments' and its header's
   auto source_ids_of = [&tpstream_file](const daqdataformats::RecordID& rid) {
     auto sids = tpstream_file->get_fragment_source_ids(rid);
-    sids.insert(tpstream_file->get_index(rid).get_header_source_id());
+    sids.insert(tpstream_file->get_record_index(rid).get_header_source_id());
     return sids;
   };
   std::set<daqdataformats::SourceID> source_ids;

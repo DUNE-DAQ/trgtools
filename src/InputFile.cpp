@@ -23,7 +23,7 @@ check_no_firmware_tps(const rawdatafilelibs::RawDataFileReader& reader)
   firmware_tps.fragment_type = daqdataformats::FragmentType::kFW_TriggerPrimitive;
   for (auto const& record_id : reader.get_record_ids()) {
     if (!reader.get_fragment_source_ids(record_id, firmware_tps).empty()) {
-      throw std::runtime_error("file " + reader.get_path() + ", record " + record_id.to_string() +
+      throw std::runtime_error("file " + reader.get_file_name() + ", record " + record_id.to_string() +
                                ": FW_Trigger_Primitive fragments (the deprecated firmware TP format) are no longer "
                                "supported");
     }
