@@ -8,12 +8,12 @@
 #include "trgtools/InputFile.hpp"
 #include "trgtools/OutputFile.hpp"
 
-#include "hdf5libs/HDF5Backend.hpp"
+#include "ers/Issue.hpp"
 #include "rawdatafilelibs/BackendFactory.hpp"
 #include "rawdatafilelibs/RawDataFileReader.hpp"
 
 #include <iostream>
-#include <optional>
+#include <memory>
 #include <stdexcept>
 #include <string>
 
@@ -31,7 +31,10 @@ main(int argc, char const* argv[])
   std::string output_file_path;
   app.add_option("-o", output_file_path, "Output TPStream file path")->required();
   bool overwrite = false;
-  app.add_flag("--overwrite", overwrite, "Replace the output file if it exists: it is deleted before the new one is written. An unfinished <output>.writing file is never replaced");
+  app.add_flag("--overwrite",
+               overwrite,
+               "Replace the output file if it exists: it is deleted before the new one is written. An unfinished "
+               "<output>.writing file is never replaced");
   bool verbose = false;
   app.add_flag("-v", verbose);
   CLI11_PARSE(app, argc, argv);
@@ -70,10 +73,7 @@ main(int argc, char const* argv[])
   output_metadata.closing_timestamp_ms = 0;
   output_metadata.recovery_timestamp_ms = 0;
   output_metadata.stats = {};
-  std::optional<hdf5libs::HDF5FileLayoutParameters> layout;
-  if (auto* hdf5_input = dynamic_cast<hdf5libs::HDF5ReaderBackend*>(&input_file->get_backend())) {
-    layout = hdf5_input->get_file_layout().get_file_layout_params();
-  }
+  auto layout = trgtools::hdf5_file_layout(*input_file);
 
   std::unique_ptr<rawdatafilelibs::RawDataFileWriter> output_file;
   try {

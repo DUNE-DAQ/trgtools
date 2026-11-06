@@ -4,6 +4,10 @@
 #include "trgtools/TAEmulationWorker.hpp"
 #include "trgtools/InputFile.hpp"
 
+#include <algorithm>
+#include <string>
+#include <vector>
+
 namespace dunedaq::trgtools {
 
 uint16_t TAEmulationWorker::m_id_next = 0;
@@ -50,7 +54,6 @@ TAEmulationWorker::TAEmulationWorker(std::vector<std::shared_ptr<rawdatafilelibs
                application_name);
   }
 
-  // std::set of record IDs (pair of record number & sequence number)
   auto const& records = m_input_files.front()->get_record_ids();
 
   // Extract the number of TAMakers to create
@@ -141,7 +144,6 @@ TAEmulationWorker::process_tasks()
 {
   // Iterate over the input files
   for (auto& input_file : m_input_files) {
-    // std::set of record IDs (pair of record number & sequence number)
     auto const& records = input_file->get_record_ids();
 
     for (const auto& record : records) {

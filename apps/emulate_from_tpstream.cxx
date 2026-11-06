@@ -10,6 +10,7 @@
 #include <fmt/core.h>
 #include <fmt/format.h>
 #include <optional>
+#include <utility>
 
 #include "daqdataformats/SourceIDGeoIDMap.hpp"
 #include "hdf5libs/HDF5FileLayoutParameters.hpp"
@@ -25,6 +26,7 @@
 using namespace dunedaq;
 using namespace trgtools;
 
+namespace {
 /// @brief The output file name: the given name, with ".hdf5" appended if it doesn't end with it
 std::string
 hdf5_output_file_name(const std::string& _outputfilename)
@@ -35,6 +37,7 @@ hdf5_output_file_name(const std::string& _outputfilename)
   }
   return output_filename;
 }
+} // namespace ""
 
 /**
  * @brief Saves fragments in timeslice format into output HDF5 file
@@ -302,7 +305,10 @@ parse_app(CLI::App& _app, Options& _opts)
     ->check(CLI::ExistingFile);
 
   _app.add_flag("--parallel", _opts.run_parallel, "Run the TAMakers in parallel");
-  _app.add_flag("--overwrite", _opts.overwrite, "Replace the output file if it exists: it is deleted before the new one is written. An unfinished <output>.writing file is never replaced");
+  _app.add_flag("--overwrite",
+                _opts.overwrite,
+                "Replace the output file if it exists: it is deleted before the new one is written. An unfinished "
+                "<output>.writing file is never replaced");
 
   _app.add_flag("--quiet", _opts.quiet, "Quiet outputs.");
 
@@ -419,8 +425,8 @@ main(int argc, char const* argv[])
 
   // Iterate over the handlers, wait for them to complete their job & append
   // their TAs to our vector when ready.
-  // the input files' stored GeoID maps, merged as before (the first map wins for a SourceID);
-  // built leniently, since it comes from stored data
+  // The input files' stored GeoID maps, merged (the first map wins for a SourceID), in the encoded
+  // form since stored data may break the one-SourceID-per-GeoID rule
   daqdataformats::SourceIDGeoIDMap::encoded_map_t encoded_geoid_map;
   for (const auto& handler : ta_emu_workers) {
     // Wait for all TAs to be made

@@ -24,6 +24,7 @@
 
 #include <unistd.h>
 
+#include <algorithm>
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
@@ -32,6 +33,7 @@
 #include <memory>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 
 using namespace dunedaq;
@@ -60,7 +62,6 @@ read_text(const std::string& path)
   return std::string((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
 }
 
-// A TimeSlice with one fragment of TPs from the Trigger subsystem, as a TP stream holds them
 daqdataformats::TimeSlice
 make_tp_timeslice(daqdataformats::timeslice_number_t number, int tp_count)
 {
@@ -86,7 +87,7 @@ make_tp_timeslice(daqdataformats::timeslice_number_t number, int tp_count)
   return timeslice;
 }
 
-} // namespace
+} // namespace ""
 
 BOOST_AUTO_TEST_SUITE(OutputFile_test)
 

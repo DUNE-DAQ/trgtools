@@ -16,6 +16,9 @@
 #include <fmt/format.h>
 
 #include <iostream>
+#include <map>
+#include <memory>
+#include <set>
 #include <stdexcept>
 
 #include "daqdataformats/RecordID.hpp"
@@ -28,22 +31,22 @@
 
 using namespace dunedaq;
 
-class HDF5FileReader
+class RawDataFileHandle
 {
 private:
   std::unique_ptr<rawdatafilelibs::RawDataFileReader> m_file;
 
 public:
-  HDF5FileReader(const std::string& path);
-  ~HDF5FileReader();
+  explicit RawDataFileHandle(const std::string& path);
+  ~RawDataFileHandle();
 };
 
-HDF5FileReader::HDF5FileReader(const std::string& path)
+RawDataFileHandle::RawDataFileHandle(const std::string& path)
 {
   m_file = rawdatafilelibs::open_raw_data_file(path);
 }
 
-HDF5FileReader::~HDF5FileReader() {}
+RawDataFileHandle::~RawDataFileHandle() {}
 //-----
 
 template<>
@@ -160,7 +163,6 @@ main(int argc, char* argv[])
 
   // Extract the list of timeslices in the file
   auto const& records = tpstream_file->get_record_ids();
-  // a record's SourceIDs: its fragments' and its header's
   auto source_ids_of = [&tpstream_file](const daqdataformats::RecordID& rid) {
     auto sids = tpstream_file->get_fragment_source_ids(rid);
     sids.insert(tpstream_file->get_record_index(rid).get_header_source_id());

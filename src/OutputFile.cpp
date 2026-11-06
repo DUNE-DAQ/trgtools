@@ -54,4 +54,15 @@ create_hdf5_timeslice_file(const std::string& path,
     std::make_unique<hdf5libs::HDF5WriterBackend>(options), path, metadata, geo_id_map);
 }
 
+std::optional<hdf5libs::HDF5FileLayoutParameters>
+hdf5_file_layout(const rawdatafilelibs::RawDataFileReader& reader)
+{
+  auto const* hdf5_backend =
+    dynamic_cast<const hdf5libs::HDF5ReaderBackend*>(&reader.get_backend()); // NOLINT(runtime/rtti)
+  if (hdf5_backend == nullptr) {
+    return std::nullopt;
+  }
+  return hdf5_backend->get_file_layout().get_file_layout_params();
+}
+
 } // namespace dunedaq::trgtools

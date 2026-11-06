@@ -36,7 +36,6 @@ class TPReader(HDF5Reader):
                       ('version', np.uint8)
                      ])
 
-    # the type of the fragments this reader reads
     _FRAGMENT_TYPE = "Trigger_Primitive"
 
     def __init__(self, filename: str, verbosity: int = 0, batch_mode: bool = False) -> None:

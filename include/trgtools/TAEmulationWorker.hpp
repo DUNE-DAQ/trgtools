@@ -109,7 +109,7 @@ private:
   void wait_to_complete_tasks();
 
 private:
-  /// @brief A pointer to the input file
+  /// @brief The input files
   std::vector<std::shared_ptr<rawdatafilelibs::RawDataFileReader>> m_input_files;
 
   /// @brief configuration for the TA-makers

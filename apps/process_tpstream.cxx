@@ -9,10 +9,8 @@
 #include <fmt/chrono.h>
 #include <fmt/core.h>
 #include <fmt/format.h>
-#include <optional>
 
 #include "detchannelmaps/TPCChannelMap.hpp"
-#include "hdf5libs/HDF5Backend.hpp"
 #include "rawdatafilelibs/BackendFactory.hpp"
 #include "rawdatafilelibs/RawDataFileReader.hpp"
 #include "trgdataformats/TriggerPrimitive.hpp"
@@ -80,16 +78,12 @@ TimeSliceProcessor::open_files(std::string input_path, std::string output_path, 
   fmt::print("Run Number: {}\nFile Index: {}\nApp name: '{}'\n", run_number, file_index, application_name);
 
   if (!output_path.empty()) {
-    // Open output file: it keeps the input's run number, file index, application name and, for
-    // HDF5, file layout
+    // For HDF5, the output keeps the input's file layout
     rawdatafilelibs::FileMetadata output_metadata;
     output_metadata.run_number = run_number;
     output_metadata.file_index = file_index;
     output_metadata.application_name = application_name;
-    std::optional<hdf5libs::HDF5FileLayoutParameters> layout;
-    if (auto* hdf5_input = dynamic_cast<hdf5libs::HDF5ReaderBackend*>(&m_input_file->get_backend())) {
-      layout = hdf5_input->get_file_layout().get_file_layout_params();
-    }
+    auto layout = trgtools::hdf5_file_layout(*m_input_file);
     trgtools::prepare_output_path(output_path, overwrite);
     m_output_file =
       trgtools::create_hdf5_timeslice_file(output_path, output_metadata, m_input_file->get_geo_id_map(), layout);
@@ -175,7 +169,10 @@ main(int argc, char const* argv[])
   std::string output_file_path;
   app.add_option("-o", output_file_path, "Output TPStream file path");
   bool overwrite = false;
-  app.add_flag("--overwrite", overwrite, "Replace the output file if it exists: it is deleted before the new one is written. An unfinished <output>.writing file is never replaced");
+  app.add_flag("--overwrite",
+               overwrite,
+               "Replace the output file if it exists: it is deleted before the new one is written. An unfinished "
+               "<output>.writing file is never replaced");
   std::string channel_map_name = "VDColdboxTPCChannelMap";
   app.add_option("-m", channel_map_name, "Detector Channel Map");
   std::string config_name;
@@ -239,9 +236,8 @@ main(int argc, char const* argv[])
     tc_emulator->write_csv_header("Time Diffs");
   }
 
-  // Opens the input and (replacing any existing one with --overwrite) the output file. Done only
-  // now, after the configuration has been read and the makers set up, so that a bad configuration
-  // fails before anything is deleted or an unfinished output file is left behind.
+  // Opened after the configuration is read, so that a bad configuration fails before anything is
+  // deleted or an unfinished output file is left behind
   TimeSliceProcessor rp(input_file_path, output_file_path, overwrite);
 
   // Generic filter hook

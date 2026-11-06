@@ -23,6 +23,7 @@
 #include <memory>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 
 using namespace dunedaq;
@@ -56,29 +57,27 @@ write_and_open(const std::string& name, const std::vector<daqdataformats::Fragme
   rawdatafilelibs::FileMetadata metadata;
   metadata.run_number = 42;
   metadata.record_type = rawdatafilelibs::RecordType::kTimeSlice;
-  rawdatafilelibs::RawDataFileWriter writer(std::make_unique<rawdatafilelibs::InMemoryWriterBackend>(),
-                                            name,
-                                            metadata,
-                                            daqdataformats::SourceIDGeoIDMap());
+  rawdatafilelibs::RawDataFileWriter writer(
+    std::make_unique<rawdatafilelibs::InMemoryWriterBackend>(), name, metadata, daqdataformats::SourceIDGeoIDMap());
   daqdataformats::timeslice_number_t number = 1;
   for (auto fragment_type : fragment_types) {
-    writer.write(make_timeslice(number++, fragment_type));
+    writer.write(make_timeslice(number, fragment_type));
+    ++number;
   }
   writer.close();
   return std::make_unique<rawdatafilelibs::RawDataFileReader>(
     std::make_unique<rawdatafilelibs::InMemoryReaderBackend>(), name);
 }
 
-} // namespace
+} // namespace ""
 
 BOOST_AUTO_TEST_SUITE(InputFile_test)
 
 BOOST_AUTO_TEST_CASE(TriggerPrimitivesAreFine)
 {
   rawdatafilelibs::InMemoryStore::instance().clear();
-  auto reader = write_and_open("tps.rdfmem",
-                               { daqdataformats::FragmentType::kTriggerPrimitive,
-                                 daqdataformats::FragmentType::kTriggerActivity });
+  auto reader = write_and_open(
+    "tps.rdfmem", { daqdataformats::FragmentType::kTriggerPrimitive, daqdataformats::FragmentType::kTriggerActivity });
   BOOST_REQUIRE_NO_THROW(trgtools::check_no_firmware_tps(*reader));
 }
 
@@ -86,9 +85,9 @@ BOOST_AUTO_TEST_CASE(TriggerPrimitivesAreFine)
 BOOST_AUTO_TEST_CASE(FirmwareTriggerPrimitivesAreRefused)
 {
   rawdatafilelibs::InMemoryStore::instance().clear();
-  auto reader = write_and_open("fw_tps.rdfmem",
-                               { daqdataformats::FragmentType::kTriggerPrimitive,
-                                 daqdataformats::FragmentType::kFW_TriggerPrimitive });
+  auto reader = write_and_open(
+    "fw_tps.rdfmem",
+    { daqdataformats::FragmentType::kTriggerPrimitive, daqdataformats::FragmentType::kFW_TriggerPrimitive });
   try {
     trgtools::check_no_firmware_tps(*reader);
     BOOST_FAIL("no error for a file with FW_Trigger_Primitive fragments");

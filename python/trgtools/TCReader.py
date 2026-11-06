@@ -53,7 +53,6 @@ class TCReader(HDF5Reader):
         ('version', np.uint16)
     ])
 
-    # the type of the fragments this reader reads
     _FRAGMENT_TYPE = "Trigger_Candidate"
 
     def __init__(self, filename: str, verbosity: int = 0, batch_mode: bool = False) -> None:

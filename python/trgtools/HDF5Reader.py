@@ -14,14 +14,14 @@ def _deprecated(old: str, new: str) -> None:
 
 def check_no_firmware_tps(raw_data_file) -> None:
     """
-    Raises ValueError, naming the file and the first record concerned, if the file holds any
-    FW_Trigger_Primitive fragment. That firmware TP format is deprecated and no longer supported.
-    Only the records' indices are looked at, not the fragment data.
+    Raise ValueError if the file holds any FW_Trigger_Primitive fragment (the deprecated firmware TP
+    format). Only the records' indices are looked at, not the fragment data.
     """
     for record in raw_data_file:
         if record.source_ids(fragment_type="FW_Trigger_Primitive"):
-            raise ValueError(f"file {raw_data_file.path}, record {record.id.to_string()}: FW_Trigger_Primitive fragments "
-                             "(the deprecated firmware TP format) are no longer supported")
+            raise ValueError(f"file {raw_data_file.path}, record {record.id.to_string()}: "
+                             "FW_Trigger_Primitive fragments (the deprecated firmware TP format) "
+                             "are no longer supported")
 
 
 class HDF5Reader(abc.ABC):
@@ -40,7 +40,6 @@ class HDF5Reader(abc.ABC):
     _BOLD_TEXT = '\033[1m'
     _END_TEXT_COLOR = '\033[0m'
 
-    # The type of the fragments this reader reads, as named by daqdataformats; set by derived classes
     _FRAGMENT_TYPE = None
 
     def __init__(self, filename: str, verbosity: int = 0, batch_mode: bool = False) -> None:
@@ -95,8 +94,6 @@ class HDF5Reader(abc.ABC):
         record_id, source_id = fragment_key
         return self._h5_file.reader.get_fragment(record_id, source_id)
 
-    # ---- Deprecated: dataset paths (HDF5 files only) ----
-
     def _path_of_key(self, fragment_key) -> str:
         import hdf5libs  # noqa: F401 - registers the HDF5 backend's Python type, which has get_dataset_path
         record_id, source_id = fragment_key
@@ -127,10 +124,8 @@ class HDF5Reader(abc.ABC):
         _deprecated("reset_fragment_paths()", "reset_fragment_keys()")
         self.reset_fragment_keys()
 
-    # ----
-
     @abc.abstractmethod
-    def read_fragment(self, fragment_key) -> None:
+    def read_fragment(self, fragment_key: tuple) -> None:
         """ Read one fragment, given by its key (or, deprecated, its dataset path). """
         ...
 
